@@ -6,6 +6,7 @@
   <title>תכנית תזונה</title>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script>
     firebase.initializeApp({
       apiKey: "AIzaSyBfxiFf8zcSmT7TlvHcHc4_NZoPxN_jz0w",
@@ -573,9 +574,37 @@
       );
     }
 
+    // ─── Login ────────────────────────────────────────────────────────────────────
+    function LoginScreen() {
+      const [loading, setLoading] = useState(false);
+      const signIn = () => {
+        setLoading(true);
+        const provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider).catch(() => setLoading(false));
+      };
+      return (
+        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 24 }}>
+          <div style={{ fontSize: 48 }}>🥗</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80" }}>תכנית תזונה</div>
+          <button onClick={signIn} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: "none", borderRadius: 12, padding: "14px 28px", fontSize: 15, fontWeight: 600, cursor: "pointer", color: "#1a1a1a", fontFamily: "inherit" }}>
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width={22} height={22} />
+            {loading ? "מתחבר..." : "התחבר עם Google"}
+          </button>
+        </div>
+      );
+    }
+
     // ─── App ──────────────────────────────────────────────────────────────────────
     function NutritionApp() {
       const [tab, setTab] = useState("plan");
+      const [user, setUser] = useState(undefined);
+
+      useEffect(() => {
+        firebase.auth().onAuthStateChanged(u => setUser(u));
+      }, []);
+
+      if (user === undefined) return null;
+      if (!user) return <LoginScreen />;
       return (
         <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: "#e0f0e0", paddingBottom: 40 }}>
           <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid #1a3a1f", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 20 }}>
