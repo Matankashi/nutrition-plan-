@@ -679,7 +679,7 @@
             <div style={{ maxWidth: 520, margin: "0 auto" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <span style={{ fontSize: 12, color: "#4a7a54" }}>{activeUser === "matan" ? "👤 Matan" : "🙂 Guest"}</span>
-                <button onClick={logout} style={{ background: "transparent", border: "none", color: "#4a7a54", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>החלף משתמש</button>
+                <button onClick={logout} style={{ background: "#1a0f0f", border: "1px solid #3a1a1a", borderRadius: 8, color: "#f87171", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: "4px 10px" }}>🚪 יציאה</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, background: "#0a1a0c", borderRadius: 11, padding: 4, border: "1px solid #1e4a2e" }}>
                 {[["plan","תפריט","🍽️"],["checklist","צ׳קליסט","✅"],["weight","משקל","⚖️"]].map(([k,l,e]) => (
