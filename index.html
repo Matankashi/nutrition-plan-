@@ -580,6 +580,9 @@
     function PinScreen({ onSuccess }) {
       const [pin, setPin] = useState("");
       const [error, setError] = useState(false);
+      const inputRef = React.useRef(null);
+
+      useEffect(() => { inputRef.current?.focus(); }, []);
 
       const check = (p) => {
         if (p === CORRECT_PIN) {
@@ -597,8 +600,13 @@
         if (next.length === 4) check(next);
       };
 
+      const handleKey = (e) => {
+        if (e.key >= "0" && e.key <= "9") press(e.key);
+        else if (e.key === "Backspace") setPin(p => p.slice(0, -1));
+      };
+
       return (
-        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28, fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
+        <div onKeyDown={handleKey} tabIndex={0} ref={inputRef} style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28, fontFamily: "'Segoe UI',Tahoma,sans-serif", outline: "none" }}>
           <div style={{ fontSize: 48 }}>🥗</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80" }}>תכנית תזונה</div>
           <div style={{ display: "flex", gap: 12, marginBottom: 4 }}>
