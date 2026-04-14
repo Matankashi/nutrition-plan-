@@ -575,6 +575,7 @@
 
     // ─── PIN ─────────────────────────────────────────────────────────────────────
     const CORRECT_PIN = "1357";
+    const PIN_KEY = "pin_ok_v2";
 
     function PinScreen({ onSuccess }) {
       const [pin, setPin] = useState("");
@@ -582,7 +583,7 @@
 
       const check = (p) => {
         if (p === CORRECT_PIN) {
-          localStorage.setItem("pin_ok", "1");
+          localStorage.setItem(PIN_KEY, "1");
           onSuccess();
         } else if (p.length === 4) {
           setError(true);
@@ -606,7 +607,7 @@
             ))}
           </div>
           {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -16 }}>קוד שגוי</div>}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: 10, direction: "ltr" }}>
             {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d, i) => (
               <button key={i} onClick={() => {
                 if (d === "⌫") setPin(p => p.slice(0,-1));
@@ -625,7 +626,7 @@
     // ─── App ──────────────────────────────────────────────────────────────────────
     function NutritionApp() {
       const [tab, setTab] = useState("plan");
-      const [unlocked, setUnlocked] = useState(localStorage.getItem("pin_ok") === "1");
+      const [unlocked, setUnlocked] = useState(localStorage.getItem(PIN_KEY) === "1");
 
       if (!unlocked) return <PinScreen onSuccess={() => setUnlocked(true)} />;
       return (
