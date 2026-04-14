@@ -580,7 +580,7 @@
       const signIn = () => {
         setLoading(true);
         const provider = new firebase.auth.GoogleAuthProvider();
-        firebase.auth().signInWithPopup(provider).catch(() => setLoading(false));
+        firebase.auth().signInWithRedirect(provider);
       };
       return (
         <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 24 }}>
