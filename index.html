@@ -6,7 +6,6 @@
   <title>תכנית תזונה</title>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script>
     firebase.initializeApp({
       apiKey: "AIzaSyBfxiFf8zcSmT7TlvHcHc4_NZoPxN_jz0w",
@@ -574,22 +573,51 @@
       );
     }
 
-    // ─── Login ────────────────────────────────────────────────────────────────────
-    function LoginScreen() {
-      const [loading, setLoading] = useState(false);
-      const signIn = () => {
-        setLoading(true);
-        const provider = new firebase.auth.GoogleAuthProvider();
-        firebase.auth().signInWithRedirect(provider);
+    // ─── PIN ─────────────────────────────────────────────────────────────────────
+    const CORRECT_PIN = "1234";
+
+    function PinScreen({ onSuccess }) {
+      const [pin, setPin] = useState("");
+      const [error, setError] = useState(false);
+
+      const check = (p) => {
+        if (p === CORRECT_PIN) {
+          localStorage.setItem("pin_ok", "1");
+          onSuccess();
+        } else if (p.length === 4) {
+          setError(true);
+          setTimeout(() => { setError(false); setPin(""); }, 800);
+        }
       };
+
+      const press = (d) => {
+        const next = pin + d;
+        setPin(next);
+        if (next.length === 4) check(next);
+      };
+
       return (
-        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 24 }}>
+        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28, fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div style={{ fontSize: 48 }}>🥗</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80" }}>תכנית תזונה</div>
-          <button onClick={signIn} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: "none", borderRadius: 12, padding: "14px 28px", fontSize: 15, fontWeight: 600, cursor: "pointer", color: "#1a1a1a", fontFamily: "inherit" }}>
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width={22} height={22} />
-            {loading ? "מתחבר..." : "התחבר עם Google"}
-          </button>
+          <div style={{ display: "flex", gap: 12, marginBottom: 4 }}>
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#4ade80") : "#1a3a1f", border: "2px solid " + (error ? "#f87171" : "#2d5a3a"), transition: "all 0.15s" }} />
+            ))}
+          </div>
+          {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -16 }}>קוד שגוי</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: 10 }}>
+            {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d, i) => (
+              <button key={i} onClick={() => {
+                if (d === "⌫") setPin(p => p.slice(0,-1));
+                else if (d !== "") press(String(d));
+              }} style={{ height: 70, borderRadius: 14, border: "1px solid #1a3a1f", background: d === "" ? "transparent" : "#0d1f10", color: d === "⌫" ? "#f87171" : "#e0f0e0", fontSize: d === "⌫" ? 20 : 24, fontWeight: 600, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit", transition: "background 0.1s" }}
+                onTouchStart={e => e.currentTarget.style.background = d === "" ? "transparent" : "#1a3a1f"}
+                onTouchEnd={e => e.currentTarget.style.background = d === "" ? "transparent" : "#0d1f10"}>
+                {d}
+              </button>
+            ))}
+          </div>
         </div>
       );
     }
@@ -597,20 +625,9 @@
     // ─── App ──────────────────────────────────────────────────────────────────────
     function NutritionApp() {
       const [tab, setTab] = useState("plan");
-      const [user, setUser] = useState(undefined);
+      const [unlocked, setUnlocked] = useState(localStorage.getItem("pin_ok") === "1");
 
-      useEffect(() => {
-        firebase.auth().getRedirectResult().catch(err => console.error(err));
-        const unsub = firebase.auth().onAuthStateChanged(u => setUser(u ?? null));
-        return unsub;
-      }, []);
-
-      if (user === undefined) return (
-        <div style={{ minHeight: "100vh", background: "#080f0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ color: "#4ade80", fontSize: 16 }}>טוען...</div>
-        </div>
-      );
-      if (!user) return <LoginScreen />;
+      if (!unlocked) return <PinScreen onSuccess={() => setUnlocked(true)} />;
       return (
         <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: "#e0f0e0", paddingBottom: 40 }}>
           <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid #1a3a1f", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 20 }}>
