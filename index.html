@@ -62,77 +62,59 @@
     }
 
     // ─── data ────────────────────────────────────────────────────────────────────
-    const PLANS = {
-      regular: {
-        label: "יום רגיל", emoji: "🏠", color: "#4ade80",
-        bg: "linear-gradient(160deg, #080f0a 0%, #0a1520 60%, #080f0a 100%)",
-        accent: "#166534",
-        meals: [
-          { id: 1, time: "08:00–09:00", name: "ארוחת בוקר", emoji: "🌅", cal: 386, pro: 19,
-            items: ["2 פרוסות לחם שיפון", "גבינה לבנה 5% — 2 כפות (40g)", "מלפפון + עגבנייה", "½ אבוקדו (60g)", "ביצה קשה אחת"],
-            tip: "מים לפני הארוחה. הביצה מחזקת את החלבון לבוקר." },
-          { id: 2, time: "12:00", name: "ביניים", emoji: "🥗", cal: 169, pro: 33,
-            items: ["סלט ירקות קטן", "טונה במים — קופסה שלמה (160g)"],
-            tip: "קופסה שלמה של טונה — לא חצי. מחזיק עד הצהריים." },
-          { id: 3, time: "14:00", name: "ארוחת צהריים", emoji: "🍽️", cal: 426, pro: 40,
-            items: ["חזה עוף 150g", "אורז מלא מבושל (80g)", "½ בטטה (100g)", "סלט ירקות", "כפית שמן זית (5g)"],
-            tip: "שמן זית על הסלט — משפר ספיגת ויטמינים." },
-          { id: 4, time: "17:00–18:00", name: "שייק חלבון", emoji: "🥤", cal: 376, pro: 31,
-            items: ["אבקת חלבון מנה (30g)", "בננה קטנה (100g)", "15 שקדים / 3 אגוזי מלך / כף חמאת בוטנים", "צ׳יה 5g", "פשתן טחון 5g"],
-            tip: "ביום אימון — חמאת בוטנים. ביום רגיל — אגוזי מלך (אומגה-3)." },
-          { id: 5, time: "20:00–21:00", name: "ארוחת ערב", emoji: "🌙", cal: 400, pro: 23,
-            items: ["2 ביצים", "2 פרוסות לחם שיפון", "ירקות חתוכים", "גבינה לבנה 5% — 2 כפות (40g)", "כפית שמן זית (5g)"],
-            tip: "אם רעב אחרי — יוגורט יווני בלבד, לא מתוק." },
-        ]
-      },
-      morning: {
-        label: "משמרת בוקר", emoji: "⚡", color: "#fbbf24",
-        bg: "linear-gradient(160deg, #1a0f00 0%, #0f1505 60%, #0a0f1a 100%)",
-        accent: "#92400e", note: "08:00–13:30 | יציאה 07:40",
-        meals: [
-          { id: 1, time: "07:00–07:20", name: "בוקר לפני יציאה", emoji: "⚡", cal: 386, pro: 19,
-            items: ["2 פרוסות לחם שיפון", "גבינה לבנה 5% — 2 כפות (40g)", "ירקות חתוכים", "½ אבוקדו (60g)", "ביצה קשה אחת (מוכנה מהלילה)"],
-            tip: "הכן הכל מהלילה כולל הביצה. 15 דקות אכילה — לא לדלג." },
-          { id: 2, time: "10:00–10:30", name: "ביניים בעבודה", emoji: "🥗", cal: 184, pro: 34,
-            items: ["סלט ירקות גדול", "טונה במים — קופסה שלמה (160g)"],
-            tip: "❌ ללא לחם ובאגט. קל ומהיר בהפסקה." },
-          { id: 3, time: "14:00", name: "צהריים — הגעה הביתה", emoji: "🍽️", cal: 426, pro: 40,
-            items: ["חזה עוף 150g", "אורז מלא מבושל (80g)", "½ בטטה (100g)", "סלט ירקות", "כפית שמן זית (5g)"],
-            tip: "הארוחה הגדולה של היום — בשלת בנחת בבית אחרי המשמרת." },
-          { id: 4, time: "17:00", name: "שייק חלבון", emoji: "🥤", cal: 376, pro: 31,
-            items: ["אבקת חלבון מנה (30g)", "בננה קטנה (100g)", "15 שקדים / 3 אגוזי מלך / כף חמאת בוטנים", "צ׳יה 5g", "פשתן טחון 5g"],
-            tip: "ביום אימון — חמאת בוטנים. ביום רגיל — אגוזי מלך (אומגה-3)." },
-          { id: 5, time: "20:00–20:30", name: "ארוחת ערב", emoji: "🌙", cal: 400, pro: 23,
-            items: ["2 ביצים", "2 פרוסות לחם שיפון", "ירקות חתוכים", "גבינה לבנה 5% — 2 כפות (40g)", "כפית שמן זית (5g)"],
-            tip: "הביצים חזרו לערב — בדיוק כמו שתכננו." },
-        ]
-      },
-      evening: {
-        label: "משמרת ערב", emoji: "🌃", color: "#c084fc",
-        bg: "linear-gradient(160deg, #0f0a1a 0%, #1a0a0a 60%, #0a0f1a 100%)",
-        accent: "#6b21a8", note: "13:30–19:00 | יציאה 13:10",
-        meals: [
-          { id: 1, time: "09:00–09:30", name: "ארוחת בוקר", emoji: "🌅", cal: 386, pro: 19,
-            items: ["2 פרוסות לחם שיפון", "גבינה לבנה 5% — 2 כפות (40g)", "מלפפון + עגבנייה", "½ אבוקדו (60g)", "ביצה קשה אחת"],
-            tip: "יש לך זמן — תשב ותאכל בנחת. זו הארוחה שמכינה אותך ליום." },
-          { id: 2, time: "11:30", name: "צהריים לפני המשמרת", emoji: "🍽️", cal: 426, pro: 40,
-            items: ["חזה עוף 150g", "אורז מלא מבושל (80g)", "½ בטטה (100g)", "סלט ירקות", "כפית שמן זית (5g)"],
-            tip: "הארוחה הגדולה לפני המשמרת — תחזיק אותך עד הביניים בעבודה." },
-          { id: 3, time: "13:00", name: "שייק לפני יציאה", emoji: "🥤", cal: 376, pro: 31,
-            items: ["אבקת חלבון מנה (30g)", "בננה קטנה (100g)", "15 שקדים / 3 אגוזי מלך / כף חמאת בוטנים", "צ׳יה 5g", "פשתן טחון 5g"],
-            tip: "שתה 30 דקות לפני היציאה — אנרגיה לפתיחת המשמרת." },
-          { id: 4, time: "16:00–16:30", name: "ביניים בעבודה", emoji: "🥗", cal: 184, pro: 34,
-            items: ["סלט ירקות גדול", "טונה במים — קופסה שלמה (160g)"],
-            tip: "❌ ללא לחם ובאגט. קל ומהיר — עוד שלוש שעות למשמרת." },
-          { id: 5, time: "19:30–20:00", name: "ארוחת ערב — הגעה הביתה", emoji: "🌙", cal: 355, pro: 23,
-            items: ["2 ביצים", "2 פרוסות לחם שיפון", "ירקות חתוכים", "גבינה לבנה 5% — 2 כפות (40g)", "כפית שמן זית (5g)"],
-            tip: "משמרת קצרה יחסית — ארוחת ערב בשעה סבירה. לא לאכול יותר מדי אחרי." },
-        ]
-      },
-    };
+    const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+
+    const MEALS = [
+      { id: 1, time: "08:00–09:00", name: "ארוחת בוקר", emoji: "🌅", cal: 386, pro: 19,
+        items: ["2 פרוסות לחם שיפון", "גבינה לבנה 5% — 2 כפות (40g)", "מלפפון + עגבנייה", "½ אבוקדו (60g)", "ביצה קשה אחת"],
+        tip: "מים לפני הארוחה. הביצה מחזקת את החלבון לבוקר." },
+      { id: 2, time: "12:00", name: "ביניים", emoji: "🥗", cal: 169, pro: 33,
+        items: ["סלט ירקות קטן", "טונה במים — קופסה שלמה (160g)"],
+        tip: "קופסה שלמה של טונה — לא חצי. מחזיק עד הצהריים." },
+      { id: 3, time: "14:00", name: "ארוחת צהריים", emoji: "🍽️", cal: 426, pro: 40,
+        items: ["חזה עוף 150g", "אורז מלא מבושל (80g)", "½ בטטה (100g)", "סלט ירקות", "כפית שמן זית (5g)"],
+        tip: "שמן זית על הסלט — משפר ספיגת ויטמינים." },
+      { id: 4, time: "17:00–18:00", name: "שייק חלבון", emoji: "🥤", cal: 376, pro: 31,
+        items: ["אבקת חלבון מנה (30g)", "בננה קטנה (100g)", "15 שקדים / 3 אגוזי מלך / כף חמאת בוטנים", "צ׳יה 5g", "פשתן טחון 5g"],
+        tip: "ביום אימון — חמאת בוטנים. ביום רגיל — אגוזי מלך (אומגה-3)." },
+      { id: 5, time: "20:00–21:00", name: "ארוחת ערב", emoji: "🌙", cal: 400, pro: 23,
+        items: ["2 ביצים", "2 פרוסות לחם שיפון", "ירקות חתוכים", "גבינה לבנה 5% — 2 כפות (40g)", "כפית שמן זית (5g)"],
+        tip: "אם רעב אחרי — יוגורט יווני בלבד, לא מתוק." },
+    ];
 
     const EC = { "⚡":"#fbbf24","🌅":"#fb923c","🥗":"#4ade80","🍽️":"#60a5fa","🥤":"#a78bfa","🍫":"#d4a857","🌙":"#818cf8","🍌":"#facc15","🌃":"#c084fc" };
     const START_W = 85.5, GOAL_W = 73;
+
+    // minutes from midnight for each meal's active window
+    const MEAL_WINDOWS = { 1: [8*60, 11*60+59], 2: [12*60, 13*60+59], 3: [14*60, 16*60+59], 4: [17*60, 19*60+59], 5: [20*60, 23*60+59] };
+
+    const toDateStr = (d) => d.toISOString().split("T")[0];
+
+    const getLast7Days = () => {
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push({
+          dateStr: toDateStr(d),
+          dayName: DAY_NAMES[d.getDay()],
+          display: d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }),
+        });
+      }
+      return days;
+    };
+
+    const getActiveMealId = (now) => {
+      const mins = now.getHours() * 60 + now.getMinutes();
+      for (const [id, [start, end]] of Object.entries(MEAL_WINDOWS)) {
+        if (mins >= start && mins <= end) return Number(id);
+      }
+      // next upcoming meal
+      for (const [id, [start]] of Object.entries(MEAL_WINDOWS)) {
+        if (mins < start) return Number(id);
+      }
+      return null;
+    };
 
     // ─── WeightTab ───────────────────────────────────────────────────────────────
     function WeightTab() {
@@ -150,7 +132,9 @@
         const kg = parseFloat(input.replace(",", "."));
         if (isNaN(kg) || kg < 50 || kg > 130) return;
         const w = entries[entries.length - 1].week + 1;
-        setEntries(p => [...p, { week: w, kg, label: "שבוע " + w }]);
+        const now = new Date();
+        const date = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
+        setEntries(p => [...p, { week: w, kg, label: "שבוע " + w, date }]);
         setInput("");
       };
 
@@ -272,7 +256,10 @@
                 const diff = i === 0 ? null : +(e.kg - entries[i - 1].kg).toFixed(1);
                 return (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: i < entries.length - 1 ? "1px solid #0f2a12" : "none" }}>
-                    <span style={{ fontSize: 12, color: "#c8e8c8" }}>{e.label}{refeed === e.week ? " 🍕" : ""}</span>
+                    <div>
+                      <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.label}{refeed === e.week ? " 🍕" : ""}</div>
+                      {e.date && <div style={{ fontSize: 10, color: "#4a7a54" }}>{e.date}</div>}
+                    </div>
                     <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{e.kg} ק״ג</span>
                     {diff !== null && (
                       <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: diff < 0 ? "#4ade80" : diff > 0 ? "#f87171" : "#4a7a54" }}>
@@ -290,52 +277,72 @@
 
     // ─── PlanTab ─────────────────────────────────────────────────────────────────
     function PlanTab() {
-      const [mode, setMode] = usePersist("plan_mode", "regular");
-      const [open, setOpen] = useState(null);
-      const [checked, setChecked] = usePersist("plan_checked", {});
+      const [now, setNow] = useState(new Date());
+      useEffect(() => {
+        const t = setInterval(() => setNow(new Date()), 60000);
+        return () => clearInterval(t);
+      }, []);
 
-      const plan = PLANS[mode];
-      const totalCal = plan.meals.reduce((s, m) => s + m.cal, 0);
-      const doneCal = plan.meals.filter(m => checked[mode + "-" + m.id]).reduce((s, m) => s + m.cal, 0);
-      const doneCount = plan.meals.filter(m => checked[mode + "-" + m.id]).length;
+      const todayStr = toDateStr(now);
+      const days = getLast7Days();
+      const [activeDateStr, setActiveDateStr] = useState(todayStr);
+      const [open, setOpen] = useState(null);
+      const [checked, setChecked] = usePersist("plan_checked_v3", {});
+
+      const isViewingToday = activeDateStr === todayStr;
+      const activeMealId = isViewingToday ? getActiveMealId(now) : null;
+
+      const totalCal = MEALS.reduce((s, m) => s + m.cal, 0);
+      const doneCal = MEALS.filter(m => checked[activeDateStr + "-" + m.id]).reduce((s, m) => s + m.cal, 0);
+      const doneCount = MEALS.filter(m => checked[activeDateStr + "-" + m.id]).length;
       const pct = Math.min((doneCal / totalCal) * 100, 100);
-      const toggle = id => setChecked(p => ({ ...p, [mode + "-" + id]: !p[mode + "-" + id] }));
+      const toggle = id => setChecked(p => ({ ...p, [activeDateStr + "-" + id]: !p[activeDateStr + "-" + id] }));
+
+      const activeDay = days.find(d => d.dateStr === activeDateStr) || days[days.length - 1];
 
       return (
         <>
           <div style={{ padding: "10px 14px 0" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, background: "#0a1a0c", borderRadius: 12, padding: 4, border: "1px solid #1e4a2e", marginBottom: 12 }}>
-              {Object.entries(PLANS).map(([key, p]) => (
-                <button key={key} onClick={() => { setMode(key); setOpen(null); }} style={{
-                  padding: "8px 3px", borderRadius: 9, border: "none", cursor: "pointer",
-                  fontSize: 10, fontWeight: 700, fontFamily: "inherit", transition: "all 0.2s",
-                  background: mode === key ? "linear-gradient(135deg," + p.accent + "," + p.accent + "bb)" : "transparent",
-                  color: mode === key ? "#fff" : "#4a7a54",
-                }}>
-                  <div style={{ fontSize: 14 }}>{p.emoji}</div>
-                  <div style={{ marginTop: 2, fontSize: 9, lineHeight: 1.2 }}>{p.label}</div>
-                </button>
-              ))}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 12 }}>
+              {days.map(day => {
+                const dayDone = MEALS.filter(m => checked[day.dateStr + "-" + m.id]).length;
+                const isActive = day.dateStr === activeDateStr;
+                const isToday = day.dateStr === todayStr;
+                return (
+                  <button key={day.dateStr} onClick={() => { setActiveDateStr(day.dateStr); setOpen(null); }} style={{
+                    background: isActive ? "#166534" : "#0d1f10",
+                    border: isToday ? "1px solid #4ade80" : "1px solid #1a3a1f",
+                    borderRadius: 8, padding: "6px 2px", cursor: "pointer", textAlign: "center", transition: "all 0.2s",
+                  }}>
+                    <div style={{ fontSize: 9, color: isActive ? "#4ade80" : "#4a7a54", fontWeight: isToday ? 700 : 400 }}>{day.dayName.slice(0,3)}</div>
+                    <div style={{ fontSize: 9, color: isActive ? "#a8d8a8" : "#3a5a3a", marginTop: 1 }}>{day.display}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: dayDone === MEALS.length ? "#4ade80" : isActive ? "#e0f0e0" : "#4a7a54", marginTop: 2 }}>
+                      {dayDone === MEALS.length ? "✓" : dayDone > 0 ? dayDone + "/" + MEALS.length : "—"}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: plan.color }}>{plan.emoji} {plan.label}</span>
-              <span style={{ fontSize: 11, color: "#4a7a54" }}>{doneCount}/{plan.meals.length} · {doneCal}/{totalCal} קל׳</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#4ade80" }}>🍽️ {activeDay.dayName} {activeDay.display}</span>
+              <span style={{ fontSize: 11, color: "#4a7a54" }}>{doneCount}/{MEALS.length} · {doneCal}/{totalCal} קל׳</span>
             </div>
-            <div style={{ height: 5, background: "#1a3a1f", borderRadius: 3, overflow: "hidden", marginBottom: 4 }}>
-              <div style={{ height: "100%", width: pct + "%", borderRadius: 3, background: "linear-gradient(90deg," + plan.color + "88," + plan.color + ")", transition: "width 0.4s" }} />
+            <div style={{ height: 5, background: "#1a3a1f", borderRadius: 3, overflow: "hidden", marginBottom: 10 }}>
+              <div style={{ height: "100%", width: pct + "%", borderRadius: 3, background: "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.4s" }} />
             </div>
-            {plan.note && <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 4 }}>{plan.note}</div>}
           </div>
 
-          <div style={{ padding: "6px 14px 0" }}>
-            {plan.meals.map(meal => {
-              const isOpen = open === mode + "-" + meal.id;
-              const isDone = !!checked[mode + "-" + meal.id];
-              const ac = EC[meal.emoji] || plan.color;
+          <div style={{ padding: "0 14px 0" }}>
+            {MEALS.map(meal => {
+              const isOpen = open === activeDateStr + "-" + meal.id;
+              const isDone = !!checked[activeDateStr + "-" + meal.id];
+              const isCurrent = meal.id === activeMealId && !isDone;
+              const ac = EC[meal.emoji] || "#4ade80";
+              const borderColor = isOpen ? ac + "66" : isCurrent ? ac : isDone ? "#1a5a2e" : "#1a3a1f";
               return (
-                <div key={meal.id} style={{ marginBottom: 8, borderRadius: 12, border: "1px solid " + (isOpen ? ac + "66" : isDone ? "#1a5a2e" : "#1a3a1f"), overflow: "hidden", opacity: isDone ? 0.65 : 1, transition: "all 0.2s" }}>
-                  <div style={{ background: isOpen ? ac + "14" : isDone ? "#0a2010" : "#0d1f10", padding: "12px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
-                    onClick={() => setOpen(isOpen ? null : mode + "-" + meal.id)}>
+                <div key={meal.id} style={{ marginBottom: 8, borderRadius: 12, border: "1px solid " + borderColor, overflow: "hidden", opacity: isDone ? 0.65 : 1, transition: "all 0.2s", boxShadow: isCurrent ? "0 0 10px " + ac + "44" : "none" }}>
+                  <div style={{ background: isOpen ? ac + "14" : isCurrent ? ac + "18" : isDone ? "#0a2010" : "#0d1f10", padding: "12px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                    onClick={() => setOpen(isOpen ? null : activeDateStr + "-" + meal.id)}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div onClick={e => { e.stopPropagation(); toggle(meal.id); }}
                         style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: "2px solid " + (isDone ? ac : "#2d5a3a"), background: isDone ? ac + "33" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: ac, fontWeight: 700 }}>
@@ -343,7 +350,10 @@
                       </div>
                       <span style={{ fontSize: 20 }}>{meal.emoji}</span>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: isDone ? "#4a7a54" : "#e0f0e0" }}>{meal.name}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: isDone ? "#4a7a54" : "#e0f0e0" }}>{meal.name}</span>
+                          {isCurrent && <span style={{ fontSize: 9, background: ac + "33", color: ac, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>עכשיו</span>}
+                        </div>
                         <div style={{ fontSize: 11, color: "#4a7a54" }}>{meal.time}</div>
                       </div>
                     </div>
@@ -381,37 +391,7 @@
                 </div>
               );
             })}
-
-            <div style={{ marginTop: 8, background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 12, padding: 14, marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📊 השוואה בין המתכונות</div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr>{["מתכונת","קל׳","חלבון","ארוחות"].map(h => <th key={h} style={{ textAlign: h === "מתכונת" ? "right" : "center", color: "#4a7a54", padding: "4px 6px", fontWeight: 600 }}>{h}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {Object.entries(PLANS).map(([key, p]) => {
-                    const c = p.meals.reduce((s, m) => s + m.cal, 0);
-                    const pr = p.meals.reduce((s, m) => s + m.pro, 0);
-                    const active = key === mode;
-                    return (
-                      <tr key={key} onClick={() => setMode(key)} style={{ cursor: "pointer" }}>
-                        <td style={{ padding: "7px 6px", color: active ? p.color : "#8ab89a", fontWeight: active ? 700 : 400 }}>{p.emoji} {p.label}</td>
-                        <td style={{ textAlign: "center", padding: "7px 6px", color: active ? p.color : "#c8e8c8", fontFamily: "monospace" }}>{c}</td>
-                        <td style={{ textAlign: "center", padding: "7px 6px", color: "#60a5fa", fontFamily: "monospace" }}>{pr}g</td>
-                        <td style={{ textAlign: "center", padding: "7px 6px", color: "#a78bfa" }}>{p.meals.length}</td>
-                      </tr>
-                    );
-                  })}
-                  <tr style={{ borderTop: "1px solid #1a3a1f" }}>
-                    <td style={{ padding: "7px 6px", color: "#4a7a54", fontSize: 11 }}>יעד</td>
-                    <td style={{ textAlign: "center", padding: "7px 6px", color: "#4a7a54", fontFamily: "monospace", fontSize: 11 }}>2,100</td>
-                    <td style={{ textAlign: "center", padding: "7px 6px", color: "#4a7a54", fontFamily: "monospace", fontSize: 11 }}>155g</td>
-                    <td style={{ textAlign: "center", padding: "7px 6px", color: "#4a7a54", fontSize: 11 }}>—</td>
-                  </tr>
-                </tbody>
-              </table>
-              <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 8 }}>💡 לחץ על שורה כדי לעבור למתכונת</div>
-            </div>
+            <div style={{ height: 20 }} />
           </div>
         </>
       );
@@ -486,7 +466,14 @@
       const done = dayPlan.tasks.filter(t => checked[activeDay + "-" + t.id]).length;
       const total = dayPlan.tasks.length;
       const pct = Math.round((done / total) * 100);
-      const toggle = (id) => setChecked(p => ({ ...p, [activeDay + "-" + id]: !p[activeDay + "-" + id] }));
+      const toggle = (id) => setChecked(p => {
+        const key = activeDay + "-" + id;
+        if (p[key]) return { ...p, [key]: null };
+        const now = new Date();
+        const ts = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) + " " +
+          now.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+        return { ...p, [key]: ts };
+      });
 
       const strengthDays = [0, 2, 4];
       const isStrength = strengthDays.includes(activeDay);
@@ -550,7 +537,12 @@
                   fontSize: 14, color: color, fontWeight: 700, transition: "all 0.15s",
                 }}>{isDone ? "✓" : ""}</div>
                 <span style={{ fontSize: 16 }}>{task.cat}</span>
-                <span style={{ fontSize: 13, color: isDone ? "#4a7a54" : "#c8e8c8", textDecoration: isDone ? "line-through" : "none", lineHeight: 1.4 }}>{task.text}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: isDone ? "#4a7a54" : "#c8e8c8", textDecoration: isDone ? "line-through" : "none", lineHeight: 1.4 }}>{task.text}</div>
+                  {isDone && typeof checked[activeDay + "-" + task.id] === "string" && (
+                    <div style={{ fontSize: 10, color: "#3a6a44", marginTop: 2 }}>✓ {checked[activeDay + "-" + task.id]}</div>
+                  )}
+                </div>
               </div>
             );
           })}
