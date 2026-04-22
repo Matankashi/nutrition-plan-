@@ -152,6 +152,36 @@
         setEntries(p => p.slice(0, -1));
       };
 
+      const parseEntryDate = (e) => {
+        if (!e.date) return null;
+        const parts = e.date.split(".");
+        if (parts.length < 3) return null;
+        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      };
+
+      const today = new Date();
+      const curMonth = today.getMonth(), curYear = today.getFullYear();
+      const daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
+      const daysRemaining = daysInMonth - today.getDate();
+      const monthEntries = entries.filter(e => { const d = parseEntryDate(e); return d && d.getMonth() === curMonth && d.getFullYear() === curYear; });
+      const prevEntries = entries.filter(e => { const d = parseEntryDate(e); return d && (d.getFullYear() < curYear || (d.getFullYear() === curYear && d.getMonth() < curMonth)); });
+      const monthStart = monthEntries.length > 0 ? monthEntries[0] : (prevEntries.length > 0 ? prevEntries[prevEntries.length - 1] : null);
+      const monthEnd = entries[entries.length - 1];
+      let monthStat = null;
+      if (monthStart && monthEnd && monthStart !== monthEnd) {
+        const startDate = parseEntryDate(monthStart) || today;
+        const daysElapsed = Math.max(1, Math.round((today - startDate) / 86400000));
+        const monthLost = +(monthStart.kg - monthEnd.kg).toFixed(2);
+        const projected = +(( monthLost / daysElapsed) * daysInMonth).toFixed(1);
+        const pctOfMax = Math.min((monthLost / 3) * 100, 105);
+        let status, statusColor;
+        if (projected >= 3) { status = "⚡ קצב מצוין!"; statusColor = "#4ade80"; }
+        else if (projected >= 2) { status = "✅ בקצב טוב"; statusColor = "#4ade80"; }
+        else if (projected >= 1.4) { status = "⚠️ קצת מאחור"; statusColor = "#fbbf24"; }
+        else { status = "🔴 מאחור מהיעד"; statusColor = "#f87171"; }
+        monthStat = { monthLost, projected, daysRemaining, pctOfMax, status, statusColor };
+      }
+
       const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
       const iW = GW - PL - PR, iH = GH - PT - PB;
       const allKg = entries.map(e => e.kg);
@@ -183,6 +213,26 @@
             </div>
             <div style={{ textAlign: "center", fontSize: 11, color: "#4a7a54", marginTop: 5 }}>{pct.toFixed(1)}% מהדרך</div>
           </div>
+
+          {monthStat && (
+            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, marginBottom: 10 }}>
+                <span style={{ color: "#4ade80", fontWeight: 700 }}>📅 יעד חודשי: 2–3 ק״ג</span>
+                <span style={{ color: monthStat.statusColor, fontWeight: 700, fontSize: 11 }}>{monthStat.status}</span>
+              </div>
+              <div style={{ position: "relative", height: 10, background: "#1a3a1f", borderRadius: 5, marginBottom: 8 }}>
+                <div style={{ position: "absolute", top: 0, right: 0, height: "100%", width: monthStat.pctOfMax + "%", borderRadius: 5, background: "linear-gradient(90deg,#fbbf24,#4ade80)", transition: "width 0.5s" }} />
+                {[2,3].map(target => (
+                  <div key={target} style={{ position: "absolute", top: -3, right: (target/3*100) + "%", width: 2, height: 16, background: "#4a7a54", borderRadius: 1 }} />
+                ))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#4a7a54" }}>
+                <span>ירדת החודש: <span style={{ color: "#e0f0e0", fontWeight: 700 }}>{monthStat.monthLost} ק״ג</span></span>
+                <span>תחזית: <span style={{ color: "#60a5fa", fontWeight: 700 }}>{monthStat.projected} ק״ג</span></span>
+                <span>{monthStat.daysRemaining} ימים נותרו</span>
+              </div>
+            </div>
+          )}
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
             <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 8 }}>📈 גרף ירידה במשקל</div>
