@@ -83,7 +83,7 @@
     ];
 
     const EC = { "⚡":"#fbbf24","🌅":"#fb923c","🥗":"#4ade80","🍽️":"#60a5fa","🥤":"#a78bfa","🍫":"#d4a857","🌙":"#818cf8","🍌":"#facc15","🌃":"#c084fc" };
-    const START_W = 85.5, GOAL_W = 73;
+    const START_W = 86, GOAL_W = 73;
 
     // minutes from midnight for each meal's active window
     const MEAL_WINDOWS = { 1: [8*60, 11*60+59], 2: [12*60, 13*60+59], 3: [14*60, 16*60+59], 4: [17*60, 19*60+59], 5: [20*60, 23*60+59] };
@@ -128,13 +128,22 @@
       const pct = Math.min((lost / (START_W - GOAL_W)) * 100, 100);
       const weeksLeft = Math.round(remaining / 0.5);
 
+      const shortDate = (e) => {
+        if (e.date) {
+          const parts = e.date.split(".");
+          if (parts.length >= 2) return parts[0] + "/" + parts[1];
+        }
+        return e.label;
+      };
+
       const addEntry = () => {
         const kg = parseFloat(input.replace(",", "."));
         if (isNaN(kg) || kg < 50 || kg > 130) return;
         const w = entries[entries.length - 1].week + 1;
         const now = new Date();
         const date = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
-        setEntries(p => [...p, { week: w, kg, label: "שבוע " + w, date }]);
+        const label = String(now.getDate()).padStart(2,"0") + "/" + String(now.getMonth()+1).padStart(2,"0");
+        setEntries(p => [...p, { week: w, kg, label, date }]);
         setInput("");
       };
 
@@ -199,7 +208,7 @@
                 <g key={i}>
                   <circle cx={toX(i).toFixed(1)} cy={toY(e.kg).toFixed(1)} r={4} fill={refeed === e.week ? "#f87171" : "#4ade80"} stroke="#0d1f10" strokeWidth={1.5} />
                   {refeed === e.week && <text x={toX(i).toFixed(1)} y={(toY(e.kg) - 8).toFixed(1)} textAnchor="middle" fontSize={9} fill="#f87171">🍕</text>}
-                  <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={8} fill="#4a7a54">{e.label}</text>
+                  <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={8} fill="#4a7a54">{shortDate(e)}</text>
                 </g>
               ))}
             </svg>
@@ -211,7 +220,7 @@
           </div>
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>➕ הוסף שקילה שבועית</div>
+            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>➕ הוסף שקילה</div>
             <div style={{ display: "flex", gap: 8 }}>
               <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addEntry()}
                 placeholder="למשל: 81.5" inputMode="decimal"
@@ -223,7 +232,7 @@
                 🗑 מחק שקילה אחרונה
               </button>
             )}
-            <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 8 }}>💡 פעם בשבוע — בוקר, בצום, אותה שעה ואותם בגדים</div>
+            <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 8 }}>💡 בוקר, בצום, אותה שעה ואותם בגדים</div>
           </div>
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #2d1a1a", padding: 14, marginBottom: 12 }}>
@@ -241,7 +250,7 @@
                   {entries.map(e => (
                     <button key={e.week} onClick={() => setRefeed(refeed === e.week ? null : e.week)}
                       style={{ padding: "4px 12px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 11, fontFamily: "inherit", fontWeight: 600, background: refeed === e.week ? "#7f1d1d" : "#1a3a1f", color: refeed === e.week ? "#f87171" : "#4a7a54" }}>
-                      {e.label}
+                      {shortDate(e)}
                     </button>
                   ))}
                 </div>
@@ -257,8 +266,7 @@
                 return (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: i < entries.length - 1 ? "1px solid #0f2a12" : "none" }}>
                     <div>
-                      <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.label}{refeed === e.week ? " 🍕" : ""}</div>
-                      {e.date && <div style={{ fontSize: 10, color: "#4a7a54" }}>{e.date}</div>}
+                      <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.date || e.label}{refeed === e.week ? " 🍕" : ""}</div>
                     </div>
                     <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{e.kg} ק״ג</span>
                     {diff !== null && (
@@ -567,22 +575,287 @@
       );
     }
 
-    // ─── PIN ─────────────────────────────────────────────────────────────────────
-    const CORRECT_PIN = "1359";
-
     // ─── User Select ──────────────────────────────────────────────────────────────
-    function UserSelect({ onSelect }) {
+    function UserSelect({ onSelect, onAdmin }) {
+      const [users, setUsers] = useState(null);
+
+      useEffect(() => {
+        db.ref("nutrition/_admin/users").once("value", snap => {
+          if (snap.exists()) {
+            const data = snap.val();
+            setUsers(Object.keys(data).map(k => ({ username: k, ...data[k] })));
+          } else {
+            setUsers([{ username: "matan" }, { username: "guest" }]);
+          }
+        });
+      }, []);
+
+      const ICONS = ["👤","🙂","🌟","🎯","🦊","🐙","🧩","🚀"];
+
       return (
         <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28, fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
           <div style={{ fontSize: 48 }}>🥗</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80" }}>תכנית תזונה</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, width: 220 }}>
-            <button onClick={() => onSelect("matan")} style={{ padding: "16px 0", borderRadius: 14, border: "1px solid #2d5a3a", background: "#0d1f10", color: "#4ade80", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-              👤 Matan
+            {users === null ? (
+              <div style={{ color: "#4a7a54", textAlign: "center", fontSize: 13 }}>טוען...</div>
+            ) : users.map((u, i) => (
+              <button key={u.username} onClick={() => onSelect(u.username)}
+                style={{ padding: "16px 0", borderRadius: 14, border: `1px solid ${i === 0 ? "#2d5a3a" : "#1a3a1f"}`, background: i === 0 ? "#0d1f10" : "#0a1a0c", color: i === 0 ? "#4ade80" : "#4a7a54", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                {ICONS[i % ICONS.length]} {u.username.charAt(0).toUpperCase() + u.username.slice(1)}
+              </button>
+            ))}
+            <button onClick={onAdmin} style={{ padding: "8px 0", borderRadius: 10, border: "1px solid #1a3a1f", background: "transparent", color: "#2d5a3a", fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginTop: 4 }}>
+              🔧 ניהול
             </button>
-            <button onClick={() => onSelect("guest")} style={{ padding: "16px 0", borderRadius: 14, border: "1px solid #1a3a1f", background: "#0a1a0c", color: "#4a7a54", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-              🙂 Guest
-            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── AdminPinScreen ───────────────────────────────────────────────────────────
+    function AdminPinScreen({ onSuccess, onBack }) {
+      const [pin, setPin] = useState("");
+      const [adminPin, setAdminPin] = useState(null);
+      const [error, setError] = useState(false);
+      const ref = React.useRef(null);
+
+      useEffect(() => {
+        ref.current?.focus();
+        db.ref("nutrition/_admin/adminPin").once("value", snap => {
+          setAdminPin(snap.exists() ? snap.val() : "0000");
+        });
+      }, []);
+
+      const check = p => {
+        const correct = adminPin || "0000";
+        if (p === correct) { onSuccess(); }
+        else if (p.length === 4) { setError(true); setTimeout(() => { setError(false); setPin(""); }, 800); }
+      };
+      const press = d => { const next = pin + d; setPin(next); if (next.length === 4 && adminPin !== null) check(next); };
+      const handleKey = e => {
+        if (e.key >= "0" && e.key <= "9") press(e.key);
+        else if (e.key === "Backspace") setPin(p => p.slice(0, -1));
+        else if (e.key === "Escape") onBack();
+      };
+
+      return (
+        <div onKeyDown={handleKey} tabIndex={0} ref={ref} style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28, fontFamily: "'Segoe UI',Tahoma,sans-serif", outline: "none" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#4a7a54" }}>🔧 כניסת מנהל</div>
+          <div style={{ display: "flex", gap: 12, marginBottom: 4 }}>
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#4ade80") : "#1a3a1f", border: `2px solid ${error ? "#f87171" : "#2d5a3a"}`, transition: "all 0.15s" }} />
+            ))}
+          </div>
+          {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -16 }}>קוד שגוי</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: 10, direction: "ltr" }}>
+            {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d, i) => (
+              <button key={i} onClick={() => { if (d === "⌫") setPin(p => p.slice(0,-1)); else if (d !== "") press(String(d)); }}
+                style={{ height: 70, borderRadius: 14, border: "1px solid #1a3a1f", background: d === "" ? "transparent" : "#0d1f10", color: d === "⌫" ? "#f87171" : "#e0f0e0", fontSize: d === "⌫" ? 20 : 24, fontWeight: 600, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit" }}>
+                {d}
+              </button>
+            ))}
+          </div>
+          <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#4a7a54", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← חזור</button>
+        </div>
+      );
+    }
+
+    // ─── AdminConfirmPin ──────────────────────────────────────────────────────────
+    function AdminConfirmPin({ label, onConfirm, onCancel }) {
+      const [pin, setPin] = useState("");
+      const [error, setError] = useState(false);
+      const [adminPin, setAdminPin] = useState(null);
+      const ref = React.useRef(null);
+
+      useEffect(() => {
+        ref.current?.focus();
+        db.ref("nutrition/_admin/adminPin").once("value", snap => {
+          setAdminPin(snap.exists() ? snap.val() : "0000");
+        });
+      }, []);
+
+      const check = p => {
+        const correct = adminPin || "0000";
+        if (p === correct) { onConfirm(); }
+        else if (p.length === 4) { setError(true); setTimeout(() => { setError(false); setPin(""); }, 800); }
+      };
+      const press = d => { const next = pin + d; setPin(next); if (next.length === 4 && adminPin !== null) check(next); };
+
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div ref={ref} tabIndex={0} onKeyDown={e => { if (e.key >= "0" && e.key <= "9") press(e.key); else if (e.key === "Backspace") setPin(p => p.slice(0,-1)); else if (e.key === "Escape") onCancel(); }}
+            style={{ background: "#0a1a0c", borderRadius: 18, padding: 28, width: 280, display: "flex", flexDirection: "column", alignItems: "center", gap: 18, outline: "none", border: "1px solid #1a3a1f" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#4a7a54", textAlign: "center" }}>🔐 אשר פעולה</div>
+            <div style={{ fontSize: 12, color: "#2d5a3a", textAlign: "center" }}>{label}</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {[0,1,2,3].map(i => (
+                <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#4ade80") : "#1a3a1f", border: `2px solid ${error ? "#f87171" : "#2d5a3a"}`, transition: "all 0.15s" }} />
+              ))}
+            </div>
+            {error && <div style={{ color: "#f87171", fontSize: 12, marginTop: -10 }}>קוד שגוי</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 58px)", gap: 8, direction: "ltr" }}>
+              {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d, i) => (
+                <button key={i} onClick={() => { if (d === "⌫") setPin(p => p.slice(0,-1)); else if (d !== "") press(String(d)); }}
+                  style={{ height: 58, borderRadius: 12, border: "1px solid #1a3a1f", background: d === "" ? "transparent" : "#0d1f10", color: d === "⌫" ? "#f87171" : "#e0f0e0", fontSize: d === "⌫" ? 18 : 20, fontWeight: 600, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit" }}>
+                  {d}
+                </button>
+              ))}
+            </div>
+            <button onClick={onCancel} style={{ background: "transparent", border: "none", color: "#2d5a3a", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>ביטול</button>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── AdminPanel ───────────────────────────────────────────────────────────────
+    function AdminPanel({ onBack }) {
+      const [users, setUsers] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [newMatanPin, setNewMatanPin] = useState("");
+      const [newAdminPin, setNewAdminPin] = useState("");
+      const [saved, setSaved] = useState("");
+      const [newUsername, setNewUsername] = useState("");
+      const [newUserPin, setNewUserPin] = useState("");
+      const [managedUsers, setManagedUsers] = useState(null);
+      const [confirmAction, setConfirmAction] = useState(null);
+
+      useEffect(() => {
+        db.ref("nutrition").once("value", snap => {
+          if (!snap.exists()) { setLoading(false); return; }
+          const data = snap.val();
+          const userList = Object.keys(data).filter(k => k !== "_admin").map(username => {
+            const udata = data[username];
+            const weightEntries = udata.weight_entries ? (Array.isArray(udata.weight_entries) ? udata.weight_entries : Object.values(udata.weight_entries)) : [];
+            const lastEntry = weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null;
+            return { username, weightCount: weightEntries.length, lastWeight: lastEntry ? lastEntry.kg + " ק״ג" : "—", lastDate: lastEntry ? (lastEntry.date || lastEntry.label || "—") : "—" };
+          });
+          setUsers(userList);
+          setLoading(false);
+        });
+      }, []);
+
+      useEffect(() => {
+        db.ref("nutrition/_admin/users").once("value", snap => {
+          if (snap.exists()) {
+            setManagedUsers(snap.val());
+          } else {
+            setManagedUsers({ matan: { pin: null }, guest: { pin: null } });
+          }
+        });
+      }, []);
+
+      const savePin = async (type) => {
+        const val = type === "matan" ? newMatanPin : newAdminPin;
+        if (val.length !== 4 || isNaN(val)) return;
+        const path = type === "matan" ? "nutrition/_admin/matanPin" : "nutrition/_admin/adminPin";
+        await db.ref(path).set(val);
+        setSaved(type === "matan" ? "PIN של מתן עודכן ✓" : "PIN מנהל עודכן ✓");
+        setTimeout(() => setSaved(""), 2500);
+        if (type === "matan") setNewMatanPin(""); else setNewAdminPin("");
+      };
+
+      const requireAdminPin = (label, action) => {
+        setConfirmAction({ label, onConfirm: () => { setConfirmAction(null); action(); } });
+      };
+
+      const addUser = async () => {
+        const uname = newUsername.trim().toLowerCase().replace(/\s+/g,"_");
+        if (!uname) return;
+        const pinVal = newUserPin.length === 4 ? newUserPin : null;
+        const updated = { ...(managedUsers || {}), [uname]: { pin: pinVal } };
+        await db.ref("nutrition/_admin/users").set(updated);
+        setManagedUsers(updated);
+        setNewUsername(""); setNewUserPin("");
+        setSaved(`משתמש "${uname}" נוסף ✓`);
+        setTimeout(() => setSaved(""), 2500);
+      };
+
+      const deleteUser = async (uname) => {
+        const updated = { ...(managedUsers || {}) };
+        delete updated[uname];
+        await db.ref("nutrition/_admin/users").set(updated);
+        setManagedUsers(updated);
+        setSaved(`משתמש "${uname}" נמחק ✓`);
+        setTimeout(() => setSaved(""), 2500);
+      };
+
+      const G = { bg: "#080f0a", card: "#0a1a0c", border: "#1a3a1f", text: "#e0f0e0", mid: "#4a7a54", green: "#4ade80", red: "#f87171" };
+
+      return (
+        <div style={{ minHeight: "100vh", background: G.bg, fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: G.text, paddingBottom: 40 }}>
+          {confirmAction && <AdminConfirmPin label={confirmAction.label} onConfirm={confirmAction.onConfirm} onCancel={() => setConfirmAction(null)} />}
+          <div style={{ background: G.card, padding: "14px 18px", borderBottom: `1px solid ${G.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: G.mid }}>🔧 פאנל ניהול</div>
+            <button onClick={onBack} style={{ background: "#1a3a1f", border: "none", borderRadius: 8, padding: "6px 14px", color: G.mid, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← יציאה</button>
+          </div>
+          <div style={{ padding: 16, maxWidth: 500, margin: "0 auto" }}>
+            {saved && <div style={{ background: "#166534", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: G.green }}>{saved}</div>}
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 14 }}>👥 סטטיסטיקות משתמשים</div>
+              {loading ? <div style={{ color: G.mid, fontSize: 13 }}>טוען...</div> : users.length === 0 ? <div style={{ color: G.mid, fontSize: 13 }}>אין נתונים עדיין</div> : users.map(u => (
+                <div key={u.username} style={{ background: G.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 8, border: `1px solid ${G.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: G.green }}>👤 {u.username}</div>
+                    <div style={{ fontSize: 11, color: G.mid }}>שקילה אחרונה: {u.lastDate}</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    {[["שקילות", u.weightCount, G.green], ["משקל נוכחי", u.lastWeight, "#60a5fa"]].map(([l,v,c]) => (
+                      <div key={l} style={{ textAlign: "center", background: G.card, borderRadius: 8, padding: "6px 4px" }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: c }}>{v}</div>
+                        <div style={{ fontSize: 10, color: G.mid }}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 14 }}>➕ ניהול משתמשים</div>
+              {managedUsers && Object.keys(managedUsers).map(uname => (
+                <div key={uname} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: G.bg, borderRadius: 8, padding: "8px 12px", marginBottom: 6, border: `1px solid ${G.border}` }}>
+                  <div style={{ fontSize: 13, color: G.green }}>👤 {uname}</div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ fontSize: 11, color: G.mid }}>{managedUsers[uname].pin ? "🔒 PIN" : "🔓 ללא PIN"}</div>
+                    {uname !== "matan" && (
+                      <button onClick={() => requireAdminPin(`למחוק את המשתמש "${uname}"?`, () => deleteUser(uname))}
+                        style={{ background: "#7f1d1d", border: "none", borderRadius: 6, padding: "4px 10px", color: "#fca5a5", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>מחק</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div style={{ marginTop: 12, fontSize: 12, color: G.mid, marginBottom: 8 }}>הוסף משתמש חדש:</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="שם משתמש"
+                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                <input value={newUserPin} onChange={e => setNewUserPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="PIN (אופציונלי)" maxLength={4} inputMode="numeric"
+                  style={{ width: 110, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 13, outline: "none", direction: "ltr", fontFamily: "inherit" }} />
+              </div>
+              <button onClick={addUser} disabled={!newUsername.trim()} style={{ background: newUsername.trim() ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newUsername.trim() ? "pointer" : "default", fontFamily: "inherit", width: "100%" }}>➕ הוסף משתמש</button>
+            </div>
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 12 }}>🔑 שנה PIN של Matan</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={newMatanPin} onChange={e => setNewMatanPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+                  placeholder="4 ספרות חדשות" maxLength={4} inputMode="numeric"
+                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 14, outline: "none", direction: "ltr", fontFamily: "inherit" }} />
+                <button onClick={() => savePin("matan")} disabled={newMatanPin.length !== 4} style={{ background: newMatanPin.length === 4 ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newMatanPin.length === 4 ? "pointer" : "default", fontFamily: "inherit" }}>שמור</button>
+              </div>
+            </div>
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 12 }}>🔧 שנה PIN מנהל</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={newAdminPin} onChange={e => setNewAdminPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+                  placeholder="4 ספרות חדשות" maxLength={4} inputMode="numeric"
+                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 14, outline: "none", direction: "ltr", fontFamily: "inherit" }} />
+                <button onClick={() => savePin("admin")} disabled={newAdminPin.length !== 4} style={{ background: newAdminPin.length === 4 ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newAdminPin.length === 4 ? "pointer" : "default", fontFamily: "inherit" }}>שמור</button>
+              </div>
+              <div style={{ fontSize: 11, color: G.mid, marginTop: 8 }}>PIN ברירת מחדל: 0000</div>
+            </div>
           </div>
         </div>
       );
@@ -592,12 +865,19 @@
     function PinScreen({ onSuccess, onBack }) {
       const [pin, setPin] = useState("");
       const [error, setError] = useState(false);
+      const [correctPin, setCorrectPin] = useState(null);
       const inputRef = React.useRef(null);
 
-      useEffect(() => { inputRef.current?.focus(); }, []);
+      useEffect(() => {
+        inputRef.current?.focus();
+        db.ref("nutrition/_admin/matanPin").once("value", snap => {
+          setCorrectPin(snap.exists() ? snap.val() : "1359");
+        });
+      }, []);
 
       const check = (p) => {
-        if (p === CORRECT_PIN) {
+        if (correctPin === null) return;
+        if (p === correctPin) {
           localStorage.setItem("matan_pin_ok", "1");
           onSuccess();
         } else if (p.length === 4) {
@@ -609,7 +889,7 @@
       const press = (d) => {
         const next = pin + d;
         setPin(next);
-        if (next.length === 4) check(next);
+        if (next.length === 4 && correctPin !== null) check(next);
       };
 
       const handleKey = (e) => {
@@ -649,6 +929,8 @@
       const [tab, setTab] = useState("plan");
       const [activeUser, setActiveUser] = useState(localStorage.getItem("active_user") || null);
       const [pinOk, setPinOk] = useState(localStorage.getItem("matan_pin_ok") === "1");
+      const [adminMode, setAdminMode] = useState(false);
+      const [adminAuthed, setAdminAuthed] = useState(false);
 
       const selectUser = (u) => {
         localStorage.setItem("active_user", u);
@@ -662,7 +944,9 @@
         setPinOk(false);
       };
 
-      if (!activeUser) return <UserSelect onSelect={selectUser} />;
+      if (adminMode && !adminAuthed) return <AdminPinScreen onSuccess={() => setAdminAuthed(true)} onBack={() => setAdminMode(false)} />;
+      if (adminMode && adminAuthed) return <AdminPanel onBack={() => { setAdminMode(false); setAdminAuthed(false); }} />;
+      if (!activeUser) return <UserSelect onSelect={selectUser} onAdmin={() => setAdminMode(true)} />;
       if (activeUser === "matan" && !pinOk) return <PinScreen onSuccess={() => setPinOk(true)} onBack={() => { localStorage.removeItem("active_user"); setActiveUser(null); }} />;
       CURRENT_USER = activeUser;
       return (
