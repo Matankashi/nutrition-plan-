@@ -129,6 +129,7 @@
       const remaining = +(last - GOAL_W).toFixed(1);
       const pct = Math.min((lost / (START_W - GOAL_W)) * 100, 100);
       const weeksLeft = Math.round(remaining / 0.5);
+      const monthsLeft = Math.round(remaining / 2.5);
 
       const shortDate = (e) => {
         if (e.date) {
@@ -220,7 +221,7 @@
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
               <span style={{ color: "#4ade80", fontWeight: 700 }}>🎯 יעד: {GOAL_W} ק״ג</span>
-              <span style={{ color: "#4a7a54" }}>~{weeksLeft} שבועות נותרו</span>
+              <span style={{ color: "#4a7a54" }}>~{monthsLeft} חודשים נותרו</span>
             </div>
             <div style={{ height: 10, background: "#1a3a1f", borderRadius: 5, overflow: "hidden" }}>
               <div style={{ height: "100%", width: pct + "%", borderRadius: 5, background: "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.5s" }} />
@@ -300,11 +301,11 @@
               ✅ פעם בשבוע — ארוחה אחת גדולה, לא יום שלם<br/>
               ✅ עד 2,500–2,800 קל׳ סה״כ באותו יום<br/>
               ✅ עוזר ללפטין, למוטיבציה ולחילוף חומרים<br/>
-              ❌ לא לבחור יום לפני השקילה השבועית
+              ❌ לא לבחור יום לפני השקילה
             </div>
             {entries.length > 1 && (
               <>
-                <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 10, marginBottom: 6 }}>סמן שבוע Refeed על הגרף:</div>
+                <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 10, marginBottom: 6 }}>סמן שקילת Refeed על הגרף:</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {entries.map(e => (
                     <button key={e.week} onClick={() => setRefeed(refeed === e.week ? null : e.week)}
