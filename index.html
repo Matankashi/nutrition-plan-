@@ -121,6 +121,8 @@
       const [entries, setEntries] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
       const [input, setInput] = useState("");
       const [refeed, setRefeed] = usePersist("weight_refeed", null);
+      const [expandedMonths, setExpandedMonths] = useState({});
+      const toggleMonth = key => setExpandedMonths(p => ({ ...p, [key]: !p[key] }));
 
       const last = entries[entries.length - 1].kg;
       const lost = +(START_W - last).toFixed(1);
@@ -181,6 +183,18 @@
         else { status = "🔴 מאחור מהיעד"; statusColor = "#f87171"; }
         monthStat = { monthLost, projected, daysRemaining, pctOfMax, status, statusColor };
       }
+
+      const HE_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+      const monthGroups = [];
+      entries.forEach((e, i) => {
+        const d = parseEntryDate(e);
+        const key = d ? `${d.getFullYear()}-${d.getMonth()}` : `x-${i}`;
+        const isCur = d ? (d.getMonth() === curMonth && d.getFullYear() === curYear) : false;
+        const mLabel = d ? `${HE_MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}` : "";
+        let g = monthGroups.find(g => g.key === key);
+        if (!g) { g = { key, label: mLabel, isCurrent: isCur, entries: [] }; monthGroups.push(g); }
+        g.entries.push({ ...e, origIdx: i });
+      });
 
       const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
       const iW = GW - PL - PR, iH = GH - PT - PB;
@@ -311,22 +325,65 @@
           {entries.length > 1 && (
             <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 20 }}>
               <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📋 היסטוריית שקילות</div>
-              {entries.map((e, i) => {
-                const diff = i === 0 ? null : +(e.kg - entries[i - 1].kg).toFixed(1);
-                return (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: i < entries.length - 1 ? "1px solid #0f2a12" : "none" }}>
-                    <div>
-                      <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.date || e.label}{refeed === e.week ? " 🍕" : ""}</div>
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{e.kg} ק״ג</span>
-                    {diff !== null && (
-                      <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: diff < 0 ? "#4ade80" : diff > 0 ? "#f87171" : "#4a7a54" }}>
-                        {diff < 0 ? "▼" : diff > 0 ? "▲" : "="} {Math.abs(diff)}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+              {(() => {
+                let prevKg = null;
+                return monthGroups.map((g, gi) => {
+                  if (g.isCurrent) {
+                    return g.entries.map((e, ei) => {
+                      const diff = prevKg !== null || ei > 0
+                        ? +(e.kg - (ei === 0 ? prevKg : g.entries[ei - 1].kg)).toFixed(1)
+                        : null;
+                      if (ei === g.entries.length - 1) prevKg = e.kg;
+                      const isLast = gi === monthGroups.length - 1 && ei === g.entries.length - 1;
+                      return (
+                        <div key={e.origIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: isLast ? "none" : "1px solid #0f2a12" }}>
+                          <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.date || e.label}{refeed === e.week ? " 🍕" : ""}</div>
+                          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{e.kg} ק״ג</span>
+                          {diff !== null
+                            ? <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: diff < 0 ? "#4ade80" : diff > 0 ? "#f87171" : "#4a7a54" }}>{diff < 0 ? "▼" : diff > 0 ? "▲" : "="} {Math.abs(diff)}</span>
+                            : <span style={{ minWidth: 48 }} />}
+                        </div>
+                      );
+                    });
+                  } else {
+                    const first = g.entries[0];
+                    const last = g.entries[g.entries.length - 1];
+                    const totalDiff = +(last.kg - first.kg).toFixed(2);
+                    prevKg = last.kg;
+                    const expanded = !!expandedMonths[g.key];
+                    return (
+                      <div key={g.key} style={{ marginBottom: 6 }}>
+                        {expanded && g.entries.map((e, ei) => {
+                          const d = ei === 0 ? null : +(e.kg - g.entries[ei - 1].kg).toFixed(1);
+                          return (
+                            <div key={e.origIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #0f2a12" }}>
+                              <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.date || e.label}{refeed === e.week ? " 🍕" : ""}</div>
+                              <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{e.kg} ק״ג</span>
+                              {d !== null
+                                ? <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: d < 0 ? "#4ade80" : d > 0 ? "#f87171" : "#4a7a54" }}>{d < 0 ? "▼" : d > 0 ? "▲" : "="} {Math.abs(d)}</span>
+                                : <span style={{ minWidth: 48 }} />}
+                            </div>
+                          );
+                        })}
+                        {!expanded && (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #0f2a12" }}>
+                            <div style={{ fontSize: 12, color: "#c8e8c8" }}>{first.date || first.label}</div>
+                            <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{first.kg} ק״ג</span>
+                            <span style={{ minWidth: 48 }} />
+                          </div>
+                        )}
+                        <div onClick={() => toggleMonth(g.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", background: "#0a1a0c", borderRadius: 7, borderBottom: gi < monthGroups.length - 1 ? "1px solid #1a3a1f" : "none", marginBottom: 2, cursor: "pointer" }}>
+                          <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{g.label} <span style={{ fontSize: 10, color: "#2d5a3a" }}>{expanded ? "▲" : "▼"}</span></div>
+                          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{last.kg} ק״ג</span>
+                          {totalDiff !== 0
+                            ? <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: totalDiff < 0 ? "#4ade80" : "#f87171" }}>{totalDiff < 0 ? "▼" : "▲"} {Math.abs(totalDiff)}</span>
+                            : <span style={{ minWidth: 48 }} />}
+                        </div>
+                      </div>
+                    );
+                  }
+                });
+              })()}
             </div>
           )}
         </div>
