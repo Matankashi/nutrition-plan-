@@ -455,57 +455,122 @@
     }
 
     // ─── PlanTab ─────────────────────────────────────────────────────────────────
+    const EDAMAM_APP_ID  = "c01dec80";
+    const EDAMAM_APP_KEY = "91b4cadff1565886e1a33b946d71acfd";
+
+    const getWeekDays = (offset = 0) => {
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i - offset * 7);
+        days.push({ dateStr: toDateStr(d), dayName: DAY_NAMES[d.getDay()], display: d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) });
+      }
+      return days;
+    };
+
     function PlanTab() {
       const [now, setNow] = useState(new Date());
-      useEffect(() => {
-        const t = setInterval(() => setNow(new Date()), 60000);
-        return () => clearInterval(t);
-      }, []);
+      useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
 
       const todayStr = toDateStr(now);
-      const days = getLast7Days();
+      const [weekOffset, setWeekOffset] = useState(0);
+      const days = getWeekDays(weekOffset);
       const [activeDateStr, setActiveDateStr] = useState(todayStr);
       const [open, setOpen] = useState(null);
       const [checked, setChecked] = usePersist("plan_checked_v3", {});
+      const [customMeals, setCustomMeals] = usePersist("custom_meals_v1", {});
+      const [editingMeal, setEditingMeal] = useState(null);
+      const [editInput, setEditInput] = useState("");
+      const [aiLoading, setAiLoading] = useState(false);
+      const [aiError, setAiError] = useState("");
 
       const isViewingToday = activeDateStr === todayStr;
       const activeMealId = isViewingToday ? getActiveMealId(now) : null;
 
-      const totalCal = MEALS.reduce((s, m) => s + m.cal, 0);
-      const doneCal = MEALS.filter(m => checked[activeDateStr + "-" + m.id]).reduce((s, m) => s + m.cal, 0);
-      const doneCount = MEALS.filter(m => checked[activeDateStr + "-" + m.id]).length;
+      const getCustom = (mealId) => customMeals[activeDateStr]?.[mealId] || null;
+      const getActualCal = (meal) => getCustom(meal.id)?.calories ?? meal.cal;
+
+      const totalCal = MEALS.reduce((s, m) => s + getActualCal(m), 0);
+      const planCal  = MEALS.reduce((s, m) => s + m.cal, 0);
+      const doneCal  = MEALS.filter(m => checked[activeDateStr + "-" + m.id] || getCustom(m.id)).reduce((s, m) => s + getActualCal(m), 0);
+      const doneCount = MEALS.filter(m => checked[activeDateStr + "-" + m.id] || getCustom(m.id)).length;
       const pct = Math.min((doneCal / totalCal) * 100, 100);
       const toggle = id => setChecked(p => ({ ...p, [activeDateStr + "-" + id]: !p[activeDateStr + "-" + id] }));
 
-      const activeDay = days.find(d => d.dateStr === activeDateStr) || days[days.length - 1];
+      const TARGET_CAL = 2000;
+      const calGap = doneCal - TARGET_CAL;
+
+      const analyzeNutrition = async (mealId) => {
+        if (!editInput.trim()) return;
+        setAiLoading(true); setAiError("");
+        try {
+          const ingr = editInput.split(/,/).map(s => s.trim()).filter(Boolean);
+          const res = await fetch(`https://api.edamam.com/api/nutrition-details?app_id=${EDAMAM_APP_ID}&app_key=${EDAMAM_APP_KEY}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ingr })
+          });
+          const data = await res.json();
+          let calories = 0;
+          (data.ingredients || []).forEach(ing => {
+            (ing.parsed || []).forEach(p => { calories += p.nutrients?.ENERC_KCAL?.quantity || 0; });
+          });
+          calories = Math.round(calories);
+          if (!calories) { setAiError("לא הצלחתי לחשב. כתוב באנגלית עם כמויות (למשל: 100g white rice, 80g tuna)"); setAiLoading(false); return; }
+          setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: editInput.trim(), calories } } }));
+          setEditingMeal(null); setEditInput("");
+        } catch(e) { setAiError("שגיאת חיבור. נסה שוב."); }
+        setAiLoading(false);
+      };
+
+      const clearCustom = (mealId) => {
+        setCustomMeals(prev => {
+          const d = { ...(prev[activeDateStr] || {}) };
+          delete d[mealId];
+          return { ...prev, [activeDateStr]: d };
+        });
+      };
+
+      const activeDay = days.find(d => d.dateStr === activeDateStr) || { dayName: "", display: activeDateStr };
 
       return (
         <>
           <div style={{ padding: "10px 14px 0" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: 12 }}>
-              {days.map(day => {
-                const dayDone = MEALS.filter(m => checked[day.dateStr + "-" + m.id]).length;
-                const isActive = day.dateStr === activeDateStr;
-                const isToday = day.dateStr === todayStr;
-                return (
-                  <button key={day.dateStr} onClick={() => { setActiveDateStr(day.dateStr); setOpen(null); }} style={{
-                    background: isActive ? "#166534" : "#0d1f10",
-                    border: isToday ? "1px solid #4ade80" : "1px solid #1a3a1f",
-                    borderRadius: 8, padding: "6px 2px", cursor: "pointer", textAlign: "center", transition: "all 0.2s",
-                  }}>
-                    <div style={{ fontSize: 9, color: isActive ? "#4ade80" : "#4a7a54", fontWeight: isToday ? 700 : 400 }}>{day.dayName.slice(0,3)}</div>
-                    <div style={{ fontSize: 9, color: isActive ? "#a8d8a8" : "#3a5a3a", marginTop: 1 }}>{day.display}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: dayDone === MEALS.length ? "#4ade80" : isActive ? "#e0f0e0" : "#4a7a54", marginTop: 2 }}>
-                      {dayDone === MEALS.length ? "✓" : dayDone > 0 ? dayDone + "/" + MEALS.length : "—"}
-                    </div>
-                  </button>
-                );
-              })}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <button onClick={() => { setWeekOffset(w => w + 1); setOpen(null); }} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 8px", fontFamily: "inherit" }}>‹</button>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, flex: 1 }}>
+                {days.map(day => {
+                  const dayDone = MEALS.filter(m => checked[day.dateStr + "-" + m.id] || customMeals[day.dateStr]?.[m.id]).length;
+                  const isActive = day.dateStr === activeDateStr;
+                  const isToday = day.dateStr === todayStr;
+                  return (
+                    <button key={day.dateStr} onClick={() => { setActiveDateStr(day.dateStr); setOpen(null); }} style={{
+                      background: isActive ? "#166534" : "#0d1f10", border: isToday ? "1px solid #4ade80" : "1px solid #1a3a1f",
+                      borderRadius: 8, padding: "6px 2px", cursor: "pointer", textAlign: "center", transition: "all 0.2s",
+                    }}>
+                      <div style={{ fontSize: 9, color: isActive ? "#4ade80" : "#4a7a54", fontWeight: isToday ? 700 : 400 }}>{day.dayName.slice(0,3)}</div>
+                      <div style={{ fontSize: 9, color: isActive ? "#a8d8a8" : "#3a5a3a", marginTop: 1 }}>{day.display}</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: dayDone === MEALS.length ? "#4ade80" : isActive ? "#e0f0e0" : "#4a7a54", marginTop: 2 }}>
+                        {dayDone === MEALS.length ? "✓" : dayDone > 0 ? dayDone + "/" + MEALS.length : "—"}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {weekOffset > 0 && <button onClick={() => { setWeekOffset(w => w - 1); setOpen(null); }} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 8px", fontFamily: "inherit" }}>›</button>}
+              {weekOffset === 0 && <div style={{ width: 28 }} />}
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, marginTop: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: "#4ade80" }}>🍽️ {activeDay.dayName} {activeDay.display}</span>
-              <span style={{ fontSize: 11, color: "#4a7a54" }}>{doneCount}/{MEALS.length} · {doneCal}/{totalCal} קל׳</span>
+              <span style={{ fontSize: 11, color: "#4a7a54" }}>{doneCount}/{MEALS.length} · {doneCal} קל׳</span>
             </div>
+            {doneCal > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <span style={{ fontSize: 10, color: calGap > 200 ? "#f87171" : calGap > 0 ? "#fbbf24" : "#4ade80", fontWeight: 700 }}>
+                  {calGap > 0 ? `⚠️ +${calGap} קל׳ מעל היעד` : `✅ ${Math.abs(calGap)} קל׳ מתחת ליעד`}
+                </span>
+              </div>
+            )}
             <div style={{ height: 5, background: "#1a3a1f", borderRadius: 3, overflow: "hidden", marginBottom: 10 }}>
               <div style={{ height: "100%", width: pct + "%", borderRadius: 3, background: "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.4s" }} />
             </div>
@@ -515,56 +580,89 @@
             {MEALS.map(meal => {
               const isOpen = open === activeDateStr + "-" + meal.id;
               const isDone = !!checked[activeDateStr + "-" + meal.id];
-              const isCurrent = meal.id === activeMealId && !isDone;
+              const custom = getCustom(meal.id);
+              const isEditing = editingMeal === meal.id;
+              const isCurrent = meal.id === activeMealId && !isDone && !custom;
               const ac = EC[meal.emoji] || "#4ade80";
-              const borderColor = isOpen ? ac + "66" : isCurrent ? ac : isDone ? "#1a5a2e" : "#1a3a1f";
+              const actualCal = getActualCal(meal);
+              const borderColor = isOpen ? ac + "66" : isCurrent ? ac : (isDone || custom) ? "#1a5a2e" : "#1a3a1f";
               return (
-                <div key={meal.id} style={{ marginBottom: 8, borderRadius: 12, border: "1px solid " + borderColor, overflow: "hidden", opacity: isDone ? 0.65 : 1, transition: "all 0.2s", boxShadow: isCurrent ? "0 0 10px " + ac + "44" : "none" }}>
-                  <div style={{ background: isOpen ? ac + "14" : isCurrent ? ac + "18" : isDone ? "#0a2010" : "#0d1f10", padding: "12px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                <div key={meal.id} style={{ marginBottom: 8, borderRadius: 12, border: "1px solid " + borderColor, overflow: "hidden", opacity: (isDone && !custom) ? 0.65 : 1, transition: "all 0.2s", boxShadow: isCurrent ? "0 0 10px " + ac + "44" : "none" }}>
+                  <div style={{ background: isOpen ? ac + "14" : isCurrent ? ac + "18" : (isDone || custom) ? "#0a2010" : "#0d1f10", padding: "12px 14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
                     onClick={() => setOpen(isOpen ? null : activeDateStr + "-" + meal.id)}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div onClick={e => { e.stopPropagation(); toggle(meal.id); }}
-                        style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: "2px solid " + (isDone ? ac : "#2d5a3a"), background: isDone ? ac + "33" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: ac, fontWeight: 700 }}>
-                        {isDone ? "✓" : ""}
+                        style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: "2px solid " + ((isDone || custom) ? ac : "#2d5a3a"), background: (isDone || custom) ? ac + "33" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13, color: ac, fontWeight: 700 }}>
+                        {(isDone || custom) ? "✓" : ""}
                       </div>
                       <span style={{ fontSize: 20 }}>{meal.emoji}</span>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 14, fontWeight: 600, color: isDone ? "#4a7a54" : "#e0f0e0" }}>{meal.name}</span>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: (isDone && !custom) ? "#4a7a54" : "#e0f0e0" }}>{meal.name}</span>
                           {isCurrent && <span style={{ fontSize: 9, background: ac + "33", color: ac, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>עכשיו</span>}
+                          {custom && <span style={{ fontSize: 9, background: "#1e4a2e", color: "#4ade80", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>מותאם</span>}
                         </div>
                         <div style={{ fontSize: 11, color: "#4a7a54" }}>{meal.time}</div>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button onClick={e => { e.stopPropagation(); setEditingMeal(isEditing ? null : meal.id); setEditInput(custom?.description || ""); setAiError(""); }}
+                        style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, color: custom ? "#4ade80" : "#2d5a3a", padding: "2px 4px" }}>✏️</button>
                       <div style={{ textAlign: "center" }}>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: ac, fontFamily: "monospace" }}>{meal.cal}</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: custom ? "#4ade80" : ac, fontFamily: "monospace" }}>{actualCal}</div>
                         <div style={{ fontSize: 9, color: "#4a7a54" }}>קל׳</div>
                       </div>
                       <span style={{ color: "#3a5a3a", fontSize: 12, display: "inline-block", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
                     </div>
                   </div>
+                  {isEditing && (
+                    <div style={{ background: "#071510", borderTop: "1px solid #1a3a1f", padding: "12px 14px" }}>
+                      <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>כתוב באנגלית עם כמויות, מופרד בפסיקים:</div>
+                      <textarea value={editInput} onChange={e => setEditInput(e.target.value)} rows={3}
+                        placeholder={`e.g: 100g white rice, 80g red tuna, 1 tbsp spicy mayo`}
+                        style={{ width: "100%", background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", resize: "none", direction: "rtl" }} />
+                      {aiError && <div style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>{aiError}</div>}
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button onClick={() => analyzeNutrition(meal.id)} disabled={aiLoading || !editInput.trim()}
+                          style={{ flex: 1, background: editInput.trim() ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: editInput.trim() ? "pointer" : "default", fontFamily: "inherit" }}>
+                          {aiLoading ? "מחשב..." : "חשב קלוריות 🤖"}
+                        </button>
+                        {custom && <button onClick={() => { clearCustom(meal.id); setEditingMeal(null); setEditInput(""); }}
+                          style={{ background: "#2d1010", border: "1px solid #5a1a1a", borderRadius: 8, padding: "9px 12px", color: "#f87171", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                          בטל
+                        </button>}
+                      </div>
+                    </div>
+                  )}
                   {isOpen && (
                     <div style={{ background: "#0a1a0c", borderTop: "1px solid " + ac + "33", padding: "12px 14px" }}>
-                      <div style={{ marginBottom: 10 }}>
-                        {meal.items.map((item, i) => (
-                          <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0", borderBottom: i < meal.items.length - 1 ? "1px solid #0f2a12" : "none", color: item.startsWith("❌") ? "#f87171" : "#c8e8c8", fontSize: 13, lineHeight: 1.4 }}>
-                            {!item.startsWith("❌") && <span style={{ width: 5, height: 5, borderRadius: "50%", background: ac, flexShrink: 0, marginTop: 6 }} />}
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                        {[[meal.cal, "קלוריות", ac], [meal.pro + "g", "חלבון", "#60a5fa"]].map(([v, l, c]) => (
-                          <div key={l} style={{ flex: 1, background: "#0d1f10", borderRadius: 8, padding: "7px 10px", border: "1px solid #1a3a1f", textAlign: "center" }}>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: c, fontFamily: "monospace" }}>{v}</div>
-                            <div style={{ fontSize: 10, color: "#4a7a54" }}>{l}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ background: ac + "11", border: "1px solid " + ac + "33", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#a8c8a8", lineHeight: 1.5 }}>
-                        💡 {meal.tip}
-                      </div>
+                      {custom ? (
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, color: "#4ade80", fontWeight: 700, marginBottom: 6 }}>🍽️ מה אכלת:</div>
+                          <div style={{ fontSize: 13, color: "#c8e8c8", lineHeight: 1.6, background: "#0d2a15", borderRadius: 8, padding: "8px 12px", border: "1px solid #1e4a2e" }}>{custom.description}</div>
+                          <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 6 }}>תפריט מקורי: {meal.cal} קל׳ &nbsp;→&nbsp; <span style={{ color: "#4ade80", fontWeight: 700 }}>{custom.calories} קל׳ בפועל</span></div>
+                        </div>
+                      ) : (
+                        <div style={{ marginBottom: 10 }}>
+                          {meal.items.map((item, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "4px 0", borderBottom: i < meal.items.length - 1 ? "1px solid #0f2a12" : "none", color: "#c8e8c8", fontSize: 13, lineHeight: 1.4 }}>
+                              <span style={{ width: 5, height: 5, borderRadius: "50%", background: ac, flexShrink: 0, marginTop: 6 }} />
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!custom && (
+                        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                          {[[meal.cal, "קלוריות", ac], [meal.pro + "g", "חלבון", "#60a5fa"]].map(([v, l, c]) => (
+                            <div key={l} style={{ flex: 1, background: "#0d1f10", borderRadius: 8, padding: "7px 10px", border: "1px solid #1a3a1f", textAlign: "center" }}>
+                              <div style={{ fontSize: 16, fontWeight: 700, color: c, fontFamily: "monospace" }}>{v}</div>
+                              <div style={{ fontSize: 10, color: "#4a7a54" }}>{l}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {!custom && <div style={{ background: ac + "11", border: "1px solid " + ac + "33", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#a8c8a8", lineHeight: 1.5 }}>💡 {meal.tip}</div>}
                     </div>
                   )}
                 </div>
