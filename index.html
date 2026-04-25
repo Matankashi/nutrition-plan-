@@ -726,10 +726,16 @@ Return ONLY valid JSON, no markdown:
                                 <span>סה״כ</span>
                                 <span style={{ color: "#4ade80" }}>{aiBreakdown.total} קל׳</span>
                               </div>
-                              <button onClick={confirmBreakdown}
-                                style={{ width: "100%", marginTop: 8, background: "#166534", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-                                שמור ✓
-                              </button>
+                              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                                <button onClick={confirmBreakdown}
+                                  style={{ flex: 2, background: "#166534", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                                  שמור ✓
+                                </button>
+                                <button onClick={() => setAiBreakdown(null)}
+                                  style={{ flex: 1, background: "#0d1f10", border: "1px solid #2d5a3a", borderRadius: 8, padding: "9px", color: "#4a7a54", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                                  🔄 שנה
+                                </button>
+                              </div>
                             </div>
                           )}
                           {!aiBreakdown && (
