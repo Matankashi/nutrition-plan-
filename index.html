@@ -455,7 +455,8 @@
     }
 
     // ─── PlanTab ─────────────────────────────────────────────────────────────────
-    const GEMINI_API_KEY = "AIzaSyBLI3Ipqobc03tcAMQ2j8bksRUou5vPuj8";
+    let GEMINI_API_KEY = "";
+    db.ref("nutrition/_admin/geminiKey").once("value", snap => { if (snap.val()) GEMINI_API_KEY = snap.val(); });
 
     const getWeekDays = (offset = 0) => {
       const days = [];
