@@ -485,6 +485,8 @@
       const [aiLoading, setAiLoading] = useState(false);
       const [aiError, setAiError] = useState("");
       const [aiBreakdown, setAiBreakdown] = useState(null);
+      const [aiQuestions, setAiQuestions] = useState(null);
+      const [aiAnswers, setAiAnswers] = useState("");
 
       const isViewingToday = activeDateStr === todayStr;
       const activeMealId = isViewingToday ? getActiveMealId(now) : null;
@@ -502,33 +504,71 @@
       const TARGET_CAL = 2000;
       const calGap = doneCal - TARGET_CAL;
 
+      const callGemini = async (prompt) => {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+        const errMsg = data?.error?.message || "";
+        if (!text && errMsg) throw new Error(errMsg);
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("תגובה לא תקינה מה-AI");
+        return JSON.parse(jsonMatch[0]);
+      };
+
       const analyzeNutrition = async (mealId) => {
         if (!editInput.trim()) return;
-        setAiLoading(true); setAiError(""); setAiBreakdown(null);
+        setAiLoading(true); setAiError(""); setAiBreakdown(null); setAiQuestions(null);
         try {
-          const prompt = `You are a nutrition expert. Estimate calories for each food item in this meal (Hebrew or English). Return ONLY valid JSON, no markdown, no extra text:\n{"items":[{"name":"item name in the original language","calories":123}],"total":456}\n\nMeal: ${editInput.trim()}`;
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-          });
-          const data = await res.json();
-          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-          const errMsg = data?.error?.message || "";
-          if (!text && errMsg) { setAiError(`שגיאה: ${errMsg}`); setAiLoading(false); return; }
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) { setAiError("תגובה לא תקינה מה-AI. נסה שוב."); setAiLoading(false); return; }
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (!parsed.total || parsed.total < 1) { setAiError("לא הצלחתי לחשב. נסה לתאר בצורה יותר ברורה."); setAiLoading(false); return; }
-          setAiBreakdown({ items: parsed.items || [], total: parsed.total, mealId });
-        } catch(e) { setAiError("שגיאת חיבור. נסה שוב."); }
+          const prompt = `You are a nutrition expert. The user described a meal: "${editInput.trim()}"
+
+If the description is vague and asking 1-2 short clarifying questions would significantly improve accuracy (e.g. drink size, side dish, sauce), return:
+{"questions":["question in the same language as the input"]}
+
+Otherwise, estimate calories per item and return:
+{"items":[{"name":"item name in the original language","calories":123}],"total":456}
+
+Return ONLY valid JSON, no markdown, no extra text.`;
+          const parsed = await callGemini(prompt);
+          if (parsed.questions && parsed.questions.length > 0) {
+            setAiQuestions({ questions: parsed.questions, mealId });
+          } else if (parsed.total) {
+            setAiBreakdown({ items: parsed.items || [], total: parsed.total, mealId });
+          } else {
+            setAiError("לא הצלחתי לחשב. נסה לתאר בצורה יותר ברורה.");
+          }
+        } catch(e) { setAiError(`שגיאה: ${e.message}`); }
+        setAiLoading(false);
+      };
+
+      const submitAnswers = async () => {
+        if (!aiQuestions) return;
+        setAiLoading(true); setAiError(""); setAiQuestions(null);
+        try {
+          const prompt = `You are a nutrition expert. Estimate calories for this meal.
+Original description: "${editInput.trim()}"
+Additional details from user: "${aiAnswers}"
+
+Return ONLY valid JSON, no markdown:
+{"items":[{"name":"item name in the original language","calories":123}],"total":456}`;
+          const parsed = await callGemini(prompt);
+          if (parsed.total) {
+            setAiBreakdown({ items: parsed.items || [], total: parsed.total, mealId: aiQuestions.mealId });
+          } else {
+            setAiError("לא הצלחתי לחשב. נסה שוב.");
+          }
+        } catch(e) { setAiError(`שגיאה: ${e.message}`); }
+        setAiAnswers("");
         setAiLoading(false);
       };
 
       const confirmBreakdown = () => {
         if (!aiBreakdown) return;
         setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [aiBreakdown.mealId]: { description: editInput.trim(), calories: aiBreakdown.total } } }));
-        setEditingMeal(null); setEditInput(""); setAiBreakdown(null); setAiError("");
+        setEditingMeal(null); setEditInput(""); setAiBreakdown(null); setAiError(""); setAiQuestions(null); setAiAnswers("");
       };
 
       const saveManual = (mealId) => {
@@ -622,7 +662,7 @@
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button onClick={e => { e.stopPropagation(); setEditingMeal(isEditing ? null : meal.id); setEditInput(custom?.description || ""); setManualCal(""); setEditMode("auto"); setAiError(""); setAiBreakdown(null); }}
+                      <button onClick={e => { e.stopPropagation(); setEditingMeal(isEditing ? null : meal.id); setEditInput(custom?.description || ""); setManualCal(""); setEditMode("auto"); setAiError(""); setAiBreakdown(null); setAiQuestions(null); setAiAnswers(""); }}
                         style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, color: custom ? "#4ade80" : "#2d5a3a", padding: "2px 4px" }}>✏️</button>
                       <div style={{ textAlign: "center" }}>
                         <div style={{ fontSize: 16, fontWeight: 700, color: custom ? "#4ade80" : ac, fontFamily: "monospace" }}>{actualCal}</div>
@@ -650,6 +690,27 @@
                           {aiError && (
                             <div style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>
                               {aiError} — <span onClick={() => setEditMode("manual")} style={{ color: "#fbbf24", cursor: "pointer", textDecoration: "underline" }}>הכנס ידנית</span>
+                            </div>
+                          )}
+                          {aiQuestions && aiQuestions.mealId === meal.id && (
+                            <div style={{ marginTop: 8, background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "10px 12px" }}>
+                              <div style={{ fontSize: 11, color: "#4ade80", marginBottom: 6, fontWeight: 700 }}>🤖 כמה שאלות להדיוק:</div>
+                              {aiQuestions.questions.map((q, i) => (
+                                <div key={i} style={{ fontSize: 12, color: "#a0c4a8", marginBottom: 4 }}>• {q}</div>
+                              ))}
+                              <textarea value={aiAnswers} onChange={e => setAiAnswers(e.target.value)} rows={2}
+                                placeholder="כתוב את התשובות כאן..."
+                                style={{ width: "100%", marginTop: 8, background: "#080f0a", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", resize: "none", direction: "rtl" }} />
+                              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                <button onClick={submitAnswers} disabled={aiLoading || !aiAnswers.trim()}
+                                  style={{ flex: 1, background: aiAnswers.trim() ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: aiAnswers.trim() ? "pointer" : "default", fontFamily: "inherit" }}>
+                                  {aiLoading ? "מחשב..." : "המשך →"}
+                                </button>
+                                <button onClick={async () => { const mId = aiQuestions.mealId; setAiQuestions(null); setAiAnswers(""); setAiLoading(true); setAiError(""); try { const p = `Estimate calories for this meal. Return ONLY valid JSON:\n{"items":[{"name":"item name","calories":123}],"total":456}\n\nMeal: ${editInput.trim()}`; const parsed = await callGemini(p); if (parsed.total) setAiBreakdown({ items: parsed.items||[], total: parsed.total, mealId: mId }); else setAiError("נסה שוב."); } catch(e) { setAiError(e.message); } setAiLoading(false); }}
+                                  style={{ background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "9px 12px", color: "#4a7a54", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                                  דלג
+                                </button>
+                              </div>
                             </div>
                           )}
                           {aiBreakdown && aiBreakdown.mealId === meal.id && (
