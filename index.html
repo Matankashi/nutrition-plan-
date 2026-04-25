@@ -513,9 +513,10 @@
           });
           const data = await res.json();
           const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+          const errMsg = data?.error?.message || "";
           const match = text.match(/\d+/);
           const calories = match ? parseInt(match[0]) : 0;
-          if (!calories || calories < 1) { setAiError("לא הצלחתי לחשב. נסה לתאר את האוכל בצורה יותר ברורה (למשל: 150 גרם חזה עוף עם אורז)"); setAiLoading(false); return; }
+          if (!calories || calories < 1) { setAiError(`שגיאה: ${errMsg || text || JSON.stringify(data).slice(0,100)}`); setAiLoading(false); return; }
           setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: editInput.trim(), calories } } }));
           setEditingMeal(null); setEditInput("");
         } catch(e) { setAiError("שגיאת חיבור. נסה שוב."); }
