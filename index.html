@@ -1114,6 +1114,7 @@ Return ONLY valid JSON, no markdown:
       const [loading, setLoading] = useState(true);
       const [newMatanPin, setNewMatanPin] = useState("");
       const [newAdminPin, setNewAdminPin] = useState("");
+      const [newGeminiKey, setNewGeminiKey] = useState("");
       const [saved, setSaved] = useState("");
       const [newUsername, setNewUsername] = useState("");
       const [newUserPin, setNewUserPin] = useState("");
@@ -1255,6 +1256,21 @@ Return ONLY valid JSON, no markdown:
                 <button onClick={() => savePin("admin")} disabled={newAdminPin.length !== 4} style={{ background: newAdminPin.length === 4 ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newAdminPin.length === 4 ? "pointer" : "default", fontFamily: "inherit" }}>שמור</button>
               </div>
               <div style={{ fontSize: 11, color: G.mid, marginTop: 8 }}>PIN ברירת מחדל: 0000</div>
+            </div>
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 12 }}>🤖 מפתח Gemini AI</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={newGeminiKey} onChange={e => setNewGeminiKey(e.target.value.trim())}
+                  placeholder="הדבק מפתח API חדש מ-Google AI Studio"
+                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 12, outline: "none", direction: "ltr", fontFamily: "monospace" }} />
+                <button onClick={async () => { if (!newGeminiKey) return; await db.ref("nutrition/_admin/geminiKey").set(newGeminiKey); GEMINI_API_KEY = newGeminiKey; setSaved("gemini"); setNewGeminiKey(""); setTimeout(() => setSaved(""), 2000); }}
+                  disabled={!newGeminiKey}
+                  style={{ background: newGeminiKey ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newGeminiKey ? "pointer" : "default", fontFamily: "inherit" }}>
+                  {saved === "gemini" ? "✓" : "שמור"}
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: G.mid, marginTop: 8 }}>המפתח נשמר ב-Firebase ולא בקוד</div>
             </div>
           </div>
         </div>
