@@ -76,7 +76,7 @@
         tip: "שמן זית על הסלט — משפר ספיגת ויטמינים." },
       { id: 4, time: "17:00–18:00", name: "שייק חלבון", emoji: "🥤", cal: 376, pro: 31,
         items: ["אבקת חלבון מנה (30g)", "בננה קטנה (100g)", "15 שקדים / 3 אגוזי מלך / כף חמאת בוטנים", "צ׳יה 5g", "פשתן טחון 5g"],
-        tip: "ביום אימון — חמאת בוטנים. ביום רגיל — אגוזי מלך (אומגה-3)." },
+        tip: "ביום הליכה — חמאת בוטנים. ביום רגיל — אגוזי מלך (אומגה-3)." },
       { id: 5, time: "20:00–21:00", name: "ארוחת ערב", emoji: "🌙", cal: 400, pro: 23,
         items: ["2 ביצים", "2 פרוסות לחם שיפון", "ירקות חתוכים", "גבינה לבנה 5% — 2 כפות (40g)", "כפית שמן זית (5g)"],
         tip: "אם רעב אחרי — יוגורט יווני בלבד, לא מתוק." },
@@ -120,9 +120,9 @@
     function WeightTab() {
       const [entries, setEntries] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
       const [input, setInput] = useState("");
-      const [refeed, setRefeed] = usePersist("weight_refeed", null);
       const [expandedMonths, setExpandedMonths] = useState({});
       const toggleMonth = key => setExpandedMonths(p => ({ ...p, [key]: !p[key] }));
+      const [dayType, setDayType] = useState("rest");
 
       const last = entries[entries.length - 1].kg;
       const lost = +(START_W - last).toFixed(1);
@@ -197,6 +197,27 @@
         g.entries.push({ ...e, origIdx: i });
       });
 
+      // ── personal stats ────────────────────────────────────────────────────────
+      const BIRTHDAY = new Date(1991, 5, 5); // 5.6.1991
+      const HEIGHT = 1.75;
+      const bmi = +(last / (HEIGHT * HEIGHT)).toFixed(1);
+      const age = (() => {
+        let a = curYear - BIRTHDAY.getFullYear();
+        if (today < new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate())) a--;
+        return a;
+      })();
+      const ageMonths = (() => {
+        const lastBday = new Date(curYear - (today < new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate()) ? 1 : 0), BIRTHDAY.getMonth(), BIRTHDAY.getDate());
+        let m = (today.getFullYear() - lastBday.getFullYear()) * 12 + (today.getMonth() - lastBday.getMonth());
+        if (today.getDate() < lastBday.getDate()) m--;
+        return m;
+      })();
+      const ageDisplay = `${age}.${String(ageMonths).padStart(2,"0")}`;
+      const nextBday = new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate());
+      if (nextBday <= today) nextBday.setFullYear(curYear + 1);
+      const daysToNextBday = Math.ceil((nextBday - today) / 86400000);
+      const turningAge = age + 1;
+
       const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
       const iW = GW - PL - PR, iH = GH - PT - PB;
       const allKg = entries.map(e => e.kg);
@@ -228,6 +249,76 @@
             </div>
             <div style={{ textAlign: "center", fontSize: 11, color: "#4a7a54", marginTop: 5 }}>{pct.toFixed(1)}% מהדרך</div>
           </div>
+
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📊 פרטים אישיים</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+              {[
+                ["🎂 גיל", `${ageDisplay}`, `עוד ${daysToNextBday} ימים ל-${turningAge}`],
+                ["📏 גובה", `${HEIGHT} מ׳`, ""],
+                ["⚖️ משקל", `${last} ק״ג`, ""],
+                ["📐 BMI", `${bmi}`, bmi < 18.5 ? "תת משקל" : bmi < 25 ? "תקין" : bmi < 30 ? "עודף קל" : "עודף"],
+              ].map(([l, v, sub]) => (
+                <div key={l} style={{ background: "#0a1a0c", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
+                  <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>{l}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#e0f0e0", fontFamily: "monospace" }}>{v}</div>
+                  {sub ? <div style={{ fontSize: 9, color: "#4a7a54", marginTop: 2 }}>{sub}</div> : null}
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: "#4ade80", fontWeight: 700, marginBottom: 6 }}>🔥 קלוריות</div>
+            <div style={{ fontSize: 11, color: "#c8e8c8", lineHeight: 2 }}>
+              BMR (מנוחה מוחלטת): <span style={{ color: "#4ade80", fontWeight: 700 }}>1,775 קל׳</span><br/>
+              יום מנוחה (TDEE): <span style={{ color: "#60a5fa", fontWeight: 700 }}>2,350–2,550 קל׳</span><br/>
+              יום עבודה בקפה: <span style={{ color: "#60a5fa", fontWeight: 700 }}>+250–700 קל׳</span><br/>
+              הליכה 30–40 דק׳: <span style={{ color: "#60a5fa", fontWeight: 700 }}>+150–300 קל׳</span>
+            </div>
+            <div style={{ marginTop: 8, background: "#0a1a0c", borderRadius: 8, border: "1px solid #1e4a2e", padding: "8px 10px" }}>
+              <div style={{ fontSize: 11, color: "#fbbf24", fontWeight: 700, marginBottom: 4 }}>⚡ גירעון באכילה של 2,000 קל׳</div>
+              <div style={{ fontSize: 11, color: "#c8e8c8", lineHeight: 1.9 }}>
+                יום מנוחה: <span style={{ color: "#4ade80", fontWeight: 700 }}>~350–550 קל׳ גירעון</span><br/>
+                יום עבודה / הליכה: <span style={{ color: "#4ade80", fontWeight: 700 }}>~700–1,200 קל׳ גירעון</span>
+              </div>
+            </div>
+          </div>
+
+          {(() => {
+            const MENU_CAL = MEALS.reduce((s, m) => s + m.cal, 0);
+            const DAY_TYPES = [
+              { key: "rest",      label: "🛋 מנוחה",         tdee: [2350, 2550] },
+              { key: "work",      label: "☕ עבודה בקפה",    tdee: [2600, 3250] },
+              { key: "walk",      label: "🚶 הליכה",          tdee: [2500, 2850] },
+              { key: "workwalk",  label: "☕🚶 עבודה+הליכה", tdee: [2750, 3550] },
+            ];
+            const dt = DAY_TYPES.find(d => d.key === dayType);
+            const defMin = dt.tdee[0] - MENU_CAL;
+            const defMax = dt.tdee[1] - MENU_CAL;
+            return (
+              <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>⚡ מחשבון גירעון יומי</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
+                  {DAY_TYPES.map(d => (
+                    <button key={d.key} onClick={() => setDayType(d.key)}
+                      style={{ padding: "8px 4px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: dayType === d.key ? "#166534" : "#0a1a0c", color: dayType === d.key ? "#fff" : "#4a7a54", border: `1px solid ${dayType === d.key ? "#4ade80" : "#1a3a1f"}` }}>
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0a1a0c", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: "#4a7a54" }}>הוצאה יומית</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", fontFamily: "monospace" }}>{dt.tdee[0].toLocaleString()}–{dt.tdee[1].toLocaleString()} קל׳</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0a1a0c", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: "#4a7a54" }}>התפריט</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0", fontFamily: "monospace" }}>{MENU_CAL.toLocaleString()} קל׳</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0d2e18", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e4a2e" }}>
+                  <span style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>גירעון משוער</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "#4ade80", fontFamily: "monospace" }}>▼ {defMin}–{defMax} קל׳</span>
+                </div>
+              </div>
+            );
+          })()}
 
           {monthStat && (
             <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
@@ -271,8 +362,7 @@
               {entries.length > 1 && <polyline points={pts} fill="none" stroke="#4ade80" strokeWidth={2} strokeLinejoin="round" />}
               {entries.map((e, i) => (
                 <g key={i}>
-                  <circle cx={toX(i).toFixed(1)} cy={toY(e.kg).toFixed(1)} r={4} fill={refeed === e.week ? "#f87171" : "#4ade80"} stroke="#0d1f10" strokeWidth={1.5} />
-                  {refeed === e.week && <text x={toX(i).toFixed(1)} y={(toY(e.kg) - 8).toFixed(1)} textAnchor="middle" fontSize={9} fill="#f87171">🍕</text>}
+                  <circle cx={toX(i).toFixed(1)} cy={toY(e.kg).toFixed(1)} r={4} fill="#4ade80" stroke="#0d1f10" strokeWidth={1.5} />
                   <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={8} fill="#4a7a54">{shortDate(e)}</text>
                 </g>
               ))}
@@ -295,28 +385,6 @@
             <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 8 }}>💡 בוקר, בצום, אותה שעה ואותם בגדים</div>
           </div>
 
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #2d1a1a", padding: 14, marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: "#f87171", fontWeight: 700, marginBottom: 8 }}>🍕 ארוחה חופשית שבועית (Refeed)</div>
-            <div style={{ fontSize: 12, color: "#c8e8c8", lineHeight: 1.9 }}>
-              ✅ פעם בשבוע — ארוחה אחת גדולה, לא יום שלם<br/>
-              ✅ עד 2,500–2,800 קל׳ סה״כ באותו יום<br/>
-              ✅ עוזר ללפטין, למוטיבציה ולחילוף חומרים<br/>
-              ❌ לא לבחור יום לפני השקילה
-            </div>
-            {entries.length > 1 && (
-              <>
-                <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 10, marginBottom: 6 }}>סמן שקילת Refeed על הגרף:</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {entries.map(e => (
-                    <button key={e.week} onClick={() => setRefeed(refeed === e.week ? null : e.week)}
-                      style={{ padding: "4px 12px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 11, fontFamily: "inherit", fontWeight: 600, background: refeed === e.week ? "#7f1d1d" : "#1a3a1f", color: refeed === e.week ? "#f87171" : "#4a7a54" }}>
-                      {shortDate(e)}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
 
           {entries.length > 1 && (
             <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 20 }}>
@@ -333,7 +401,7 @@
                       const isLast = gi === monthGroups.length - 1 && ei === g.entries.length - 1;
                       return (
                         <div key={e.origIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: isLast ? "none" : "1px solid #0f2a12" }}>
-                          <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.date || e.label}{refeed === e.week ? " 🍕" : ""}</div>
+                          <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.date || e.label}</div>
                           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{e.kg} ק״ג</span>
                           {diff !== null
                             ? <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: diff < 0 ? "#4ade80" : diff > 0 ? "#f87171" : "#4a7a54" }}>{diff < 0 ? "▼" : diff > 0 ? "▲" : "="} {Math.abs(diff)}</span>
@@ -353,7 +421,7 @@
                           const d = ei === 0 ? null : +(e.kg - g.entries[ei - 1].kg).toFixed(1);
                           return (
                             <div key={e.origIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #0f2a12" }}>
-                              <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.date || e.label}{refeed === e.week ? " 🍕" : ""}</div>
+                              <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.date || e.label}</div>
                               <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{e.kg} ק״ג</span>
                               {d !== null
                                 ? <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: d < 0 ? "#4ade80" : d > 0 ? "#f87171" : "#4a7a54" }}>{d < 0 ? "▼" : d > 0 ? "▲" : "="} {Math.abs(d)}</span>
@@ -504,6 +572,17 @@
             })}
             <div style={{ height: 20 }} />
           </div>
+          <div style={{ padding: "0 14px 14px" }}>
+            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #2d1a1a", padding: 14 }}>
+              <div style={{ fontSize: 12, color: "#f87171", fontWeight: 700, marginBottom: 8 }}>🍕 ארוחה חופשית שבועית (Refeed)</div>
+              <div style={{ fontSize: 12, color: "#c8e8c8", lineHeight: 1.9 }}>
+                ✅ פעם בשבוע — ארוחה אחת גדולה, לא יום שלם<br/>
+                ✅ עד 2,500–2,800 קל׳ סה״כ באותו יום<br/>
+                ✅ עוזר ללפטין, למוטיבציה ולחילוף חומרים<br/>
+                ❌ לא לבחור יום לפני השקילה
+              </div>
+            </div>
+          </div>
         </>
       );
     }
@@ -513,14 +592,12 @@
       { day: "ראשון", tasks: [
         { id:"w1", cat:"🥗", text:"הקפד על התפריט המלא" },
         { id:"w2", cat:"🚶", text:"הליכה 30 דקות" },
-        { id:"w3", cat:"💪", text:"אימון כוח — סקוואט, שכיבות שמיכה, פלאנק" },
         { id:"w4", cat:"💧", text:"2.5 ליטר מים" },
         { id:"w5", cat:"🚫", text:"ללא אלכוהול" },
         { id:"w6", cat:"😴", text:"7+ שעות שינה" },
       ]},
       { day: "שני", tasks: [
         { id:"m1", cat:"🥗", text:"הקפד על התפריט המלא" },
-        { id:"m2", cat:"🚶", text:"הליכה 30 דקות" },
         { id:"m3", cat:"💧", text:"2.5 ליטר מים" },
         { id:"m4", cat:"🚫", text:"ללא אלכוהול" },
         { id:"m5", cat:"😴", text:"7+ שעות שינה" },
@@ -528,14 +605,12 @@
       { day: "שלישי", tasks: [
         { id:"t1", cat:"🥗", text:"הקפד על התפריט המלא" },
         { id:"t2", cat:"🚶", text:"הליכה 30 דקות" },
-        { id:"t3", cat:"💪", text:"אימון כוח — מתח / שורות, דדליפט, לאנג׳" },
         { id:"t4", cat:"💧", text:"2.5 ליטר מים" },
         { id:"t5", cat:"🚫", text:"ללא אלכוהול" },
         { id:"t6", cat:"😴", text:"7+ שעות שינה" },
       ]},
       { day: "רביעי", tasks: [
         { id:"r1", cat:"🥗", text:"הקפד על התפריט המלא" },
-        { id:"r2", cat:"🚶", text:"הליכה 30 דקות" },
         { id:"r3", cat:"💧", text:"2.5 ליטר מים" },
         { id:"r4", cat:"🚫", text:"ללא אלכוהול" },
         { id:"r5", cat:"😴", text:"7+ שעות שינה" },
@@ -543,14 +618,12 @@
       { day: "חמישי", tasks: [
         { id:"h1", cat:"🥗", text:"הקפד על התפריט המלא" },
         { id:"h2", cat:"🚶", text:"הליכה 30 דקות" },
-        { id:"h3", cat:"💪", text:"אימון כוח — חזרה על ראשון (סקוואט, שכיבות, פלאנק)" },
         { id:"h4", cat:"💧", text:"2.5 ליטר מים" },
         { id:"h5", cat:"🚫", text:"ללא אלכוהול" },
         { id:"h6", cat:"😴", text:"7+ שעות שינה" },
       ]},
       { day: "שישי", tasks: [
         { id:"s1", cat:"🥗", text:"הקפד על התפריט המלא" },
-        { id:"s2", cat:"🚶", text:"הליכה 30 דקות" },
         { id:"s3", cat:"💧", text:"2.5 ליטר מים" },
         { id:"s4", cat:"🍕", text:"אפשר ארוחה חופשית אחת (עד 800 קל׳)" },
         { id:"s5", cat:"🍺", text:"אפשר 1–2 משקאות (לא בירה)" },
@@ -558,7 +631,6 @@
       ]},
       { day: "שבת", tasks: [
         { id:"b1", cat:"🥗", text:"תפריט מאוזן — לא מושלם, לא קריסה" },
-        { id:"b2", cat:"🚶", text:"הליכה קלה / מנוחה פעילה" },
         { id:"b3", cat:"💧", text:"2.5 ליטר מים" },
         { id:"b4", cat:"⚖️", text:"שקול בבוקר בצום — עדכן באפליקציה" },
         { id:"b5", cat:"😴", text:"7+ שעות שינה" },
@@ -586,8 +658,7 @@
         return { ...p, [key]: ts };
       });
 
-      const strengthDays = [0, 2, 4];
-      const isStrength = strengthDays.includes(activeDay);
+      const walkDays = [0, 2, 4];
 
       return (
         <div style={{ padding: "14px 14px 0" }}>
@@ -617,7 +688,7 @@
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div>
                 <span style={{ fontSize: 15, fontWeight: 700, color: "#4ade80" }}>{dayPlan.day}</span>
-                {isStrength && <span style={{ fontSize: 11, color: "#f87171", marginRight: 8 }}>💪 יום כוח</span>}
+                {walkDays.includes(activeDay) && <span style={{ fontSize: 11, color: "#60a5fa", marginRight: 8 }}>🚶 יום הליכה</span>}
                 {activeDay === 5 && <span style={{ fontSize: 11, color: "#fbbf24", marginRight: 8 }}>🍕 יום חופשי</span>}
                 {activeDay === 6 && <span style={{ fontSize: 11, color: "#4ade80", marginRight: 8 }}>⚖️ יום שקילה</span>}
               </div>
@@ -662,8 +733,7 @@
             <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📋 סיכום שבועי</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {[
-                ["💪 אימוני כוח", strengthDays.reduce((s,di)=>s+(WEEK_PLAN[di].tasks.filter(t=>checked[di+"-"+t.id]&&t.cat==="💪").length>0?1:0),0) + "/3"],
-                ["🚶 הליכות", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[i+"-"+t.id]&&t.cat==="🚶").length>0?1:0),0) + "/7"],
+                ["🚶 הליכות", walkDays.reduce((s,di)=>s+(WEEK_PLAN[di].tasks.filter(t=>checked[di+"-"+t.id]&&t.cat==="🚶").length>0?1:0),0) + "/3"],
                 ["🚫 ימים ללא אלכוהול", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[i+"-"+t.id]&&t.cat==="🚫").length>0?1:0),0) + "/5"],
                 ["🥗 ימי תפריט", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[i+"-"+t.id]&&t.cat==="🥗").length>0?1:0),0) + "/7"],
               ].map(([l,v]) => (
