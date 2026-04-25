@@ -756,10 +756,16 @@ Return ONLY valid JSON, no markdown:
                         </>
                       )}
                       {custom && (
-                        <button onClick={() => { clearCustom(meal.id); setEditingMeal(null); setEditInput(""); setManualCal(""); }}
-                          style={{ width: "100%", marginTop: 6, background: "transparent", border: "1px solid #5a1a1a", borderRadius: 8, padding: "6px", color: "#f87171", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-                          בטל התאמה
-                        </button>
+                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                          <button onClick={() => { setEditingMeal(meal.id); setEditInput(custom.description || ""); setManualCal(""); setEditMode("auto"); setAiError(""); setAiBreakdown(null); setAiQuestions(null); setAiAnswers(""); }}
+                            style={{ flex: 1, background: "#0d2010", border: "1px solid #2d5a3a", borderRadius: 8, padding: "6px", color: "#4ade80", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>
+                            🔄 חשב מחדש
+                          </button>
+                          <button onClick={() => { clearCustom(meal.id); setEditingMeal(null); setEditInput(""); setManualCal(""); }}
+                            style={{ flex: 1, background: "transparent", border: "1px solid #5a1a1a", borderRadius: 8, padding: "6px", color: "#f87171", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                            בטל התאמה
+                          </button>
+                        </div>
                       )}
                     </div>
                   )}
