@@ -455,8 +455,7 @@
     }
 
     // ─── PlanTab ─────────────────────────────────────────────────────────────────
-    const EDAMAM_APP_ID  = "c01dec80";
-    const EDAMAM_APP_KEY = "91b4cadff1565886e1a33b946d71acfd";
+    const GEMINI_API_KEY = "AIzaSyBLI3Ipqobc03tcAMQ2j8bksRUou5vPuj8";
 
     const getWeekDays = (offset = 0) => {
       const days = [];
@@ -506,19 +505,16 @@
         if (!editInput.trim()) return;
         setAiLoading(true); setAiError("");
         try {
-          const ingr = editInput.split(/,/).map(s => s.trim()).filter(Boolean);
-          const res = await fetch(`https://api.edamam.com/api/nutrition-details?app_id=${EDAMAM_APP_ID}&app_key=${EDAMAM_APP_KEY}`, {
+          const prompt = `You are a nutrition expert. Estimate the total calories for this meal description. The description may be in Hebrew or English. Reply with ONLY a single integer number representing the total calories, nothing else.\n\nMeal: ${editInput.trim()}`;
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ingr })
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
           });
           const data = await res.json();
-          let calories = 0;
-          (data.ingredients || []).forEach(ing => {
-            (ing.parsed || []).forEach(p => { calories += p.nutrients?.ENERC_KCAL?.quantity || 0; });
-          });
-          calories = Math.round(calories);
-          if (!calories) { setAiError("לא הצלחתי לחשב. כתוב באנגלית עם כמויות (למשל: 100g white rice, 80g tuna)"); setAiLoading(false); return; }
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+          const calories = parseInt(text.replace(/\D/g, ""));
+          if (!calories || calories < 1) { setAiError("לא הצלחתי לחשב. נסה לתאר את האוכל בצורה יותר ברורה (למשל: 150 גרם חזה עוף עם אורז)"); setAiLoading(false); return; }
           setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: editInput.trim(), calories } } }));
           setEditingMeal(null); setEditInput("");
         } catch(e) { setAiError("שגיאת חיבור. נסה שוב."); }
@@ -637,10 +633,10 @@
                       </div>
                       {editMode === "auto" ? (
                         <>
-                          <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>כתוב באנגלית עם כמויות, מופרד בפסיקים:</div>
+                          <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>תאר מה אכלת — בעברית או אנגלית:</div>
                           <textarea value={editInput} onChange={e => setEditInput(e.target.value)} rows={2}
-                            placeholder="e.g: 150g beef burger patty, 1 slice cheddar, 2 strips bacon"
-                            style={{ width: "100%", background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", resize: "none", direction: "ltr" }} />
+                            placeholder="למשל: המבורגר עם צ׳דר ובייקון, 150 גרם אורז, שתי ביצים מקושקשות"
+                            style={{ width: "100%", background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", resize: "none", direction: "rtl" }} />
                           {aiError && (
                             <div style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>
                               {aiError} — <span onClick={() => setEditMode("manual")} style={{ color: "#fbbf24", cursor: "pointer", textDecoration: "underline" }}>הכנס ידנית</span>
