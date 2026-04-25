@@ -481,6 +481,8 @@
       const [customMeals, setCustomMeals] = usePersist("custom_meals_v1", {});
       const [editingMeal, setEditingMeal] = useState(null);
       const [editInput, setEditInput] = useState("");
+      const [editMode, setEditMode] = useState("auto"); // "auto" | "manual"
+      const [manualCal, setManualCal] = useState("");
       const [aiLoading, setAiLoading] = useState(false);
       const [aiError, setAiError] = useState("");
 
@@ -521,6 +523,14 @@
           setEditingMeal(null); setEditInput("");
         } catch(e) { setAiError("שגיאת חיבור. נסה שוב."); }
         setAiLoading(false);
+      };
+
+      const saveManual = (mealId) => {
+        const calories = parseInt(manualCal);
+        if (!calories || calories < 1) return;
+        const desc = editInput.trim() || "ארוחה מותאמת";
+        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: desc, calories } } }));
+        setEditingMeal(null); setEditInput(""); setManualCal(""); setAiError("");
       };
 
       const clearCustom = (mealId) => {
@@ -606,7 +616,7 @@
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button onClick={e => { e.stopPropagation(); setEditingMeal(isEditing ? null : meal.id); setEditInput(custom?.description || ""); setAiError(""); }}
+                      <button onClick={e => { e.stopPropagation(); setEditingMeal(isEditing ? null : meal.id); setEditInput(custom?.description || ""); setManualCal(""); setEditMode("auto"); setAiError(""); }}
                         style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, color: custom ? "#4ade80" : "#2d5a3a", padding: "2px 4px" }}>✏️</button>
                       <div style={{ textAlign: "center" }}>
                         <div style={{ fontSize: 16, fontWeight: 700, color: custom ? "#4ade80" : ac, fontFamily: "monospace" }}>{actualCal}</div>
@@ -617,21 +627,52 @@
                   </div>
                   {isEditing && (
                     <div style={{ background: "#071510", borderTop: "1px solid #1a3a1f", padding: "12px 14px" }}>
-                      <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>כתוב באנגלית עם כמויות, מופרד בפסיקים:</div>
-                      <textarea value={editInput} onChange={e => setEditInput(e.target.value)} rows={3}
-                        placeholder={`e.g: 100g white rice, 80g red tuna, 1 tbsp spicy mayo`}
-                        style={{ width: "100%", background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", resize: "none", direction: "rtl" }} />
-                      {aiError && <div style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>{aiError}</div>}
-                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                        <button onClick={() => analyzeNutrition(meal.id)} disabled={aiLoading || !editInput.trim()}
-                          style={{ flex: 1, background: editInput.trim() ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: editInput.trim() ? "pointer" : "default", fontFamily: "inherit" }}>
-                          {aiLoading ? "מחשב..." : "חשב קלוריות 🤖"}
-                        </button>
-                        {custom && <button onClick={() => { clearCustom(meal.id); setEditingMeal(null); setEditInput(""); }}
-                          style={{ background: "#2d1010", border: "1px solid #5a1a1a", borderRadius: 8, padding: "9px 12px", color: "#f87171", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-                          בטל
-                        </button>}
+                      <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                        {[["auto","🤖 חשב אוטומטי"],["manual","✏️ הכנס ידנית"]].map(([m,l]) => (
+                          <button key={m} onClick={() => { setEditMode(m); setAiError(""); }}
+                            style={{ flex: 1, padding: "6px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: editMode === m ? "#166534" : "#0a1a0c", color: editMode === m ? "#fff" : "#4a7a54" }}>
+                            {l}
+                          </button>
+                        ))}
                       </div>
+                      {editMode === "auto" ? (
+                        <>
+                          <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>כתוב באנגלית עם כמויות, מופרד בפסיקים:</div>
+                          <textarea value={editInput} onChange={e => setEditInput(e.target.value)} rows={2}
+                            placeholder="e.g: 150g beef burger patty, 1 slice cheddar, 2 strips bacon"
+                            style={{ width: "100%", background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", resize: "none", direction: "ltr" }} />
+                          {aiError && (
+                            <div style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>
+                              {aiError} — <span onClick={() => setEditMode("manual")} style={{ color: "#fbbf24", cursor: "pointer", textDecoration: "underline" }}>הכנס ידנית</span>
+                            </div>
+                          )}
+                          <button onClick={() => analyzeNutrition(meal.id)} disabled={aiLoading || !editInput.trim()}
+                            style={{ width: "100%", marginTop: 8, background: editInput.trim() ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: editInput.trim() ? "pointer" : "default", fontFamily: "inherit" }}>
+                            {aiLoading ? "מחשב..." : "חשב קלוריות 🤖"}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>תאר מה אכלת (אופציונלי):</div>
+                          <input value={editInput} onChange={e => setEditInput(e.target.value)}
+                            placeholder="למשל: המבורגר עם צ׳דר ובייקון"
+                            style={{ width: "100%", background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", marginBottom: 8, direction: "rtl" }} />
+                          <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>כמה קלוריות? (חפש בגוגל אם לא בטוח)</div>
+                          <input value={manualCal} onChange={e => setManualCal(e.target.value.replace(/\D/g,""))}
+                            placeholder="למשל: 650" inputMode="numeric"
+                            style={{ width: "100%", background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#4ade80", fontSize: 18, fontWeight: 700, fontFamily: "monospace", outline: "none", direction: "ltr", textAlign: "center" }} />
+                          <button onClick={() => saveManual(meal.id)} disabled={!manualCal}
+                            style={{ width: "100%", marginTop: 8, background: manualCal ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: manualCal ? "pointer" : "default", fontFamily: "inherit" }}>
+                            שמור
+                          </button>
+                        </>
+                      )}
+                      {custom && (
+                        <button onClick={() => { clearCustom(meal.id); setEditingMeal(null); setEditInput(""); setManualCal(""); }}
+                          style={{ width: "100%", marginTop: 6, background: "transparent", border: "1px solid #5a1a1a", borderRadius: 8, padding: "6px", color: "#f87171", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                          בטל התאמה
+                        </button>
+                      )}
                     </div>
                   )}
                   {isOpen && (
