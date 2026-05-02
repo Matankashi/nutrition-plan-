@@ -414,13 +414,28 @@
                       const diff = prevWeekAvg !== null ? +(wg.avg - prevWeekAvg).toFixed(2) : null;
                       prevWeekAvg = wg.avg;
                       const isLast = gi === monthGroups.length - 1 && wi === g.weekGroups.length - 1;
+                      const expanded = !!expandedMonths[wg.key];
                       return (
-                        <div key={wg.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: isLast ? "none" : "1px solid #0f2a12" }}>
-                          <div style={{ fontSize: 12, color: "#c8e8c8" }}>{wg.label}</div>
-                          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{wg.avg} ק״ג</span>
-                          {diff !== null
-                            ? <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: diff < 0 ? "#4ade80" : diff > 0 ? "#f87171" : "#4a7a54" }}>{diff < 0 ? "▼" : diff > 0 ? "▲" : "="} {Math.abs(diff)}</span>
-                            : <span style={{ minWidth: 48 }} />}
+                        <div key={wg.key} style={{ marginBottom: 2 }}>
+                          {expanded && wg.entries.map((e, ei) => {
+                            const d = ei === 0 ? null : +(e.kg - wg.entries[ei - 1].kg).toFixed(1);
+                            return (
+                              <div key={e.origIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 8px 5px 16px", borderBottom: "1px solid #0f2a12" }}>
+                                <div style={{ fontSize: 11, color: "#7ab87a" }}>{e.date || e.label}</div>
+                                <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace", color: "#c8e8c8" }}>{e.kg} ק״ג</span>
+                                {d !== null
+                                  ? <span style={{ fontSize: 11, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: d < 0 ? "#4ade80" : d > 0 ? "#f87171" : "#4a7a54" }}>{d < 0 ? "▼" : d > 0 ? "▲" : "="} {Math.abs(d)}</span>
+                                  : <span style={{ minWidth: 48 }} />}
+                              </div>
+                            );
+                          })}
+                          <div onClick={() => toggleMonth(wg.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: isLast && !expanded ? "none" : "1px solid #0f2a12", cursor: "pointer" }}>
+                            <div style={{ fontSize: 12, color: "#c8e8c8" }}>{wg.label} <span style={{ fontSize: 10, color: "#2d5a3a" }}>{expanded ? "▲" : "▼"}</span></div>
+                            <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{wg.avg} ק״ג</span>
+                            {diff !== null
+                              ? <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: diff < 0 ? "#4ade80" : diff > 0 ? "#f87171" : "#4a7a54" }}>{diff < 0 ? "▼" : diff > 0 ? "▲" : "="} {Math.abs(diff)}</span>
+                              : <span style={{ minWidth: 48 }} />}
+                          </div>
                         </div>
                       );
                     });
