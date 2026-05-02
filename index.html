@@ -456,12 +456,22 @@
                     const monthDiff = prevWeekAvg !== null && g.monthAvg !== null ? +(g.monthAvg - prevWeekAvg).toFixed(2) : null;
                     prevWeekAvg = lastWeekAvg;
                     const expanded = !!expandedMonths[g.key];
+                    const firstEntry = g.entries[0];
                     return (
                       <div key={g.key} style={{ marginBottom: 6 }}>
-                        {expanded && g.weekGroups.map((wg, wi) => {
-                          const d = wi === 0 ? null : +(wg.avg - g.weekGroups[wi - 1].avg).toFixed(2);
-                          return renderWeekRow(wg, wi, d, wi === g.weekGroups.length - 1);
-                        })}
+                        {expanded
+                          ? g.weekGroups.map((wg, wi) => {
+                              const d = wi === 0 ? null : +(wg.avg - g.weekGroups[wi - 1].avg).toFixed(2);
+                              return renderWeekRow(wg, wi, d, wi === g.weekGroups.length - 1);
+                            })
+                          : (
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #0f2a12" }}>
+                              <div style={{ fontSize: 12, color: "#c8e8c8" }}>{firstEntry.date || firstEntry.label}</div>
+                              <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{firstEntry.kg} ק״ג</span>
+                              <span style={{ minWidth: 48 }} />
+                            </div>
+                          )
+                        }
                         <div onClick={() => toggleMonth(g.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", background: "#0a1a0c", borderRadius: 7, borderBottom: gi < monthGroups.length - 1 ? "1px solid #1a3a1f" : "none", marginBottom: 2, cursor: "pointer" }}>
                           <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{g.label} <span style={{ fontSize: 10, color: "#2d5a3a" }}>{expanded ? "▲" : "▼"}</span></div>
                           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{g.monthAvg} ק״ג</span>
