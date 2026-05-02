@@ -197,7 +197,7 @@
         if (!g) { g = { key, label: mLabel, isCurrent: isCur, entries: [], weekGroups: [] }; monthGroups.push(g); }
         g.entries.push({ ...e, origIdx: i });
         if (d) {
-          const weekNum = Math.ceil(d.getDate() / 7);
+          const weekNum = Math.min(Math.ceil(d.getDate() / 7), 4);
           const wKey = `${key}-w${weekNum}`;
           const wLabel = `${EN_MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)} Week ${weekNum}`;
           let wg = g.weekGroups.find(w => w.key === wKey);
