@@ -1412,6 +1412,180 @@ Return ONLY valid JSON, no markdown:
       );
     }
 
+    // ─── KoachTab ────────────────────────────────────────────────────────────────
+    const KOACH_PLAN = [
+      { type: "strength", typeLabel: "💪 כוח", color: "#f87171", exercises: [
+        { id: "k0a", name: "מתח בירידה",    sets: "2×2",          cat: "משיכה"   },
+        { id: "k0b", name: "שכיבות סמיכה",  sets: "2×5-8",        cat: "דחיפה"   },
+        { id: "k0c", name: "סקוואטים",       sets: "2×10-15",      cat: "רגליים"  },
+        { id: "k0d", name: "פלאנק",          sets: "2×20-30 שנ׳", cat: "ליבה"    },
+        { id: "k0e", name: "מתיחות בסוף",    sets: "",             cat: ""        },
+      ]},
+      { type: "physio", typeLabel: "🧘 פיזיו", color: "#a78bfa", exercises: [
+        { id: "k1a", name: "תלייה קלה",              sets: "2×10-20 שנ׳", cat: "כתפיים"  },
+        { id: "k1b", name: "מוביליות כתפיים",         sets: "",             cat: "מוביליות"},
+        { id: "k1c", name: "סקוואט איטי קל",          sets: "1×8-10",       cat: "רגליים"  },
+        { id: "k1d", name: "פתיחת ירכיים / קרסוליים", sets: "",             cat: "מוביליות"},
+        { id: "k1e", name: "מתיחות בסוף",             sets: "",             cat: ""        },
+      ]},
+      { type: "strength", typeLabel: "💪 כוח (וריאציה)", color: "#f87171", exercises: [
+        { id: "k2a", name: "מתח בירידה",           sets: "2×2",          cat: "משיכה"   },
+        { id: "k2b", name: "שכיבות סמיכה",         sets: "2×5-8",        cat: "דחיפה"   },
+        { id: "k2c", name: "עליות מדרגה / לאנג׳ קל", sets: "2×10-15",    cat: "רגליים"  },
+        { id: "k2d", name: "סייד פלאנק",            sets: "2×20-30 שנ׳", cat: "ליבה"    },
+        { id: "k2e", name: "מתיחות בסוף",           sets: "",             cat: ""        },
+      ]},
+      { type: "physio", typeLabel: "🧘 פיזיו", color: "#a78bfa", exercises: [
+        { id: "k3a", name: "תרגילי שכמות קלים",          sets: "",                    cat: "כתפיים"  },
+        { id: "k3b", name: "תלייה קלה",                   sets: "אם הכתפיים בסדר",    cat: "כתפיים"  },
+        { id: "k3c", name: "מוביליות ירכיים",             sets: "",                    cat: "מוביליות"},
+        { id: "k3d", name: "מתיחות בסוף",                 sets: "",                    cat: ""        },
+      ]},
+      { type: "strength", typeLabel: "💪 כוח", color: "#f87171", exercises: [
+        { id: "k4a", name: "מתח בירידה",   sets: "2×2",          cat: "משיכה"  },
+        { id: "k4b", name: "שכיבות סמיכה", sets: "2×5-8",        cat: "דחיפה"  },
+        { id: "k4c", name: "סקוואט / לאנג׳", sets: "2×10-15",    cat: "רגליים" },
+        { id: "k4d", name: "פלאנק",         sets: "2×20-30 שנ׳", cat: "ליבה"   },
+        { id: "k4e", name: "מתיחות בסוף",   sets: "",             cat: ""       },
+      ]},
+      { type: "walk", typeLabel: "🚶 הליכה בלבד", color: "#60a5fa", exercises: [
+        { id: "k5a", name: "מתיחות אחרי ההליכה", sets: "", cat: "" },
+      ]},
+      { type: "choice", typeLabel: "✨ בחירה לפי תחושה", color: "#4a7a54", exercises: [
+        { id: "k6a", name: "פיזיו קל / הליכה — אם הגוף טוב", sets: "", cat: "" },
+        { id: "k6b", name: "מנוחה — אם הגוף עייף",           sets: "", cat: "" },
+      ]},
+    ];
+
+    function KoachTab() {
+      const [now] = useState(new Date());
+      const todayStr = toDateStr(now);
+      const [weekOffset, setWeekOffset] = useState(0);
+      const days = getWeekDays(weekOffset);
+      const [activeDateStr, setActiveDateStr] = useState(todayStr);
+      const [exChecked, setExChecked] = usePersist("workout_exercises_v1", {});
+
+      const activeDay = days.find(d => d.dateStr === activeDateStr) || { dayName: "", display: activeDateStr };
+      const dayOfWeek = new Date(activeDateStr + "T12:00:00").getDay();
+      const plan = KOACH_PLAN[dayOfWeek];
+      const exercises = plan.exercises;
+      const doneCount = exercises.filter(e => !!exChecked[activeDateStr + "-" + e.id]).length;
+      const total = exercises.length;
+      const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+      const allDone = doneCount === total && total > 0;
+      const toggle = (exId) => setExChecked(p => ({ ...p, [activeDateStr + "-" + exId]: !p[activeDateStr + "-" + exId] }));
+
+      const weeklyStrength = days.filter(d => {
+        const p = KOACH_PLAN[new Date(d.dateStr + "T12:00:00").getDay()];
+        return p.type === "strength" && p.exercises.some(e => !!exChecked[d.dateStr + "-" + e.id]);
+      }).length;
+      const weeklyPhysio = days.filter(d => {
+        const p = KOACH_PLAN[new Date(d.dateStr + "T12:00:00").getDay()];
+        return p.type === "physio" && p.exercises.some(e => !!exChecked[d.dateStr + "-" + e.id]);
+      }).length;
+
+      return (
+        <>
+          <div style={{ padding: "10px 14px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+              <button onClick={() => setWeekOffset(w => w + 1)} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 8px", fontFamily: "inherit" }}>‹</button>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, flex: 1 }}>
+                {days.map(day => {
+                  const p = KOACH_PLAN[new Date(day.dateStr + "T12:00:00").getDay()];
+                  const isActive = day.dateStr === activeDateStr;
+                  const isToday  = day.dateStr === todayStr;
+                  const anyDone  = p.exercises.some(e => !!exChecked[day.dateStr + "-" + e.id]);
+                  const dayAllDone = p.exercises.length > 0 && p.exercises.every(e => !!exChecked[day.dateStr + "-" + e.id]);
+                  const typeIcon = { strength:"💪", physio:"🧘", walk:"🚶", choice:"✨" }[p.type] || "—";
+                  return (
+                    <button key={day.dateStr} onClick={() => setActiveDateStr(day.dateStr)} style={{
+                      background: isActive ? "#166534" : "#0d1f10", border: isToday ? "1px solid #4ade80" : "1px solid #1a3a1f",
+                      borderRadius: 8, padding: "6px 2px", cursor: "pointer", textAlign: "center", transition: "all 0.2s",
+                    }}>
+                      <div style={{ fontSize: 9, color: isActive ? "#4ade80" : "#4a7a54", fontWeight: isToday ? 700 : 400 }}>{day.dayName.slice(0,3)}</div>
+                      <div style={{ fontSize: 9, color: isActive ? "#a8d8a8" : "#3a5a3a", marginTop: 1 }}>{day.display}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, marginTop: 2, color: dayAllDone ? "#4ade80" : anyDone ? "#fbbf24" : isActive ? p.color : "#3a5a3a" }}>
+                        {dayAllDone ? "✓" : anyDone ? "…" : typeIcon}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {weekOffset > 0
+                ? <button onClick={() => setWeekOffset(w => w - 1)} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 8px", fontFamily: "inherit" }}>›</button>
+                : <div style={{ width: 28 }} />}
+            </div>
+
+            <div style={{ background: "#0d1f10", borderRadius: 12, border: `1px solid ${plan.color}44`, padding: 14, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "#e0f0e0" }}>{activeDay.dayName} {activeDay.display}</span>
+                  <span style={{ fontSize: 12, color: plan.color, fontWeight: 700, marginRight: 8 }}>{plan.typeLabel}</span>
+                </div>
+                <span style={{ fontSize: 12, color: allDone ? "#4ade80" : "#4a7a54", fontWeight: 700 }}>{doneCount}/{total}{allDone ? " ✅" : ""}</span>
+              </div>
+              <div style={{ height: 6, background: "#1a3a1f", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: pct + "%", borderRadius: 3, background: allDone ? "#4ade80" : `linear-gradient(90deg,${plan.color}88,${plan.color})`, transition: "width 0.4s" }} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding: "0 14px" }}>
+            {exercises.map(ex => {
+              const isDone = !!exChecked[activeDateStr + "-" + ex.id];
+              return (
+                <div key={ex.id} onClick={() => toggle(ex.id)} style={{
+                  marginBottom: 8, borderRadius: 11,
+                  border: `1px solid ${isDone ? plan.color + "55" : "#1a3a1f"}`,
+                  background: isDone ? plan.color + "0f" : "#0d1f10",
+                  padding: "12px 14px", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 12,
+                  opacity: isDone ? 0.7 : 1, transition: "all 0.2s",
+                }}>
+                  <div style={{
+                    width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                    border: `2px solid ${isDone ? plan.color : "#2d5a3a"}`,
+                    background: isDone ? plan.color + "33" : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 13, color: plan.color, fontWeight: 700,
+                  }}>{isDone ? "✓" : ""}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: isDone ? "#4a7a54" : "#e0f0e0", textDecoration: isDone ? "line-through" : "none" }}>{ex.name}</div>
+                    {ex.sets ? <div style={{ fontSize: 11, color: plan.color, marginTop: 2, fontWeight: 700 }}>{ex.sets}</div> : null}
+                    {ex.cat  ? <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 1 }}>{ex.cat}</div> : null}
+                  </div>
+                </div>
+              );
+            })}
+
+            {allDone && (
+              <div style={{ background: "#0d2e18", borderRadius: 12, border: "1px solid #1e4a2e", padding: 16, textAlign: "center", marginBottom: 12 }}>
+                <div style={{ fontSize: 24, marginBottom: 6 }}>🎉</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#4ade80" }}>אימון הושלם!</div>
+                <div style={{ fontSize: 12, color: "#4a7a54", marginTop: 4 }}>כל הכבוד — תן לגוף לנוח ולהתאושש</div>
+              </div>
+            )}
+
+            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginTop: 4, marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📋 סיכום שבוע נוכחי</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                {[
+                  ["💪 כוח",    weeklyStrength + "/3",                                                          "#f87171"],
+                  ["🧘 פיזיו",  weeklyPhysio + "/2",                                                            "#a78bfa"],
+                  ["📊 עקביות", Math.round(((weeklyStrength + weeklyPhysio) / 5) * 100) + "%",                 "#4ade80"],
+                ].map(([l,v,c]) => (
+                  <div key={l} style={{ background: "#0a1a0c", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 6px", textAlign: "center" }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: c, fontFamily: "monospace" }}>{v}</div>
+                    <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 2 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      );
+    }
+
     // ─── App ──────────────────────────────────────────────────────────────────────
     function NutritionApp() {
       const [tab, setTab] = useState("plan");
@@ -1445,9 +1619,9 @@ Return ONLY valid JSON, no markdown:
                 <span style={{ fontSize: 12, color: "#4a7a54" }}>{activeUser === "matan" ? "👤 Matan" : "🙂 Guest"}</span>
                 <button onClick={logout} style={{ background: "#1a0f0f", border: "1px solid #3a1a1a", borderRadius: 8, color: "#f87171", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: "4px 10px" }}>🚪 יציאה</button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, background: "#0a1a0c", borderRadius: 11, padding: 4, border: "1px solid #1e4a2e" }}>
-                {[["plan","תפריט","🍽️"],["checklist","צ׳קליסט","✅"],["weight","משקל","⚖️"]].map(([k,l,e]) => (
-                  <button key={k} onClick={() => setTab(k)} style={{ padding: "8px 4px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", transition: "all 0.2s", background: tab === k ? "linear-gradient(135deg,#166534,#166534bb)" : "transparent", color: tab === k ? "#fff" : "#4a7a54" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 5, background: "#0a1a0c", borderRadius: 11, padding: 4, border: "1px solid #1e4a2e" }}>
+                {[["plan","תפריט","🍽️"],["checklist","צ׳קליסט","✅"],["koach","כוח","💪"],["weight","משקל","⚖️"]].map(([k,l,e]) => (
+                  <button key={k} onClick={() => setTab(k)} style={{ padding: "8px 2px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", transition: "all 0.2s", background: tab === k ? "linear-gradient(135deg,#166534,#166534bb)" : "transparent", color: tab === k ? "#fff" : "#4a7a54" }}>
                     {e} {l}
                   </button>
                 ))}
@@ -1455,7 +1629,7 @@ Return ONLY valid JSON, no markdown:
             </div>
           </div>
           <div style={{ maxWidth: 520, margin: "0 auto" }}>
-            {tab === "plan" ? <PlanTab /> : tab === "checklist" ? <ChecklistTab /> : <WeightTab />}
+            {tab === "plan" ? <PlanTab /> : tab === "checklist" ? <ChecklistTab /> : tab === "koach" ? <KoachTab /> : <WeightTab />}
             <div style={{ textAlign: "center", padding: "10px 14px", fontSize: 10, color: "#2a4a2a" }}>⚠️ יש להתייעץ עם דיאטנית/רופא לפני שינויים תזונתיים משמעותיים</div>
           </div>
         </div>
