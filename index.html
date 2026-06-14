@@ -176,11 +176,11 @@
         const daysElapsed = Math.max(1, Math.round((today - startDate) / 86400000));
         const monthLost = +(monthStart.kg - monthEnd.kg).toFixed(2);
         const projected = +(( monthLost / daysElapsed) * daysInMonth).toFixed(1);
-        const pctOfMax = Math.min((monthLost / 3) * 100, 105);
+        const pctOfMax = Math.min((monthLost / 2.5) * 100, 105);
         let status, statusColor;
-        if (projected >= 3) { status = "⚡ קצב מצוין!"; statusColor = "#4ade80"; }
-        else if (projected >= 2) { status = "✅ בקצב טוב"; statusColor = "#4ade80"; }
-        else if (projected >= 1.4) { status = "⚠️ קצת מאחור"; statusColor = "#fbbf24"; }
+        if (projected > 2.5) { status = "⚡ קצב גבוה — שים לב"; statusColor = "#fb923c"; }
+        else if (projected >= 1.5) { status = "✅ בקצב טוב"; statusColor = "#4ade80"; }
+        else if (projected >= 1.0) { status = "⚠️ קצת מאחור"; statusColor = "#fbbf24"; }
         else { status = "🔴 מאחור מהיעד"; statusColor = "#f87171"; }
         monthStat = { monthLost, projected, daysRemaining, pctOfMax, status, statusColor };
       }
@@ -340,7 +340,7 @@
           {monthStat && (
             <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, marginBottom: 10 }}>
-                <span style={{ color: "#4ade80", fontWeight: 700 }}>📅 יעד חודשי: 2–3 ק״ג</span>
+                <span style={{ color: "#4ade80", fontWeight: 700 }}>📅 יעד חודשי: 1.5–2.5 ק״ג</span>
                 <span style={{ color: monthStat.statusColor, fontWeight: 700, fontSize: 11 }}>{monthStat.status}</span>
               </div>
               <div style={{ position: "relative", height: 10, background: "#1a3a1f", borderRadius: 5, marginBottom: 8 }}>
@@ -373,7 +373,13 @@
               <line x1={PL} y1={goalY} x2={GW - PR} y2={goalY} stroke="#4ade8055" strokeWidth={1.5} strokeDasharray="4,3" />
               <text x={GW - PR - 2} y={goalY - 4} textAnchor="end" fontSize={8} fill="#4ade80">יעד {GOAL_W}</text>
               {entries.length > 1 && (() => {
-                const idealEnd = Math.max(entries[0].kg - (entries.length - 1) * 0.5, GOAL_W);
+                const dates = entries.map(e => parseEntryDate(e));
+                const firstDated = dates.find(Boolean);
+                const lastDated = [...dates].reverse().find(Boolean);
+                const idealWeeks = (firstDated && lastDated && firstDated !== lastDated)
+                  ? (lastDated - firstDated) / (7 * 86400000)
+                  : entries.length - 1;
+                const idealEnd = Math.max(entries[0].kg - idealWeeks * 0.55, GOAL_W);
                 return <line x1={toX(0).toFixed(1)} y1={toY(entries[0].kg).toFixed(1)} x2={toX(entries.length - 1).toFixed(1)} y2={toY(idealEnd).toFixed(1)} stroke="#fbbf2450" strokeWidth={1.5} strokeDasharray="3,3" />;
               })()}
               {entries.length > 1 && <polyline points={pts} fill="none" stroke="#4ade80" strokeWidth={2} strokeLinejoin="round" />}
