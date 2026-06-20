@@ -946,11 +946,11 @@ Return ONLY valid JSON, no markdown:
       const activeShift = shifts[activeDateStr] || null;
 
       const dayPlan = WEEK_PLAN[activeDay];
-      const done = dayPlan.tasks.filter(t => checked[activeDay + "-" + t.id]).length;
+      const done = dayPlan.tasks.filter(t => checked[activeDateStr + "-" + t.id]).length;
       const total = dayPlan.tasks.length;
       const pct = Math.round((done / total) * 100);
       const toggle = (id) => setChecked(p => {
-        const key = activeDay + "-" + id;
+        const key = activeDateStr + "-" + id;
         if (p[key]) return { ...p, [key]: null };
         const now = new Date();
         const ts = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) + " " +
@@ -1020,7 +1020,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 10 }}>
             {WEEK_PLAN.map((d, i) => {
               const dateStr = shiftWeekDates[i];
-              const dayDone = d.tasks.filter(t => checked[i + "-" + t.id]).length;
+              const dayDone = d.tasks.filter(t => checked[dateStr + "-" + t.id]).length;
               const dayPct = Math.round((dayDone / d.tasks.length) * 100);
               const isActive = i === activeDay;
               const isToday = shiftOffset === 0 && i === todayIdx;
@@ -1082,7 +1082,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           </div>
 
           {dayPlan.tasks.map(task => {
-            const isDone = !!checked[activeDay + "-" + task.id];
+            const isDone = !!checked[activeDateStr + "-" + task.id];
             const color = CAT_COLORS[task.cat] || "#4ade80";
             return (
               <div key={task.id} onClick={() => toggle(task.id)} style={{
@@ -1103,8 +1103,8 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
                 <span style={{ fontSize: 16 }}>{task.cat}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, color: isDone ? "#4a7a54" : "#c8e8c8", textDecoration: isDone ? "line-through" : "none", lineHeight: 1.4 }}>{task.text}</div>
-                  {isDone && typeof checked[activeDay + "-" + task.id] === "string" && (
-                    <div style={{ fontSize: 10, color: "#3a6a44", marginTop: 2 }}>✓ {checked[activeDay + "-" + task.id]}</div>
+                  {isDone && typeof checked[activeDateStr + "-" + task.id] === "string" && (
+                    <div style={{ fontSize: 10, color: "#3a6a44", marginTop: 2 }}>✓ {checked[activeDateStr + "-" + task.id]}</div>
                   )}
                 </div>
               </div>
@@ -1134,9 +1134,9 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
             <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📋 סיכום שבועי</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {[
-                ["🚶 הליכות", walkDays.reduce((s,di)=>s+(WEEK_PLAN[di].tasks.filter(t=>checked[di+"-"+t.id]&&t.cat==="🚶").length>0?1:0),0) + "/3"],
-                ["🚫 ימים ללא אלכוהול", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[i+"-"+t.id]&&t.cat==="🚫").length>0?1:0),0) + "/5"],
-                ["🥗 ימי תפריט", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[i+"-"+t.id]&&t.cat==="🥗").length>0?1:0),0) + "/7"],
+                ["🚶 הליכות", walkDays.reduce((s,di)=>s+(WEEK_PLAN[di].tasks.filter(t=>checked[currentWeekDates[di]+"-"+t.id]&&t.cat==="🚶").length>0?1:0),0) + "/3"],
+                ["🚫 ימים ללא אלכוהול", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[currentWeekDates[i]+"-"+t.id]&&t.cat==="🚫").length>0?1:0),0) + "/5"],
+                ["🥗 ימי תפריט", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[currentWeekDates[i]+"-"+t.id]&&t.cat==="🥗").length>0?1:0),0) + "/7"],
                 ["💪 אימוני כוח", currentWeekDates.filter(d=>(dayTypes[d]||[]).includes("strength")).length + "/3"],
                 ["🧘 אימוני פיזיו", currentWeekDates.filter(d=>(dayTypes[d]||[]).includes("physio")).length + "/2"],
               ].map(([l,v]) => (
