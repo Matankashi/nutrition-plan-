@@ -984,6 +984,7 @@ Return ONLY valid JSON, no markdown:
                   textAlign: "center", transition: "all 0.2s",
                 }}>
                   <div style={{ fontSize: 9, color: isActive ? "#4ade80" : "#4a7a54", fontWeight: isToday ? 700 : 400 }}>{d.day.slice(0,3)}</div>
+                  <div style={{ fontSize: 8, color: isActive ? "#a8d8a8" : "#3a5a3a", marginTop: 1 }}>{dateStr.slice(8,10)}/{dateStr.slice(5,7)}</div>
                   <div style={{ fontSize: 9, color: sh ? SHIFT_COLORS[sh] : "#2a3a2a", marginTop: 1 }}>{sh ? SHIFT_ICONS[sh] : "·"}</div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: dayPct === 100 ? "#4ade80" : isActive ? "#e0f0e0" : "#4a7a54", marginTop: 1 }}>
                     {dayPct === 100 ? "✓" : dayDone > 0 ? dayDone + "/" + d.tasks.length : "—"}
