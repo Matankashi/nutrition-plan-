@@ -22,11 +22,14 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #080f0a; -webkit-tap-highlight-color: transparent; }
-    input, button { -webkit-appearance: none; }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: #0a1a0c; }
-    ::-webkit-scrollbar-thumb { background: #1a3a1f; border-radius: 2px; }
+    body { background: #060d07; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+    input, button { -webkit-appearance: none; -webkit-tap-highlight-color: transparent; }
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(74,122,84,0.4); border-radius: 2px; }
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+      .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    }
   </style>
 </head>
 <body>
@@ -276,7 +279,7 @@
                 ["⚖️ משקל", `${last} ק״ג`, ""],
                 ["📐 BMI", `${bmi}`, bmi < 18.5 ? "תת משקל" : bmi < 25 ? "תקין" : bmi < 30 ? "עודף קל" : "עודף"],
               ].map(([l, v, sub]) => (
-                <div key={l} style={{ background: "#0a1a0c", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
+                <div key={l} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
                   <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>{l}</div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#e0f0e0", fontFamily: "monospace" }}>{v}</div>
                   {sub ? <div style={{ fontSize: 9, color: "#4a7a54", marginTop: 2 }}>{sub}</div> : null}
@@ -290,7 +293,7 @@
               יום עבודה בקפה: <span style={{ color: "#60a5fa", fontWeight: 700 }}>+250–700 קל׳</span><br/>
               הליכה 30–40 דק׳: <span style={{ color: "#60a5fa", fontWeight: 700 }}>+150–300 קל׳</span>
             </div>
-            <div style={{ marginTop: 8, background: "#0a1a0c", borderRadius: 8, border: "1px solid #1e4a2e", padding: "8px 10px" }}>
+            <div style={{ marginTop: 8, background: "#0b1a0d", borderRadius: 8, border: "1px solid #1e4a2e", padding: "8px 10px" }}>
               <div style={{ fontSize: 11, color: "#fbbf24", fontWeight: 700, marginBottom: 4 }}>⚡ גירעון באכילה של 2,000 קל׳</div>
               <div style={{ fontSize: 11, color: "#c8e8c8", lineHeight: 1.9 }}>
                 יום מנוחה: <span style={{ color: "#4ade80", fontWeight: 700 }}>~350–550 קל׳ גירעון</span><br/>
@@ -316,16 +319,16 @@
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
                   {DAY_TYPES.map(d => (
                     <button key={d.key} onClick={() => setDayType(d.key)}
-                      style={{ padding: "8px 4px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: dayType === d.key ? "#166534" : "#0a1a0c", color: dayType === d.key ? "#fff" : "#4a7a54", border: `1px solid ${dayType === d.key ? "#4ade80" : "#1a3a1f"}` }}>
+                      style={{ padding: "8px 4px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: dayType === d.key ? "#166534" : "#0b1a0d", color: dayType === d.key ? "#fff" : "#4a7a54", border: `1px solid ${dayType === d.key ? "#4ade80" : "#1a3a1f"}` }}>
                       {d.label}
                     </button>
                   ))}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0a1a0c", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0b1a0d", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
                   <span style={{ fontSize: 11, color: "#4a7a54" }}>הוצאה יומית</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", fontFamily: "monospace" }}>{dt.tdee[0].toLocaleString()}–{dt.tdee[1].toLocaleString()} קל׳</span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0a1a0c", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0b1a0d", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
                   <span style={{ fontSize: 11, color: "#4a7a54" }}>התפריט</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0", fontFamily: "monospace" }}>{MENU_CAL.toLocaleString()} קל׳</span>
                 </div>
@@ -402,7 +405,7 @@
             <div style={{ display: "flex", gap: 8 }}>
               <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addEntry()}
                 placeholder="למשל: 81.5" inputMode="decimal"
-                style={{ flex: 1, background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "9px 12px", color: "#e0f0e0", fontSize: 14, fontFamily: "inherit", direction: "ltr", outline: "none" }} />
+                style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "9px 12px", color: "#e0f0e0", fontSize: 14, fontFamily: "inherit", direction: "ltr", outline: "none" }} />
               <button onClick={addEntry} style={{ background: "#166534", border: "none", borderRadius: 8, padding: "9px 18px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>שמור</button>
             </div>
             <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 8 }}>💡 בוקר, בצום, אותה שעה ואותם בגדים</div>
@@ -443,7 +446,7 @@
                             </div>
                           )
                         }
-                        <div onClick={() => toggleMonth(wg.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", background: "#0a1a0c", borderRadius: 7, marginBottom: 2, cursor: "pointer" }}>
+                        <div onClick={() => toggleMonth(wg.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", background: "#0b1a0d", borderRadius: 7, marginBottom: 2, cursor: "pointer" }}>
                           <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{wg.label} <span style={{ fontSize: 10, color: "#4a7a54" }}>{expanded ? "▲" : "▼"}</span></div>
                           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{wg.avg} ק״ג</span>
                           <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: trend < 0 ? "#4ade80" : trend > 0 ? "#f87171" : "#4a7a54" }}>{trend < 0 ? "▼" : trend > 0 ? "▲" : "="} {Math.abs(trend)}</span>
@@ -479,7 +482,7 @@
                             </div>
                           )
                         }
-                        <div onClick={() => toggleMonth(g.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", background: "#0a1a0c", borderRadius: 7, borderBottom: gi < monthGroups.length - 1 ? "1px solid #1a3a1f" : "none", marginBottom: 2, cursor: "pointer" }}>
+                        <div onClick={() => toggleMonth(g.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", background: "#0b1a0d", borderRadius: 7, borderBottom: gi < monthGroups.length - 1 ? "1px solid #1a3a1f" : "none", marginBottom: 2, cursor: "pointer" }}>
                           <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{g.label} <span style={{ fontSize: 10, color: "#2d5a3a" }}>{expanded ? "▲" : "▼"}</span></div>
                           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{g.monthAvg} ק״ג</span>
                           <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: trend < 0 ? "#4ade80" : trend > 0 ? "#f87171" : "#4a7a54" }}>{trend < 0 ? "▼" : trend > 0 ? "▲" : "="} {Math.abs(trend)}</span>
@@ -731,7 +734,7 @@ Return ONLY valid JSON, no markdown:
                       <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
                         {[["auto","🤖 חשב אוטומטי"],["manual","✏️ הכנס ידנית"]].map(([m,l]) => (
                           <button key={m} onClick={() => { setEditMode(m); setAiError(""); }}
-                            style={{ flex: 1, padding: "6px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: editMode === m ? "#166534" : "#0a1a0c", color: editMode === m ? "#fff" : "#4a7a54" }}>
+                            style={{ flex: 1, padding: "6px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: editMode === m ? "#166534" : "#0b1a0d", color: editMode === m ? "#fff" : "#4a7a54" }}>
                             {l}
                           </button>
                         ))}
@@ -741,14 +744,14 @@ Return ONLY valid JSON, no markdown:
                           <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>תאר מה אכלת — בעברית או אנגלית:</div>
                           <textarea value={editInput} onChange={e => setEditInput(e.target.value)} rows={2}
                             placeholder="למשל: המבורגר עם צ׳דר ובייקון, 150 גרם אורז, שתי ביצים מקושקשות"
-                            style={{ width: "100%", background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", resize: "none", direction: "rtl" }} />
+                            style={{ width: "100%", background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", resize: "none", direction: "rtl" }} />
                           {aiError && (
                             <div style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>
                               {aiError} — <span onClick={() => setEditMode("manual")} style={{ color: "#fbbf24", cursor: "pointer", textDecoration: "underline" }}>הכנס ידנית</span>
                             </div>
                           )}
                           {aiQuestions && aiQuestions.mealId === meal.id && (
-                            <div style={{ marginTop: 8, background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "10px 12px" }}>
+                            <div style={{ marginTop: 8, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "10px 12px" }}>
                               <div style={{ fontSize: 11, color: "#4ade80", marginBottom: 6, fontWeight: 700 }}>🤖 כמה שאלות להדיוק:</div>
                               {aiQuestions.questions.map((q, i) => (
                                 <div key={i} style={{ fontSize: 12, color: "#a0c4a8", marginBottom: 4 }}>• {q}</div>
@@ -762,14 +765,14 @@ Return ONLY valid JSON, no markdown:
                                   {aiLoading ? "מחשב..." : "המשך →"}
                                 </button>
                                 <button onClick={async () => { const mId = aiQuestions.mealId; setAiQuestions(null); setAiAnswers(""); setAiLoading(true); setAiError(""); try { const p = `Estimate calories for this meal. Return ONLY valid JSON:\n{"items":[{"name":"item name","calories":123}],"total":456}\n\nMeal: ${editInput.trim()}`; const parsed = await callGemini(p); if (parsed.total) setAiBreakdown({ items: parsed.items||[], total: parsed.total, mealId: mId }); else setAiError("נסה שוב."); } catch(e) { setAiError(e.message); } setAiLoading(false); }}
-                                  style={{ background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "9px 12px", color: "#4a7a54", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                                  style={{ background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "9px 12px", color: "#4a7a54", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
                                   דלג
                                 </button>
                               </div>
                             </div>
                           )}
                           {aiBreakdown && aiBreakdown.mealId === meal.id && (
-                            <div style={{ marginTop: 8, background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "10px 12px" }}>
+                            <div style={{ marginTop: 8, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "10px 12px" }}>
                               {aiBreakdown.items.map((item, i) => (
                                 <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#a0c4a8", marginBottom: 3 }}>
                                   <span>{item.name}</span>
@@ -804,11 +807,11 @@ Return ONLY valid JSON, no markdown:
                           <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>תאר מה אכלת (אופציונלי):</div>
                           <input value={editInput} onChange={e => setEditInput(e.target.value)}
                             placeholder="למשל: המבורגר עם צ׳דר ובייקון"
-                            style={{ width: "100%", background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", marginBottom: 8, direction: "rtl" }} />
+                            style={{ width: "100%", background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", marginBottom: 8, direction: "rtl" }} />
                           <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>כמה קלוריות? (חפש בגוגל אם לא בטוח)</div>
                           <input value={manualCal} onChange={e => setManualCal(e.target.value.replace(/\D/g,""))}
                             placeholder="למשל: 650" inputMode="numeric"
-                            style={{ width: "100%", background: "#0a1a0c", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#4ade80", fontSize: 18, fontWeight: 700, fontFamily: "monospace", outline: "none", direction: "ltr", textAlign: "center" }} />
+                            style={{ width: "100%", background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#4ade80", fontSize: 18, fontWeight: 700, fontFamily: "monospace", outline: "none", direction: "ltr", textAlign: "center" }} />
                           <button onClick={() => saveManual(meal.id)} disabled={!manualCal}
                             style={{ width: "100%", marginTop: 8, background: manualCal ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: manualCal ? "pointer" : "default", fontFamily: "inherit" }}>
                             שמור
@@ -830,7 +833,7 @@ Return ONLY valid JSON, no markdown:
                     </div>
                   )}
                   {isOpen && (
-                    <div style={{ background: "#0a1a0c", borderTop: "1px solid " + ac + "33", padding: "12px 14px" }}>
+                    <div style={{ background: "#0b1a0d", borderTop: "1px solid " + ac + "33", padding: "12px 14px" }}>
                       {custom ? (
                         <div style={{ marginBottom: 10 }}>
                           <div style={{ fontSize: 11, color: "#4ade80", fontWeight: 700, marginBottom: 6 }}>🍽️ מה אכלת:</div>
@@ -1061,7 +1064,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 12, marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ fontSize: 11, color: "#4a7a54", fontWeight: 700 }}>🗓️ תכנון השבוע</div>
-              <label style={{ display: "flex", alignItems: "center", gap: 5, background: "#0a1a0c", border: "1px solid #1a3a1f", borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: imgLoading ? "#4a7a54" : "#4ade80", fontWeight: 700, fontFamily: "inherit" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 5, background: "#0b1a0d", border: "1px solid #1a3a1f", borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: imgLoading ? "#4a7a54" : "#4ade80", fontWeight: 700, fontFamily: "inherit" }}>
                 <input type="file" accept="image/*" style={{ display: "none" }} onChange={readShiftImage} disabled={imgLoading} />
                 {imgLoading ? "⏳ קורא..." : "📷 העלה תמונה"}
               </label>
@@ -1073,7 +1076,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
                 const on = activeShift === key;
                 return (
                   <button key={key} onClick={() => setShifts(p => ({ ...p, [activeDateStr]: on ? null : key }))}
-                    style={{ padding: "8px 4px", borderRadius: 8, border: `1px solid ${on ? SHIFT_COLORS[key] : "#1a3a1f"}`, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: on ? SHIFT_COLORS[key] + "22" : "#0a1a0c", color: on ? SHIFT_COLORS[key] : "#4a7a54", transition: "all 0.15s" }}>
+                    style={{ padding: "8px 4px", borderRadius: 8, border: `1px solid ${on ? SHIFT_COLORS[key] : "#1a3a1f"}`, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: on ? SHIFT_COLORS[key] + "22" : "#0b1a0d", color: on ? SHIFT_COLORS[key] : "#4a7a54", transition: "all 0.15s" }}>
                     {icon} {label}
                   </button>
                 );
@@ -1140,7 +1143,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
                 ["💪 אימוני כוח", currentWeekDates.filter(d=>(dayTypes[d]||[]).includes("strength")).length + "/3"],
                 ["🧘 אימוני פיזיו", currentWeekDates.filter(d=>(dayTypes[d]||[]).includes("physio")).length + "/2"],
               ].map(([l,v]) => (
-                <div key={l} style={{ background: "#0a1a0c", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
+                <div key={l} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
                   <div style={{ fontSize: 11, color: "#4a7a54" }}>{l}</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: "#4ade80", fontFamily: "monospace", marginTop: 2 }}>{v}</div>
                 </div>
@@ -1169,19 +1172,21 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const ICONS = ["👤","🙂","🌟","🎯","🦊","🐙","🧩","🚀"];
 
       return (
-        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28, fontFamily: "'Segoe UI',Tahoma,sans-serif" }}>
-          <div style={{ fontSize: 48 }}>🥗</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80" }}>תכנית תזונה</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, width: 220 }}>
+        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#060d07 0%,#09151f 55%,#060d07 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", fontFamily: "'Segoe UI',Tahoma,sans-serif", padding: "40px 32px", direction: "rtl" }}>
+          <div style={{ fontSize: 64, marginBottom: 14 }}>🥗</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#f0fdf4", marginBottom: 6, letterSpacing: -0.5 }}>תכנית תזונה</div>
+          <div style={{ fontSize: 13, color: "#4ade80", marginBottom: 44, opacity: 0.6 }}>בחר משתמש להמשך</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
             {users === null ? (
               <div style={{ color: "#4a7a54", textAlign: "center", fontSize: 13 }}>טוען...</div>
             ) : users.map((u, i) => (
               <button key={u.username} onClick={() => onSelect(u.username)}
-                style={{ padding: "16px 0", borderRadius: 14, border: `1px solid ${i === 0 ? "#2d5a3a" : "#1a3a1f"}`, background: i === 0 ? "#0d1f10" : "#0a1a0c", color: i === 0 ? "#4ade80" : "#4a7a54", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                {ICONS[i % ICONS.length]} {u.username.charAt(0).toUpperCase() + u.username.slice(1)}
+                style={{ padding: "16px 20px", borderRadius: 16, border: `1px solid ${i === 0 ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.06)"}`, background: i === 0 ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.03)", color: i === 0 ? "#4ade80" : "#4a7a54", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s" }}>
+                <span style={{ fontSize: 22 }}>{ICONS[i % ICONS.length]}</span>
+                {u.username.charAt(0).toUpperCase() + u.username.slice(1)}
               </button>
             ))}
-            <button onClick={onAdmin} style={{ padding: "8px 0", borderRadius: 10, border: "1px solid #1a3a1f", background: "transparent", color: "#2d5a3a", fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginTop: 4 }}>
+            <button onClick={onAdmin} style={{ padding: "10px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", background: "transparent", color: "#2a4a2a", fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginTop: 10 }}>
               🔧 ניהול
             </button>
           </div>
@@ -1261,7 +1266,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div ref={ref} tabIndex={0} onKeyDown={e => { if (e.key >= "0" && e.key <= "9") press(e.key); else if (e.key === "Backspace") setPin(p => p.slice(0,-1)); else if (e.key === "Escape") onCancel(); }}
-            style={{ background: "#0a1a0c", borderRadius: 18, padding: 28, width: 280, display: "flex", flexDirection: "column", alignItems: "center", gap: 18, outline: "none", border: "1px solid #1a3a1f" }}>
+            style={{ background: "#0b1a0d", borderRadius: 18, padding: 28, width: 280, display: "flex", flexDirection: "column", alignItems: "center", gap: 18, outline: "none", border: "1px solid #1a3a1f" }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#4a7a54", textAlign: "center" }}>🔐 אשר פעולה</div>
             <div style={{ fontSize: 12, color: "#2d5a3a", textAlign: "center" }}>{label}</div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -1357,7 +1362,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
         setTimeout(() => setSaved(""), 2500);
       };
 
-      const G = { bg: "#080f0a", card: "#0a1a0c", border: "#1a3a1f", text: "#e0f0e0", mid: "#4a7a54", green: "#4ade80", red: "#f87171" };
+      const G = { bg: "#080f0a", card: "#0b1a0d", border: "#1a3a1f", text: "#e0f0e0", mid: "#4a7a54", green: "#4ade80", red: "#f87171" };
 
       return (
         <div style={{ minHeight: "100vh", background: G.bg, fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: G.text, paddingBottom: 40 }}>
@@ -1491,27 +1496,30 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       };
 
       return (
-        <div onKeyDown={handleKey} tabIndex={0} ref={inputRef} style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28, fontFamily: "'Segoe UI',Tahoma,sans-serif", outline: "none" }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#4ade80" }}>👤 Matan</div>
-          <div style={{ display: "flex", gap: 12, marginBottom: 4 }}>
+        <div onKeyDown={handleKey} tabIndex={0} ref={inputRef} style={{ minHeight: "100vh", background: "linear-gradient(160deg,#060d07 0%,#09151f 55%,#060d07 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 32, fontFamily: "'Segoe UI',Tahoma,sans-serif", outline: "none", direction: "rtl" }}>
+          <div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#f0fdf4", textAlign: "center", letterSpacing: -0.5 }}>👤 Matan</div>
+            <div style={{ fontSize: 13, color: "#4ade80", textAlign: "center", marginTop: 4, opacity: 0.6 }}>הכנס קוד כניסה</div>
+          </div>
+          <div style={{ display: "flex", gap: 14 }}>
             {[0,1,2,3].map(i => (
-              <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#4ade80") : "#1a3a1f", border: "2px solid " + (error ? "#f87171" : "#2d5a3a"), transition: "all 0.15s" }} />
+              <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#22c55e") : "transparent", border: `2px solid ${error ? "#f87171" : pin.length > i ? "#22c55e" : "#2d5a3a"}`, transition: "all 0.15s" }} />
             ))}
           </div>
-          {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -16 }}>קוד שגוי</div>}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: 10, direction: "ltr" }}>
+          {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -20, fontWeight: 600 }}>קוד שגוי</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 76px)", gap: 10, direction: "ltr" }}>
             {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d, i) => (
               <button key={i} onClick={() => {
                 if (d === "⌫") setPin(p => p.slice(0,-1));
                 else if (d !== "") press(String(d));
-              }} style={{ height: 70, borderRadius: 14, border: "1px solid #1a3a1f", background: d === "" ? "transparent" : "#0d1f10", color: d === "⌫" ? "#f87171" : "#e0f0e0", fontSize: d === "⌫" ? 20 : 24, fontWeight: 600, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit", transition: "background 0.1s" }}
-                onTouchStart={e => e.currentTarget.style.background = d === "" ? "transparent" : "#1a3a1f"}
-                onTouchEnd={e => e.currentTarget.style.background = d === "" ? "transparent" : "#0d1f10"}>
+              }} style={{ height: 76, borderRadius: 16, border: `1px solid ${d === "" ? "transparent" : "rgba(34,197,94,0.12)"}`, background: d === "" ? "transparent" : "rgba(255,255,255,0.04)", color: d === "⌫" ? "#f87171" : "#f0fdf4", fontSize: d === "⌫" ? 20 : 26, fontWeight: 500, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.1s" }}
+                onTouchStart={e => { if (d !== "") e.currentTarget.style.background = "rgba(34,197,94,0.12)"; }}
+                onTouchEnd={e => { if (d !== "") e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}>
                 {d}
               </button>
             ))}
           </div>
-          <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#4a7a54", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← חזור</button>
+          <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#3a6a3a", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← חזור</button>
         </div>
       );
     }
@@ -1631,7 +1639,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
 
             {/* shift banner */}
             {shifts[activeDateStr] && (
-              <div style={{ background: "#0a1a0c", borderRadius: 8, border: `1px solid ${SHIFT_COLORS[shifts[activeDateStr]]}44`, padding: "8px 12px", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ background: "#0b1a0d", borderRadius: 8, border: `1px solid ${SHIFT_COLORS[shifts[activeDateStr]]}44`, padding: "8px 12px", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 14 }}>{SHIFT_ICONS[shifts[activeDateStr]]}</span>
                 <span style={{ fontSize: 11, color: SHIFT_COLORS[shifts[activeDateStr]], fontWeight: 700 }}>
                   {shifts[activeDateStr] === "morning" ? "משמרת בוקר — אימון מתוכנן" : shifts[activeDateStr] === "evening" ? "משמרת ערב — יום מנוחה" : "יום חופש — אימון מתוכנן"}
@@ -1653,7 +1661,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
                     <button key={at.key} onClick={() => toggleType(at.key)} style={{
                       padding: "7px 2px", borderRadius: 8, border: `1px solid ${on ? at.color : "#1a3a1f"}`,
                       cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit",
-                      background: on ? at.color + "22" : "#0a1a0c", color: on ? at.color : "#4a7a54", transition: "all 0.15s",
+                      background: on ? at.color + "22" : "#0b1a0d", color: on ? at.color : "#4a7a54", transition: "all 0.15s",
                     }}>{at.label}</button>
                   );
                 })}
@@ -1707,7 +1715,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
               </div>
             )}
             {selectedTypes.includes("rest") && selectedTypes.length === 1 && (
-              <div style={{ background: "#0a1a0c", borderRadius: 11, border: "1px solid #1a3a1f", padding: "12px 14px", marginBottom: 8, color: "#4a7a54", fontSize: 13 }}>
+              <div style={{ background: "#0b1a0d", borderRadius: 11, border: "1px solid #1a3a1f", padding: "12px 14px", marginBottom: 8, color: "#4a7a54", fontSize: 13 }}>
                 🛋 יום מנוחה — הגוף מתאושש ומתחזק
               </div>
             )}
@@ -1727,7 +1735,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
               <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📋 סיכום שבוע נוכחי</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
                 {DAY_ACT_TYPES.map(at => (
-                  <div key={at.key} style={{ background: "#0a1a0c", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 4px", textAlign: "center" }}>
+                  <div key={at.key} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 4px", textAlign: "center" }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: at.color, fontFamily: "monospace" }}>{weeklyCount(at.key)}</div>
                     <div style={{ fontSize: 9, color: "#4a7a54", marginTop: 2 }}>{at.label}</div>
                   </div>
@@ -1764,26 +1772,43 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       if (!activeUser) return <UserSelect onSelect={selectUser} onAdmin={() => setAdminMode(true)} />;
       if (activeUser === "matan" && !pinOk) return <PinScreen onSuccess={() => setPinOk(true)} onBack={() => { localStorage.removeItem("active_user"); setActiveUser(null); }} />;
       CURRENT_USER = activeUser;
+      const todayStr = new Date().toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
       return (
-        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: "#e0f0e0", paddingBottom: 40 }}>
-          <div style={{ padding: "12px 14px 10px", borderBottom: "1px solid #1a3a1f", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(10px)", position: "sticky", top: 0, zIndex: 20 }}>
-            <div style={{ maxWidth: 520, margin: "0 auto" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <span style={{ fontSize: 12, color: "#4a7a54" }}>{activeUser === "matan" ? "👤 Matan" : "🙂 Guest"}</span>
-                <button onClick={logout} style={{ background: "#1a0f0f", border: "1px solid #3a1a1a", borderRadius: 8, color: "#f87171", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: "4px 10px" }}>🚪 יציאה</button>
+        <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#060d07 0%,#08130a 100%)", fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: "#f0fdf4", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 8px))" }}>
+
+          {/* ── Header ── */}
+          <div style={{ padding: "16px 18px 14px", background: "rgba(6,13,7,0.88)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(34,197,94,0.1)", position: "sticky", top: 0, zIndex: 20 }}>
+            <div style={{ maxWidth: 520, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#f0fdf4", letterSpacing: -0.3 }}>
+                  {activeUser === "matan" ? "שלום מתן 👋" : "שלום אורח"}
+                </div>
+                <div style={{ fontSize: 11, color: "#4ade80", marginTop: 2, opacity: 0.75 }}>{todayStr}</div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 5, background: "#0a1a0c", borderRadius: 11, padding: 4, border: "1px solid #1e4a2e" }}>
-                {[["plan","תפריט","🍽️"],["checklist","צ׳קליסט","✅"],["koach","כוח","💪"],["weight","משקל","⚖️"]].map(([k,l,e]) => (
-                  <button key={k} onClick={() => setTab(k)} style={{ padding: "8px 2px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", transition: "all 0.2s", background: tab === k ? "linear-gradient(135deg,#166534,#166534bb)" : "transparent", color: tab === k ? "#fff" : "#4a7a54" }}>
-                    {e} {l}
-                  </button>
-                ))}
-              </div>
+              <button onClick={logout} style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.18)", borderRadius: 10, color: "#f87171", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: "7px 13px" }}>יציאה</button>
             </div>
           </div>
+
+          {/* ── Content ── */}
           <div style={{ maxWidth: 520, margin: "0 auto" }}>
             {tab === "plan" ? <PlanTab /> : tab === "checklist" ? <ChecklistTab /> : tab === "koach" ? <KoachTab /> : <WeightTab />}
-            <div style={{ textAlign: "center", padding: "10px 14px", fontSize: 10, color: "#2a4a2a" }}>⚠️ יש להתייעץ עם דיאטנית/רופא לפני שינויים תזונתיים משמעותיים</div>
+            <div style={{ textAlign: "center", padding: "6px 14px 10px", fontSize: 10, color: "#1a3320" }}>⚠️ יש להתייעץ עם דיאטנית/רופא לפני שינויים תזונתיים משמעותיים</div>
+          </div>
+
+          {/* ── Bottom Navigation ── */}
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 30, background: "rgba(6,13,7,0.97)", backdropFilter: "blur(24px)", borderTop: "1px solid rgba(34,197,94,0.1)" }}>
+            <div style={{ maxWidth: 520, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", padding: "6px 6px 8px" }} className="safe-bottom">
+              {[["plan","תפריט","🍽️"],["checklist","צ׳קליסט","✅"],["koach","כוח","💪"],["weight","משקל","⚖️"]].map(([k,l,e]) => {
+                const on = tab === k;
+                return (
+                  <button key={k} onClick={() => setTab(k)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "7px 4px", borderRadius: 12, fontFamily: "inherit", transition: "all 0.15s" }}>
+                    <div style={{ fontSize: 22, opacity: on ? 1 : 0.3, transform: on ? "scale(1.08)" : "scale(1)", transition: "all 0.2s" }}>{e}</div>
+                    <div style={{ fontSize: 10, fontWeight: on ? 700 : 400, color: on ? "#22c55e" : "#3a5a3a", transition: "color 0.2s" }}>{l}</div>
+                    <div style={{ width: on ? 16 : 0, height: 2, borderRadius: 1, background: "#22c55e", transition: "width 0.25s", marginTop: 1 }} />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       );
