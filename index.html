@@ -920,18 +920,12 @@ Return ONLY valid JSON, no markdown:
 
     const CAT_COLORS = { "🥗":"#4ade80","🚶":"#60a5fa","💪":"#f87171","💧":"#38bdf8","🚫":"#6b7280","😴":"#a78bfa","🍕":"#fbbf24","🍺":"#d97706","⚖️":"#4ade80","🧠":"#c084fc" };
 
-    const WORKOUT_TYPES = [
-      { key: "strength", label: "💪 כוח",         color: "#f87171" },
-      { key: "physio",   label: "🧘 פיזיו",        color: "#a78bfa" },
-      { key: "walk",     label: "🚶 הליכה בלבד",   color: "#60a5fa" },
-      { key: "rest",     label: "🛋 מנוחה",         color: "#4a7a54" },
-    ];
-
     function ChecklistTab() {
       const todayIdx = new Date().getDay();
       const [activeDay, setActiveDay] = useState(todayIdx < 7 ? todayIdx : 0);
       const [checked, setChecked] = usePersist("checklist_checked", {});
-      const [workoutTypes, setWorkoutTypes] = usePersist("workout_type_v1", {});
+      const [dayTypes] = usePersist("workout_day_types_v1", {});
+      const weekDates = getWeekDays(0).map(d => d.dateStr);
 
       const dayPlan = WEEK_PLAN[activeDay];
       const done = dayPlan.tasks.filter(t => checked[activeDay + "-" + t.id]).length;
@@ -987,21 +981,6 @@ Return ONLY valid JSON, no markdown:
             </div>
           </div>
 
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 12, marginBottom: 10 }}>
-            <div style={{ fontSize: 11, color: "#4a7a54", fontWeight: 700, marginBottom: 8 }}>🏋️ סוג אימון היום</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-              {WORKOUT_TYPES.map(wt => {
-                const active = workoutTypes[String(activeDay)] === wt.key;
-                return (
-                  <button key={wt.key} onClick={() => setWorkoutTypes(p => ({ ...p, [String(activeDay)]: active ? null : wt.key }))}
-                    style={{ padding: "8px 4px", borderRadius: 8, border: `1px solid ${active ? wt.color : "#1a3a1f"}`, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: active ? wt.color + "22" : "#0a1a0c", color: active ? wt.color : "#4a7a54", transition: "all 0.15s" }}>
-                    {wt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {dayPlan.tasks.map(task => {
             const isDone = !!checked[activeDay + "-" + task.id];
             const color = CAT_COLORS[task.cat] || "#4ade80";
@@ -1039,8 +1018,8 @@ Return ONLY valid JSON, no markdown:
                 ["🚶 הליכות", walkDays.reduce((s,di)=>s+(WEEK_PLAN[di].tasks.filter(t=>checked[di+"-"+t.id]&&t.cat==="🚶").length>0?1:0),0) + "/3"],
                 ["🚫 ימים ללא אלכוהול", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[i+"-"+t.id]&&t.cat==="🚫").length>0?1:0),0) + "/5"],
                 ["🥗 ימי תפריט", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[i+"-"+t.id]&&t.cat==="🥗").length>0?1:0),0) + "/7"],
-                ["💪 אימוני כוח", Object.values(workoutTypes).filter(v=>v==="strength").length + "/3"],
-                ["🧘 אימוני פיזיו", Object.values(workoutTypes).filter(v=>v==="physio").length + "/2"],
+                ["💪 אימוני כוח", weekDates.filter(d=>(dayTypes[d]||[]).includes("strength")).length + "/3"],
+                ["🧘 אימוני פיזיו", weekDates.filter(d=>(dayTypes[d]||[]).includes("physio")).length + "/2"],
               ].map(([l,v]) => (
                 <div key={l} style={{ background: "#0a1a0c", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
                   <div style={{ fontSize: 11, color: "#4a7a54" }}>{l}</div>
