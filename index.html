@@ -6,6 +6,7 @@
   <title>תכנית תזונה</title>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script>
     firebase.initializeApp({
       apiKey: "AIzaSyBfxiFf8zcSmT7TlvHcHc4_NZoPxN_jz0w",
@@ -16,6 +17,7 @@
       messagingSenderId: "1019976182145",
       appId: "1:1019976182145:web:d2dc3e1b7763604d68a080"
     });
+    firebase.auth().signInAnonymously().catch(console.error);
   </script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
