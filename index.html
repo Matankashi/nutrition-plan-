@@ -1232,7 +1232,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           </div>
           {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -16 }}>קוד שגוי</div>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: 10, direction: "ltr" }}>
-            {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d, i) => (
+            {[7,8,9,4,5,6,1,2,3,"",0,"⌫"].map((d, i) => (
               <button key={i} onClick={() => { if (d === "⌫") setPin(p => p.slice(0,-1)); else if (d !== "") press(String(d)); }}
                 style={{ height: 70, borderRadius: 14, border: "1px solid #1a3a1f", background: d === "" ? "transparent" : "#0d1f10", color: d === "⌫" ? "#f87171" : "#e0f0e0", fontSize: d === "⌫" ? 20 : 24, fontWeight: 600, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit" }}>
                 {d}
@@ -1278,7 +1278,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
             </div>
             {error && <div style={{ color: "#f87171", fontSize: 12, marginTop: -10 }}>קוד שגוי</div>}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 58px)", gap: 8, direction: "ltr" }}>
-              {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d, i) => (
+              {[7,8,9,4,5,6,1,2,3,"",0,"⌫"].map((d, i) => (
                 <button key={i} onClick={() => { if (d === "⌫") setPin(p => p.slice(0,-1)); else if (d !== "") press(String(d)); }}
                   style={{ height: 58, borderRadius: 12, border: "1px solid #1a3a1f", background: d === "" ? "transparent" : "#0d1f10", color: d === "⌫" ? "#f87171" : "#e0f0e0", fontSize: d === "⌫" ? 18 : 20, fontWeight: 600, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit" }}>
                   {d}
@@ -1510,7 +1510,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           </div>
           {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -20, fontWeight: 600 }}>קוד שגוי</div>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 76px)", gap: 10, direction: "ltr" }}>
-            {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d, i) => (
+            {[7,8,9,4,5,6,1,2,3,"",0,"⌫"].map((d, i) => (
               <button key={i} onClick={() => {
                 if (d === "⌫") setPin(p => p.slice(0,-1));
                 else if (d !== "") press(String(d));
