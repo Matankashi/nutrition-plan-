@@ -570,9 +570,11 @@
       const [open, setOpen] = useState(null);
       const [checked, setChecked] = usePersist("plan_checked_v3", {});
       const [customMeals, setCustomMeals] = usePersist("custom_meals_v1", {});
+      const [altMeals, setAltMeals] = usePersist("alt_meals_v1", {});
+      const [altForm, setAltForm] = useState({ name: "", cal: "", protein: "" });
       const [editingMeal, setEditingMeal] = useState(null);
       const [editInput, setEditInput] = useState("");
-      const [editMode, setEditMode] = useState("auto"); // "auto" | "manual"
+      const [editMode, setEditMode] = useState("auto"); // "auto" | "manual" | "alt"
       const [manualCal, setManualCal] = useState("");
       const [aiLoading, setAiLoading] = useState(false);
       const [aiError, setAiError] = useState("");
@@ -671,6 +673,31 @@ Return ONLY valid JSON, no markdown:
         setEditingMeal(null); setEditInput(""); setManualCal(""); setAiError("");
       };
 
+      const parseCalRange = (str) => {
+        const nums = (str.match(/\d+(\.\d+)?/g) || []).map(Number);
+        if (nums.length === 0) return null;
+        return { calMin: Math.min(...nums), calMax: Math.max(...nums) };
+      };
+
+      const addAltMeal = (mealId) => {
+        const name = altForm.name.trim();
+        const range = parseCalRange(altForm.cal);
+        if (!name || !range) return;
+        const entry = { name, calMin: range.calMin, calMax: range.calMax, protein: altForm.protein.trim() };
+        setAltMeals(prev => ({ ...prev, [mealId]: [...(prev[mealId] || []), entry] }));
+        setAltForm({ name: "", cal: "", protein: "" });
+      };
+
+      const deleteAltMeal = (mealId, idx) => {
+        setAltMeals(prev => ({ ...prev, [mealId]: (prev[mealId] || []).filter((_, i) => i !== idx) }));
+      };
+
+      const pickAltMeal = (mealId, alt) => {
+        const calories = Math.round((alt.calMin + alt.calMax) / 2);
+        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: alt.name, calories } } }));
+        setEditingMeal(null); setEditInput(""); setManualCal(""); setAiError("");
+      };
+
       const clearCustom = (mealId) => {
         setCustomMeals(prev => {
           const d = { ...(prev[activeDateStr] || {}) };
@@ -766,7 +793,7 @@ Return ONLY valid JSON, no markdown:
                   {isEditing && (
                     <div style={{ background: "#071510", borderTop: "1px solid #1a3a1f", padding: "12px 14px" }}>
                       <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-                        {[["auto","🤖 חשב אוטומטי"],["manual","✏️ הכנס ידנית"]].map(([m,l]) => (
+                        {[["auto","🤖 חשב אוטומטי"],["manual","✏️ הכנס ידנית"],["alt","🔄 חלופות"]].map(([m,l]) => (
                           <button key={m} onClick={() => { setEditMode(m); setAiError(""); }}
                             style={{ flex: 1, padding: "6px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: editMode === m ? "#166534" : "#0b1a0d", color: editMode === m ? "#fff" : "#4a7a54" }}>
                             {l}
@@ -836,7 +863,7 @@ Return ONLY valid JSON, no markdown:
                             </button>
                           )}
                         </>
-                      ) : (
+                      ) : editMode === "manual" ? (
                         <>
                           <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>תאר מה אכלת (אופציונלי):</div>
                           <input value={editInput} onChange={e => setEditInput(e.target.value)}
@@ -850,6 +877,49 @@ Return ONLY valid JSON, no markdown:
                             style={{ width: "100%", marginTop: 8, background: manualCal ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: manualCal ? "pointer" : "default", fontFamily: "inherit" }}>
                             שמור
                           </button>
+                        </>
+                      ) : (
+                        <>
+                          {(altMeals[meal.id] || []).length === 0 && (
+                            <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 8 }}>אין עדיין חלופות שמורות לארוחה הזו — הוסף למטה.</div>
+                          )}
+                          {(altMeals[meal.id] || []).map((alt, idx) => (
+                            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 12, color: "#e0f0e0", fontWeight: 600 }}>{alt.name}</div>
+                                <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 2 }}>
+                                  {alt.calMin === alt.calMax ? `${alt.calMin} קל׳` : `${alt.calMin}–${alt.calMax} קל׳`}
+                                  {alt.protein ? ` · חלבון ${alt.protein}` : ""}
+                                </div>
+                              </div>
+                              <button onClick={() => pickAltMeal(meal.id, alt)}
+                                style={{ background: "#166534", border: "none", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                                ✓ בחר
+                              </button>
+                              <button onClick={() => deleteAltMeal(meal.id, idx)}
+                                style={{ background: "transparent", border: "none", color: "#f87171", fontSize: 13, cursor: "pointer", padding: "2px 4px" }}>
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #1a3a1f" }}>
+                            <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>➕ הוסף חלופה חדשה:</div>
+                            <input value={altForm.name} onChange={e => setAltForm(p => ({ ...p, name: e.target.value }))}
+                              placeholder="שם הארוחה החלופית"
+                              style={{ width: "100%", background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", marginBottom: 6, direction: "rtl" }} />
+                            <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                              <input value={altForm.cal} onChange={e => setAltForm(p => ({ ...p, cal: e.target.value }))}
+                                placeholder="קלוריות, למשל 125–150"
+                                style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#4ade80", fontSize: 12, fontFamily: "inherit", outline: "none", direction: "ltr", textAlign: "center" }} />
+                              <input value={altForm.protein} onChange={e => setAltForm(p => ({ ...p, protein: e.target.value }))}
+                                placeholder="חלבון (אופציונלי)"
+                                style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", direction: "ltr", textAlign: "center" }} />
+                            </div>
+                            <button onClick={() => addAltMeal(meal.id)} disabled={!altForm.name.trim() || !parseCalRange(altForm.cal)}
+                              style={{ width: "100%", background: (altForm.name.trim() && parseCalRange(altForm.cal)) ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: (altForm.name.trim() && parseCalRange(altForm.cal)) ? "pointer" : "default", fontFamily: "inherit" }}>
+                              הוסף לרשימה
+                            </button>
+                          </div>
                         </>
                       )}
                       {custom && (
