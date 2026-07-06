@@ -706,8 +706,10 @@ Return ONLY valid JSON, no markdown:
         });
       };
 
-      const deleteAltMeal = (mealId, idx) => {
+      const deleteAltMeal = (mealId, idx, alt) => {
         setAltMeals(prev => ({ ...prev, [mealId]: (prev[mealId] || []).filter((_, i) => i !== idx) }));
+        const custom = getCustom(mealId);
+        if (custom && alt && custom.description === alt.name) clearCustom(mealId);
       };
 
       const pickAltMeal = (mealId, alt) => {
@@ -916,7 +918,7 @@ Return ONLY valid JSON, no markdown:
                                 style={{ background: isSelected ? "#0d1f10" : "#166534", border: isSelected ? "1px solid #4ade80" : "none", borderRadius: 6, padding: "6px 10px", color: isSelected ? "#4ade80" : "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                                 {isSelected ? "✓ נבחר" : "✓ בחר"}
                               </button>
-                              <button onClick={() => deleteAltMeal(meal.id, idx)}
+                              <button onClick={() => deleteAltMeal(meal.id, idx, alt)}
                                 style={{ background: "transparent", border: "none", color: "#f87171", fontSize: 13, cursor: "pointer", padding: "2px 4px" }}>
                                 ✕
                               </button>
