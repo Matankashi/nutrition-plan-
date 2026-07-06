@@ -389,12 +389,19 @@
                 return <line x1={toX(0).toFixed(1)} y1={toY(entries[0].kg).toFixed(1)} x2={toX(entries.length - 1).toFixed(1)} y2={toY(idealEnd).toFixed(1)} stroke="#fbbf2450" strokeWidth={1.5} strokeDasharray="3,3" />;
               })()}
               {entries.length > 1 && <polyline points={pts} fill="none" stroke="#4ade80" strokeWidth={2} strokeLinejoin="round" />}
-              {entries.map((e, i) => (
-                <g key={i}>
-                  <circle cx={toX(i).toFixed(1)} cy={toY(e.kg).toFixed(1)} r={4} fill="#4ade80" stroke="#0d1f10" strokeWidth={1.5} />
-                  <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={8} fill="#4a7a54">{shortDate(e)}</text>
-                </g>
-              ))}
+              {(() => {
+                const maxLabels = 6;
+                const labelStep = Math.max(1, Math.ceil(entries.length / maxLabels));
+                return entries.map((e, i) => {
+                  const showLabel = i % labelStep === 0 || i === entries.length - 1;
+                  return (
+                    <g key={i}>
+                      <circle cx={toX(i).toFixed(1)} cy={toY(e.kg).toFixed(1)} r={4} fill="#4ade80" stroke="#0d1f10" strokeWidth={1.5} />
+                      {showLabel && <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={9} fill="#4a7a54">{shortDate(e)}</text>}
+                    </g>
+                  );
+                });
+              })()}
             </svg>
             <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 4 }}>
               <span style={{ color: "#fbbf24" }}>── </span>קצב אידיאלי &nbsp;
