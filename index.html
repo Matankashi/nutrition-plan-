@@ -183,9 +183,10 @@
         const projected = +(( monthLost / daysElapsed) * daysInMonth).toFixed(1);
         const pctOfMax = Math.min((monthLost / 2.5) * 100, 105);
         let status, statusColor;
-        if (projected > 2.5) { status = "⚡ קצב גבוה — שים לב"; statusColor = "#fb923c"; }
-        else if (projected >= 1.5) { status = "✅ בקצב טוב"; statusColor = "#4ade80"; }
-        else if (projected >= 1.0) { status = "⚠️ קצת מאחור"; statusColor = "#fbbf24"; }
+        if (daysElapsed < 5) { status = "🔍 מוקדם להעריך"; statusColor = "#4a7a54"; }
+        else if (projected > 2.5) { status = "⚡ קצב גבוה — שים לב"; statusColor = "#fb923c"; }
+        else if (projected >= 1.2) { status = "✅ בקצב טוב"; statusColor = "#4ade80"; }
+        else if (projected >= 0.6) { status = "⚠️ קצת מאחור"; statusColor = "#fbbf24"; }
         else { status = "🔴 מאחור מהיעד"; statusColor = "#f87171"; }
         monthStat = { monthLost, projected, daysRemaining, pctOfMax, status, statusColor };
       }
@@ -345,13 +346,13 @@
           {monthStat && (
             <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, marginBottom: 10 }}>
-                <span style={{ color: "#4ade80", fontWeight: 700 }}>📅 יעד חודשי: 1.5–2.5 ק״ג</span>
+                <span style={{ color: "#4ade80", fontWeight: 700 }}>📅 יעד חודשי: 1.2–2.5 ק״ג</span>
                 <span style={{ color: monthStat.statusColor, fontWeight: 700, fontSize: 11 }}>{monthStat.status}</span>
               </div>
               <div style={{ position: "relative", height: 10, background: "#1a3a1f", borderRadius: 5, marginBottom: 8 }}>
                 <div style={{ position: "absolute", top: 0, right: 0, height: "100%", width: monthStat.pctOfMax + "%", borderRadius: 5, background: "linear-gradient(90deg,#fbbf24,#4ade80)", transition: "width 0.5s" }} />
-                {[2,3].map(target => (
-                  <div key={target} style={{ position: "absolute", top: -3, right: (target/3*100) + "%", width: 2, height: 16, background: "#4a7a54", borderRadius: 1 }} />
+                {[1.2,2.5].map(target => (
+                  <div key={target} style={{ position: "absolute", top: -3, right: (target/2.5*100) + "%", width: 2, height: 16, background: "#4a7a54", borderRadius: 1 }} />
                 ))}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#4a7a54" }}>
@@ -384,7 +385,7 @@
                 const idealWeeks = (firstDated && lastDated && firstDated !== lastDated)
                   ? (lastDated - firstDated) / (7 * 86400000)
                   : entries.length - 1;
-                const idealEnd = Math.max(entries[0].kg - idealWeeks * 0.55, GOAL_W);
+                const idealEnd = Math.max(entries[0].kg - idealWeeks * 0.45, GOAL_W);
                 return <line x1={toX(0).toFixed(1)} y1={toY(entries[0].kg).toFixed(1)} x2={toX(entries.length - 1).toFixed(1)} y2={toY(idealEnd).toFixed(1)} stroke="#fbbf2450" strokeWidth={1.5} strokeDasharray="3,3" />;
               })()}
               {entries.length > 1 && <polyline points={pts} fill="none" stroke="#4ade80" strokeWidth={2} strokeLinejoin="round" />}
