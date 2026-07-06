@@ -124,6 +124,8 @@
     // ─── WeightTab ───────────────────────────────────────────────────────────────
     function WeightTab() {
       const [entries, setEntries] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
+      const [customMeals] = usePersist("custom_meals_v1", {});
+      const todayStr = toDateStr(new Date());
       const [input, setInput] = useState("");
       const [expandedMonths, setExpandedMonths] = useState({});
       const toggleMonth = key => setExpandedMonths(p => ({ ...p, [key]: !p[key] }));
@@ -307,16 +309,18 @@
           </div>
 
           {(() => {
-            const MENU_CAL = MEALS.reduce((s, m) => s + m.cal, 0);
+            const MENU_CAL = MEALS.reduce((s, m) => s + (customMeals[todayStr]?.[m.id]?.calories ?? m.cal), 0);
             const DAY_TYPES = [
-              { key: "rest",      label: "🛋 מנוחה",         tdee: [2350, 2550] },
-              { key: "work",      label: "☕ עבודה בקפה",    tdee: [2600, 3250] },
-              { key: "walk",      label: "🚶 הליכה",          tdee: [2500, 2850] },
-              { key: "workwalk",  label: "☕🚶 עבודה+הליכה", tdee: [2750, 3550] },
+              { key: "rest",      label: "🛋 מנוחה",           def: [50, 350] },
+              { key: "work",      label: "☕ עבודה",           def: [250, 650] },
+              { key: "workout",   label: "💪 אימון",           def: [250, 650] },
+              { key: "workwork",  label: "☕💪 עבודה+אימון",   def: [500, 950] },
             ];
             const dt = DAY_TYPES.find(d => d.key === dayType);
-            const defMin = dt.tdee[0] - MENU_CAL;
-            const defMax = dt.tdee[1] - MENU_CAL;
+            const defMin = dt.def[0];
+            const defMax = dt.def[1];
+            const tdeeMin = MENU_CAL + defMin;
+            const tdeeMax = MENU_CAL + defMax;
             return (
               <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
                 <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>⚡ מחשבון גירעון יומי</div>
@@ -330,10 +334,10 @@
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0b1a0d", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
                   <span style={{ fontSize: 11, color: "#4a7a54" }}>הוצאה יומית</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", fontFamily: "monospace" }}>{dt.tdee[0].toLocaleString()}–{dt.tdee[1].toLocaleString()} קל׳</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", fontFamily: "monospace" }}>{tdeeMin.toLocaleString()}–{tdeeMax.toLocaleString()} קל׳</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0b1a0d", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, color: "#4a7a54" }}>התפריט</span>
+                  <span style={{ fontSize: 11, color: "#4a7a54" }}>התפריט (היום)</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0", fontFamily: "monospace" }}>{MENU_CAL.toLocaleString()} קל׳</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0d2e18", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e4a2e" }}>
