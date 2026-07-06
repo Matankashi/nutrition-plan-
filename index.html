@@ -128,6 +128,7 @@
       const [expandedMonths, setExpandedMonths] = useState({});
       const toggleMonth = key => setExpandedMonths(p => ({ ...p, [key]: !p[key] }));
       const [dayType, setDayType] = useState("rest");
+      const [selectedIdx, setSelectedIdx] = useState(null);
 
       const last = entries[entries.length - 1].kg;
       const lost = +(START_W - last).toFixed(1);
@@ -394,13 +395,32 @@
                 const labelStep = Math.max(1, Math.ceil(entries.length / maxLabels));
                 return entries.map((e, i) => {
                   const showLabel = i % labelStep === 0 || i === entries.length - 1;
+                  const isSelected = selectedIdx === i;
                   return (
-                    <g key={i}>
-                      <circle cx={toX(i).toFixed(1)} cy={toY(e.kg).toFixed(1)} r={4} fill="#4ade80" stroke="#0d1f10" strokeWidth={1.5} />
+                    <g key={i}
+                      onClick={() => setSelectedIdx(isSelected ? null : i)}
+                      style={{ cursor: "pointer" }}>
+                      <circle cx={toX(i).toFixed(1)} cy={toY(e.kg).toFixed(1)} r={11} fill="transparent" />
+                      <circle cx={toX(i).toFixed(1)} cy={toY(e.kg).toFixed(1)} r={isSelected ? 5.5 : 4} fill="#4ade80" stroke="#0d1f10" strokeWidth={1.5} />
                       {showLabel && <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={9} fill="#4a7a54">{shortDate(e)}</text>}
                     </g>
                   );
                 });
+              })()}
+              {selectedIdx !== null && (() => {
+                const e = entries[selectedIdx];
+                const px = toX(selectedIdx), py = toY(e.kg);
+                const boxW = 62, boxH = 30;
+                const bx = Math.min(Math.max(px - boxW / 2, PL), GW - PR - boxW);
+                const above = py - boxH - 10 >= PT;
+                const by = above ? py - boxH - 8 : py + 8;
+                return (
+                  <g style={{ pointerEvents: "none" }}>
+                    <rect x={bx.toFixed(1)} y={by.toFixed(1)} width={boxW} height={boxH} rx={6} fill="#0d2e18" stroke="#4ade80" strokeWidth={1} />
+                    <text x={(bx + boxW / 2).toFixed(1)} y={(by + 13).toFixed(1)} textAnchor="middle" fontSize={10} fontWeight="700" fill="#e0f0e0">{e.kg} ק״ג</text>
+                    <text x={(bx + boxW / 2).toFixed(1)} y={(by + 24).toFixed(1)} textAnchor="middle" fontSize={8} fill="#4a7a54">{shortDate(e)}</text>
+                  </g>
+                );
               })()}
             </svg>
             <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 4 }}>
