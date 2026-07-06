@@ -786,7 +786,7 @@ Return ONLY valid JSON, no markdown:
                       <span style={{ fontSize: 20 }}>{meal.emoji}</span>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 14, fontWeight: 600, color: (isDone && !custom) ? "#4a7a54" : "#e0f0e0" }}>{meal.name}</span>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: (isDone && !custom) ? "#4a7a54" : "#e0f0e0" }}>{custom ? custom.description : meal.name}</span>
                           {isCurrent && <span style={{ fontSize: 9, background: ac + "33", color: ac, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>עכשיו</span>}
                           {custom && <span style={{ fontSize: 9, background: "#1e4a2e", color: "#4ade80", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>מותאם</span>}
                         </div>
@@ -896,8 +896,10 @@ Return ONLY valid JSON, no markdown:
                           {(altMeals[meal.id] || []).length === 0 && (
                             <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 8 }}>אין עדיין חלופות שמורות לארוחה הזו — הוסף למטה.</div>
                           )}
-                          {(altMeals[meal.id] || []).map((alt, idx) => (
-                            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
+                          {(altMeals[meal.id] || []).map((alt, idx) => {
+                            const isSelected = custom && custom.description === alt.name;
+                            return (
+                            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 6, background: isSelected ? "#0d2e18" : "#0b1a0d", border: "1px solid " + (isSelected ? "#4ade80" : "#2d5a3a"), borderRadius: 8, padding: "8px 10px", marginBottom: 6 }}>
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: 12, color: "#e0f0e0", fontWeight: 600 }}>{alt.name}</div>
                                 <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 2 }}>
@@ -906,15 +908,16 @@ Return ONLY valid JSON, no markdown:
                                 </div>
                               </div>
                               <button onClick={() => pickAltMeal(meal.id, alt)}
-                                style={{ background: "#166534", border: "none", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                                ✓ בחר
+                                style={{ background: isSelected ? "#0d1f10" : "#166534", border: isSelected ? "1px solid #4ade80" : "none", borderRadius: 6, padding: "6px 10px", color: isSelected ? "#4ade80" : "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                                {isSelected ? "✓ נבחר" : "✓ בחר"}
                               </button>
                               <button onClick={() => deleteAltMeal(meal.id, idx)}
                                 style={{ background: "transparent", border: "none", color: "#f87171", fontSize: 13, cursor: "pointer", padding: "2px 4px" }}>
                                 ✕
                               </button>
                             </div>
-                          ))}
+                            );
+                          })}
                           <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #1a3a1f" }}>
                             <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>➕ הוסף חלופה חדשה:</div>
                             <input value={altForm.name} onChange={e => setAltForm(p => ({ ...p, name: e.target.value }))}
