@@ -661,7 +661,9 @@ Return ONLY valid JSON, no markdown:
 
       const confirmBreakdown = () => {
         if (!aiBreakdown) return;
-        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [aiBreakdown.mealId]: { description: editInput.trim(), calories: aiBreakdown.total } } }));
+        const desc = editInput.trim();
+        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [aiBreakdown.mealId]: { description: desc, calories: aiBreakdown.total } } }));
+        rememberAltMeal(aiBreakdown.mealId, desc, aiBreakdown.total);
         setEditingMeal(null); setEditInput(""); setAiBreakdown(null); setAiError(""); setAiQuestions(null); setAiAnswers("");
       };
 
@@ -670,6 +672,7 @@ Return ONLY valid JSON, no markdown:
         if (!calories || calories < 1) return;
         const desc = editInput.trim() || "ארוחה מותאמת";
         setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: desc, calories } } }));
+        rememberAltMeal(mealId, desc, calories);
         setEditingMeal(null); setEditInput(""); setManualCal(""); setAiError("");
       };
 
@@ -686,6 +689,16 @@ Return ONLY valid JSON, no markdown:
         const entry = { name, calMin: range.calMin, calMax: range.calMax, protein: altForm.protein.trim() };
         setAltMeals(prev => ({ ...prev, [mealId]: [...(prev[mealId] || []), entry] }));
         setAltForm({ name: "", cal: "", protein: "" });
+      };
+
+      const rememberAltMeal = (mealId, description, calories) => {
+        const name = description.trim();
+        if (!name) return;
+        setAltMeals(prev => {
+          const list = prev[mealId] || [];
+          if (list.some(a => a.name.trim().toLowerCase() === name.toLowerCase())) return prev;
+          return { ...prev, [mealId]: [...list, { name, calMin: calories, calMax: calories, protein: "" }] };
+        });
       };
 
       const deleteAltMeal = (mealId, idx) => {
