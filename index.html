@@ -125,6 +125,7 @@
     function WeightTab() {
       const [entries, setEntries] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
       const [customMeals] = usePersist("custom_meals_v1", {});
+      const [checked] = usePersist("plan_checked_v3", {});
       const todayStr = toDateStr(new Date());
       const [input, setInput] = useState("");
       const [expandedMonths, setExpandedMonths] = useState({});
@@ -309,7 +310,11 @@
           </div>
 
           {(() => {
-            const MENU_CAL = MEALS.reduce((s, m) => s + (customMeals[todayStr]?.[m.id]?.calories ?? m.cal), 0);
+            const MENU_CAL = MEALS.reduce((s, m) => {
+              const custom = customMeals[todayStr]?.[m.id];
+              const isDone = checked[todayStr + "-" + m.id] || custom;
+              return isDone ? s + (custom?.calories ?? m.cal) : s;
+            }, 0);
             const DAY_TYPES = [
               { key: "rest",      label: "🛋 מנוחה",           def: [50, 350] },
               { key: "work",      label: "☕ עבודה",           def: [250, 650] },
@@ -337,7 +342,7 @@
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", fontFamily: "monospace" }}>{tdeeMin.toLocaleString()}–{tdeeMax.toLocaleString()} קל׳</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0b1a0d", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, color: "#4a7a54" }}>התפריט (היום)</span>
+                  <span style={{ fontSize: 11, color: "#4a7a54" }}>נאכל היום</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0", fontFamily: "monospace" }}>{MENU_CAL.toLocaleString()} קל׳</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0d2e18", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e4a2e" }}>
