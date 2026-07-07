@@ -603,7 +603,7 @@
       const pct = Math.min((doneCal / totalCal) * 100, 100);
       const toggle = id => setChecked(p => ({ ...p, [activeDateStr + "-" + id]: !p[activeDateStr + "-" + id] }));
 
-      const TARGET_CAL = 2000;
+      const TARGET_CAL = 2061;
       const calGap = doneCal - TARGET_CAL;
 
       const callGemini = async (prompt) => {
