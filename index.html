@@ -122,8 +122,11 @@
     };
 
     // ─── WeightTab ───────────────────────────────────────────────────────────────
+    const asArray = (v) => Array.isArray(v) ? v : Object.values(v || {});
+
     function WeightTab() {
-      const [entries, setEntries] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
+      const [entriesRaw, setEntries] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
+      const entries = asArray(entriesRaw);
       const [customMeals] = usePersist("custom_meals_v1", {});
       const [checked] = usePersist("plan_checked_v3", {});
       const todayStr = toDateStr(new Date());
@@ -155,13 +158,13 @@
         const now = new Date();
         const date = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
         const label = String(now.getDate()).padStart(2,"0") + "/" + String(now.getMonth()+1).padStart(2,"0");
-        setEntries(p => [...p, { week: w, kg, label, date }]);
+        setEntries(p => [...asArray(p), { week: w, kg, label, date }]);
         setInput("");
       };
 
       const deleteLastEntry = () => {
         if (entries.length <= 1) return;
-        setEntries(p => p.slice(0, -1));
+        setEntries(p => asArray(p).slice(0, -1));
       };
 
       const parseEntryDate = (e) => {
