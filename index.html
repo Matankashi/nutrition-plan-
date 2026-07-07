@@ -1010,7 +1010,7 @@ Return ONLY valid JSON, no markdown:
       );
     }
 
-    // ─── ChecklistTab ────────────────────────────────────────────────────────────
+    // ─── RoutineTab data: daily task plan ────────────────────────────────────────
     const WEEK_PLAN = [
       { day: "ראשון", tasks: [
         { id:"w1", cat:"🥗", text:"הקפד על התפריט המלא" },
@@ -1062,224 +1062,6 @@ Return ONLY valid JSON, no markdown:
     ];
 
     const CAT_COLORS = { "🥗":"#4ade80","🚶":"#60a5fa","💪":"#f87171","💧":"#38bdf8","🚫":"#6b7280","😴":"#a78bfa","🍕":"#fbbf24","🍺":"#d97706","⚖️":"#4ade80","🧠":"#c084fc" };
-
-    function ChecklistTab() {
-      const todayIdx = new Date().getDay();
-      const [activeDay, setActiveDay] = useState(todayIdx < 7 ? todayIdx : 0);
-      const [shiftOffset, setShiftOffset] = useState(0);
-      const [checked, setChecked] = usePersist("checklist_checked", {});
-      const [shifts, setShifts] = usePersist("shifts_v1", {});
-      const [dayTypes] = usePersist("workout_day_types_v1", {});
-      const shiftWeekDates = getShiftWeekDates(shiftOffset);
-      const currentWeekDates = getShiftWeekDates(0);
-      const activeDateStr = shiftWeekDates[activeDay];
-      const activeShift = shifts[activeDateStr] || null;
-
-      const dayPlan = WEEK_PLAN[activeDay];
-      const done = dayPlan.tasks.filter(t => checked[activeDateStr + "-" + t.id]).length;
-      const total = dayPlan.tasks.length;
-      const pct = Math.round((done / total) * 100);
-      const toggle = (id) => setChecked(p => {
-        const key = activeDateStr + "-" + id;
-        if (p[key]) return { ...p, [key]: null };
-        const now = new Date();
-        const ts = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) + " " +
-          now.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-        return { ...p, [key]: ts };
-      });
-
-      const walkDays = [0, 2, 4];
-      const weekLabel = shiftOffset === 0 ? "שבוע זה" : shiftOffset === 1 ? "שבוע הבא" : shiftOffset === -1 ? "שבוע שעבר" : (shiftOffset > 0 ? "+" : "") + shiftOffset + " שבועות";
-
-      const [imgLoading, setImgLoading] = useState(false);
-      const [imgMsg, setImgMsg]         = useState("");
-
-      const readShiftImage = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setImgLoading(true); setImgMsg("");
-        try {
-          const base64 = await new Promise((res, rej) => {
-            const r = new FileReader();
-            r.onload = () => res(r.result.split(",")[1]);
-            r.onerror = rej;
-            r.readAsDataURL(file);
-          });
-          const prompt = `This is a Hebrew work schedule table. Columns are days with dates in DD.MM format at the top (e.g. "21.06"). Rows split into בוקר (morning) and ערב (evening) sections. Each cell has worker names.
-Find every date where "מתן" appears and which section.
-Return ONLY valid JSON, no extra text:
-{"21.06":"morning","22.06":"evening"}
-Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
-          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [
-              { inlineData: { mimeType: file.type || "image/jpeg", data: base64 } },
-              { text: prompt }
-            ]}]})
-          });
-          const data = await resp.json();
-          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-          const errMsg = data?.error?.message || "";
-          if (!text && errMsg) throw new Error(errMsg);
-          const match = text.match(/\{[\s\S]*\}/);
-          if (!match) throw new Error("לא זיהיתי סידור בתמונה");
-          const parsed = JSON.parse(match[0]);
-          const yr = new Date().getFullYear();
-          const newShifts = {};
-          for (const [k, v] of Object.entries(parsed)) {
-            const parts = k.split(".");
-            if (parts.length === 2 && (v === "morning" || v === "evening")) {
-              newShifts[`${yr}-${parts[1].padStart(2,"0")}-${parts[0].padStart(2,"0")}`] = v;
-            }
-          }
-          if (!Object.keys(newShifts).length) throw new Error("לא נמצאו משמרות למתן");
-          setShifts(p => ({ ...p, ...newShifts }));
-          setImgMsg(`✅ זוהו ${Object.keys(newShifts).length} משמרות`);
-        } catch(err) { setImgMsg("❌ " + err.message); }
-        setImgLoading(false);
-        e.target.value = "";
-      };
-
-      return (
-        <div style={{ padding: "14px 14px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-            <button onClick={() => setShiftOffset(o => o - 1)} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 7px", fontFamily: "inherit" }}>‹</button>
-            <div style={{ flex: 1, textAlign: "center", fontSize: 11, color: "#4a7a54", fontWeight: 700 }}>{weekLabel}</div>
-            <button onClick={() => setShiftOffset(o => o + 1)} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 7px", fontFamily: "inherit" }}>›</button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 10 }}>
-            {WEEK_PLAN.map((d, i) => {
-              const dateStr = shiftWeekDates[i];
-              const dayDone = d.tasks.filter(t => checked[dateStr + "-" + t.id]).length;
-              const dayPct = Math.round((dayDone / d.tasks.length) * 100);
-              const isActive = i === activeDay;
-              const isToday = shiftOffset === 0 && i === todayIdx;
-              const sh = shifts[dateStr] || null;
-              return (
-                <button key={i} onClick={() => setActiveDay(i)} style={{
-                  background: isActive ? "#166534" : "#0d1f10",
-                  border: isToday ? "1px solid #4ade80" : "1px solid #1a3a1f",
-                  borderRadius: 8, padding: "5px 2px", cursor: "pointer",
-                  textAlign: "center", transition: "all 0.2s",
-                }}>
-                  <div style={{ fontSize: 9, color: isActive ? "#4ade80" : "#4a7a54", fontWeight: isToday ? 700 : 400 }}>{d.day.slice(0,3)}</div>
-                  <div style={{ fontSize: 8, color: isActive ? "#a8d8a8" : "#3a5a3a", marginTop: 1 }}>{dateStr.slice(8,10)}/{dateStr.slice(5,7)}</div>
-                  <div style={{ fontSize: 9, color: sh ? SHIFT_COLORS[sh] : "#2a3a2a", marginTop: 1 }}>{sh ? SHIFT_ICONS[sh] : "·"}</div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: dayPct === 100 ? "#4ade80" : isActive ? "#e0f0e0" : "#4a7a54", marginTop: 1 }}>
-                    {dayPct === 100 ? "✓" : dayDone > 0 ? dayDone + "/" + d.tasks.length : "—"}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div>
-                <span style={{ fontSize: 15, fontWeight: 700, color: "#4ade80" }}>{dayPlan.day}</span>
-                {walkDays.includes(activeDay) && <span style={{ fontSize: 11, color: "#60a5fa", marginRight: 8 }}>🚶 יום הליכה</span>}
-                {activeDay === 5 && <span style={{ fontSize: 11, color: "#fbbf24", marginRight: 8 }}>🍕 יום חופשי</span>}
-                {activeDay === 6 && <span style={{ fontSize: 11, color: "#4ade80", marginRight: 8 }}>⚖️ יום שקילה</span>}
-              </div>
-              <span style={{ fontSize: 12, color: pct === 100 ? "#4ade80" : "#4a7a54", fontWeight: 700 }}>{done}/{total} {pct === 100 ? "✅" : ""}</span>
-            </div>
-            <div style={{ height: 6, background: "#1a3a1f", borderRadius: 3, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: pct + "%", borderRadius: 3, background: pct === 100 ? "#4ade80" : "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.4s" }} />
-            </div>
-          </div>
-
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 12, marginBottom: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <div style={{ fontSize: 11, color: "#4a7a54", fontWeight: 700 }}>🗓️ תכנון השבוע</div>
-              <label style={{ display: "flex", alignItems: "center", gap: 5, background: "#0b1a0d", border: "1px solid #1a3a1f", borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: imgLoading ? "#4a7a54" : "#4ade80", fontWeight: 700, fontFamily: "inherit" }}>
-                <input type="file" accept="image/*" style={{ display: "none" }} onChange={readShiftImage} disabled={imgLoading} />
-                {imgLoading ? "⏳ קורא..." : "📷 העלה תמונה"}
-              </label>
-            </div>
-            {imgMsg && <div style={{ fontSize: 11, color: imgMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginBottom: 8, textAlign: "center" }}>{imgMsg}</div>}
-            <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 8 }}>משמרת {dayPlan.day} — {activeDateStr.slice(8,10)}/{activeDateStr.slice(5,7)}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-              {[["morning","☀️","בוקר"],["evening","🌙","ערב"],["off","🏠","חופש"]].map(([key,icon,label]) => {
-                const on = activeShift === key;
-                return (
-                  <button key={key} onClick={() => setShifts(p => ({ ...p, [activeDateStr]: on ? null : key }))}
-                    style={{ padding: "8px 4px", borderRadius: 8, border: `1px solid ${on ? SHIFT_COLORS[key] : "#1a3a1f"}`, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: on ? SHIFT_COLORS[key] + "22" : "#0b1a0d", color: on ? SHIFT_COLORS[key] : "#4a7a54", transition: "all 0.15s" }}>
-                    {icon} {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {dayPlan.tasks.map(task => {
-            const isDone = !!checked[activeDateStr + "-" + task.id];
-            const color = CAT_COLORS[task.cat] || "#4ade80";
-            return (
-              <div key={task.id} onClick={() => toggle(task.id)} style={{
-                marginBottom: 8, borderRadius: 11,
-                border: "1px solid " + (isDone ? color + "55" : "#1a3a1f"),
-                background: isDone ? color + "0f" : "#0d1f10",
-                padding: "13px 14px", cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 12,
-                opacity: isDone ? 0.7 : 1, transition: "all 0.2s",
-              }}>
-                <div style={{
-                  width: 24, height: 24, borderRadius: 7, flexShrink: 0,
-                  border: "2px solid " + (isDone ? color : "#2d5a3a"),
-                  background: isDone ? color + "33" : "transparent",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 14, color: color, fontWeight: 700, transition: "all 0.15s",
-                }}>{isDone ? "✓" : ""}</div>
-                <span style={{ fontSize: 16 }}>{task.cat}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: isDone ? "#4a7a54" : "#c8e8c8", textDecoration: isDone ? "line-through" : "none", lineHeight: 1.4 }}>{task.text}</div>
-                  {isDone && typeof checked[activeDateStr + "-" + task.id] === "string" && (
-                    <div style={{ fontSize: 10, color: "#3a6a44", marginTop: 2 }}>✓ {checked[activeDateStr + "-" + task.id]}</div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          {(activeShift === "morning" || activeShift === "off") && (
-            <div style={{ background: "#0d2e18", borderRadius: 12, border: "1px solid #1e4a2e", padding: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 22 }}>💪</span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#4ade80" }}>יום אימון מתוכנן</div>
-                <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 2 }}>{activeShift === "morning" ? "☀️ משמרת בוקר — פנוי אחה״צ" : "🏠 יום חופש"} — סמן את האימון בכוח.</div>
-              </div>
-            </div>
-          )}
-          {activeShift === "evening" && (
-            <div style={{ background: "#0a1520", borderRadius: 12, border: "1px solid #1a2a5a", padding: 14, marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 22 }}>🌙</span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#818cf8" }}>יום מנוחה מתוכנן</div>
-                <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 2 }}>משמרת ערב — לא מתוכנן אימון היום.</div>
-              </div>
-            </div>
-          )}
-
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginTop: 6, marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📋 סיכום שבועי</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[
-                ["🚶 הליכות", walkDays.reduce((s,di)=>s+(WEEK_PLAN[di].tasks.filter(t=>checked[currentWeekDates[di]+"-"+t.id]&&t.cat==="🚶").length>0?1:0),0) + "/3"],
-                ["🚫 ימים ללא אלכוהול", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[currentWeekDates[i]+"-"+t.id]&&t.cat==="🚫").length>0?1:0),0) + "/5"],
-                ["🥗 ימי תפריט", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[currentWeekDates[i]+"-"+t.id]&&t.cat==="🥗").length>0?1:0),0) + "/7"],
-                ["💪 אימוני כוח", currentWeekDates.filter(d=>(dayTypes[d]||[]).includes("strength")).length + "/3"],
-                ["🧘 אימוני פיזיו", currentWeekDates.filter(d=>(dayTypes[d]||[]).includes("physio")).length + "/2"],
-              ].map(([l,v]) => (
-                <div key={l} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
-                  <div style={{ fontSize: 11, color: "#4a7a54" }}>{l}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#4ade80", fontFamily: "monospace", marginTop: 2 }}>{v}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    }
 
     // ─── User Select ──────────────────────────────────────────────────────────────
     function UserSelect({ onSelect, onAdmin }) {
@@ -1651,7 +1433,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       );
     }
 
-    // ─── KoachTab ────────────────────────────────────────────────────────────────
+    // ─── RoutineTab (משימות + אימון) ──────────────────────────────────────────────
     const DAY_ACT_TYPES = [
       { key: "walk",     label: "🚶 הליכה", color: "#60a5fa" },
       { key: "strength", label: "💪 כוח",   color: "#f87171" },
@@ -1700,19 +1482,96 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       return [];
     };
 
-    function KoachTab() {
-      const [now] = useState(new Date());
-      const todayStr = toDateStr(now);
-      const [weekOffset, setWeekOffset] = useState(0);
-      const days = getWeekDays(weekOffset);
-      const [activeDateStr, setActiveDateStr] = useState(todayStr);
-      const [dayTypes, setDayTypes]   = usePersist("workout_day_types_v1", {});
-      const [exChecked, setExChecked] = usePersist("workout_exercises_v2", {});
-      const [shifts] = usePersist("shifts_v1", {});
+    function SectionHead({ icon, title, done, total, color }) {
+      return (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color }}>{icon} {title}</span>
+          {total > 0 && <span style={{ fontSize: 12, color: done === total ? color : "#4a7a54", fontWeight: 700 }}>{done}/{total}{done === total ? " ✅" : ""}</span>}
+        </div>
+      );
+    }
 
-      const activeDay = days.find(d => d.dateStr === activeDateStr) || { dayName: "", display: activeDateStr };
+    function RoutineTab() {
+      const todayIdx = new Date().getDay();
+      const [activeDay, setActiveDay] = useState(todayIdx < 7 ? todayIdx : 0);
+      const [shiftOffset, setShiftOffset] = useState(0);
+      const [checked, setChecked] = usePersist("checklist_checked", {});
+      const [shifts, setShifts] = usePersist("shifts_v1", {});
+      const [dayTypes, setDayTypes] = usePersist("workout_day_types_v1", {});
+      const [exChecked, setExChecked] = usePersist("workout_exercises_v2", {});
+      const shiftWeekDates = getShiftWeekDates(shiftOffset);
+      const currentWeekDates = getShiftWeekDates(0);
+      const activeDateStr = shiftWeekDates[activeDay];
+      const activeShift = shifts[activeDateStr] || null;
       const dow = new Date(activeDateStr + "T12:00:00").getDay();
 
+      // tasks (checklist)
+      const dayPlan = WEEK_PLAN[activeDay];
+      const doneTasks = dayPlan.tasks.filter(t => checked[activeDateStr + "-" + t.id]).length;
+      const totalTasks = dayPlan.tasks.length;
+      const pctTasks = Math.round((doneTasks / totalTasks) * 100);
+      const toggleTask = (id) => setChecked(p => {
+        const key = activeDateStr + "-" + id;
+        if (p[key]) return { ...p, [key]: null };
+        const now = new Date();
+        const ts = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) + " " +
+          now.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+        return { ...p, [key]: ts };
+      });
+
+      const walkDays = [0, 2, 4];
+      const weekLabel = shiftOffset === 0 ? "שבוע זה" : shiftOffset === 1 ? "שבוע הבא" : shiftOffset === -1 ? "שבוע שעבר" : (shiftOffset > 0 ? "+" : "") + shiftOffset + " שבועות";
+
+      const [imgLoading, setImgLoading] = useState(false);
+      const [imgMsg, setImgMsg]         = useState("");
+
+      const readShiftImage = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setImgLoading(true); setImgMsg("");
+        try {
+          const base64 = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result.split(",")[1]);
+            r.onerror = rej;
+            r.readAsDataURL(file);
+          });
+          const prompt = `This is a Hebrew work schedule table. Columns are days with dates in DD.MM format at the top (e.g. "21.06"). Rows split into בוקר (morning) and ערב (evening) sections. Each cell has worker names.
+Find every date where "מתן" appears and which section.
+Return ONLY valid JSON, no extra text:
+{"21.06":"morning","22.06":"evening"}
+Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: [
+              { inlineData: { mimeType: file.type || "image/jpeg", data: base64 } },
+              { text: prompt }
+            ]}]})
+          });
+          const data = await resp.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+          const errMsg = data?.error?.message || "";
+          if (!text && errMsg) throw new Error(errMsg);
+          const match = text.match(/\{[\s\S]*\}/);
+          if (!match) throw new Error("לא זיהיתי סידור בתמונה");
+          const parsed = JSON.parse(match[0]);
+          const yr = new Date().getFullYear();
+          const newShifts = {};
+          for (const [k, v] of Object.entries(parsed)) {
+            const parts = k.split(".");
+            if (parts.length === 2 && (v === "morning" || v === "evening")) {
+              newShifts[`${yr}-${parts[1].padStart(2,"0")}-${parts[0].padStart(2,"0")}`] = v;
+            }
+          }
+          if (!Object.keys(newShifts).length) throw new Error("לא נמצאו משמרות למתן");
+          setShifts(p => ({ ...p, ...newShifts }));
+          setImgMsg(`✅ זוהו ${Object.keys(newShifts).length} משמרות`);
+        } catch(err) { setImgMsg("❌ " + err.message); }
+        setImgLoading(false);
+        e.target.value = "";
+      };
+
+      // workout
       const selectedTypes = dayTypes[activeDateStr] || [];
       const toggleType = (key) => setDayTypes(p => {
         const cur = p[activeDateStr] || [];
@@ -1720,88 +1579,144 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
         return { ...p, [activeDateStr]: next };
       });
 
-      // build exercise list for selected types (strength/physio only have exercises)
       const activeExSections = selectedTypes
         .filter(t => t === "strength" || t === "physio")
         .map(t => ({ type: t, color: DAY_ACT_TYPES.find(a => a.key === t).color, exercises: getTypeEx(t, dow) }));
 
       const allExercises = activeExSections.flatMap(s => s.exercises);
-      const doneCount = allExercises.filter(e => !!exChecked[activeDateStr + "-" + e.id]).length;
-      const total = allExercises.length;
-      const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
-      const allDone = total > 0 && doneCount === total;
-      const toggle = (exId) => setExChecked(p => ({ ...p, [activeDateStr + "-" + exId]: !p[activeDateStr + "-" + exId] }));
-
-      const weeklyCount = (typeKey) => days.filter(d => (dayTypes[d.dateStr] || []).includes(typeKey)).length;
+      const doneEx = allExercises.filter(e => !!exChecked[activeDateStr + "-" + e.id]).length;
+      const totalEx = allExercises.length;
+      const pctEx = totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
+      const allExDone = totalEx > 0 && doneEx === totalEx;
+      const toggleEx = (exId) => setExChecked(p => ({ ...p, [activeDateStr + "-" + exId]: !p[activeDateStr + "-" + exId] }));
 
       return (
-        <>
-          <div style={{ padding: "10px 14px 0" }}>
-            {/* week navigator */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-              <button onClick={() => setWeekOffset(w => w + 1)} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 8px", fontFamily: "inherit" }}>‹</button>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, flex: 1 }}>
-                {days.map(day => {
-                  const isActive = day.dateStr === activeDateStr;
-                  const isToday  = day.dateStr === todayStr;
-                  const types    = dayTypes[day.dateStr] || [];
-                  const icons    = types.map(k => ({ walk:"🚶", strength:"💪", physio:"🧘", rest:"🛋" }[k])).join("");
-                  const sh = shifts[day.dateStr] || null;
-                  return (
-                    <button key={day.dateStr} onClick={() => setActiveDateStr(day.dateStr)} style={{
-                      background: isActive ? "#166534" : "#0d1f10", border: isToday ? "1px solid #4ade80" : (sh ? `1px solid ${SHIFT_COLORS[sh]}55` : "1px solid #1a3a1f"),
-                      borderRadius: 8, padding: "5px 2px", cursor: "pointer", textAlign: "center", transition: "all 0.2s",
-                    }}>
-                      <div style={{ fontSize: 9, color: isActive ? "#4ade80" : "#4a7a54", fontWeight: isToday ? 700 : 400 }}>{day.dayName.slice(0,3)}</div>
-                      <div style={{ fontSize: 8, color: isActive ? "#a8d8a8" : "#3a5a3a", marginTop: 1 }}>{sh ? SHIFT_ICONS[sh] : day.display}</div>
-                      <div style={{ fontSize: 9, marginTop: 1 }}>{icons || "—"}</div>
-                    </button>
-                  );
-                })}
+        <div style={{ padding: "14px 14px 0" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#e0f0e0", marginBottom: 12 }}>🗓️ שגרה יומית</div>
+
+          {/* week navigator */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+            <button onClick={() => setShiftOffset(o => o - 1)} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 7px", fontFamily: "inherit" }}>‹</button>
+            <div style={{ flex: 1, textAlign: "center", fontSize: 11, color: "#4a7a54", fontWeight: 700 }}>{weekLabel}</div>
+            <button onClick={() => setShiftOffset(o => o + 1)} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 7px", fontFamily: "inherit" }}>›</button>
+          </div>
+
+          {/* combined day strip: shift + task progress + workout icons */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 10 }}>
+            {WEEK_PLAN.map((d, i) => {
+              const dateStr = shiftWeekDates[i];
+              const dayDoneTasks = d.tasks.filter(t => checked[dateStr + "-" + t.id]).length;
+              const dayPctTasks = Math.round((dayDoneTasks / d.tasks.length) * 100);
+              const isActive = i === activeDay;
+              const isToday = shiftOffset === 0 && i === todayIdx;
+              const sh = shifts[dateStr] || null;
+              const types = dayTypes[dateStr] || [];
+              const workoutIcons = types.map(k => ({ walk: "🚶", strength: "💪", physio: "🧘", rest: "🛋" }[k])).join("");
+              return (
+                <button key={i} onClick={() => setActiveDay(i)} style={{
+                  background: isActive ? "#166534" : "#0d1f10",
+                  border: isToday ? "1px solid #4ade80" : "1px solid #1a3a1f",
+                  borderRadius: 8, padding: "5px 2px", cursor: "pointer",
+                  textAlign: "center", transition: "all 0.2s",
+                }}>
+                  <div style={{ fontSize: 9, color: isActive ? "#4ade80" : "#4a7a54", fontWeight: isToday ? 700 : 400 }}>{d.day.slice(0,3)}</div>
+                  <div style={{ fontSize: 8, color: isActive ? "#a8d8a8" : "#3a5a3a", marginTop: 1 }}>{dateStr.slice(8,10)}/{dateStr.slice(5,7)}</div>
+                  <div style={{ fontSize: 9, color: sh ? SHIFT_COLORS[sh] : "#2a3a2a", marginTop: 1 }}>{sh ? SHIFT_ICONS[sh] : "·"}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: dayPctTasks === 100 ? "#4ade80" : isActive ? "#e0f0e0" : "#4a7a54", marginTop: 1 }}>
+                    {dayPctTasks === 100 ? "✓" : dayDoneTasks > 0 ? dayDoneTasks + "/" + d.tasks.length : "—"}
+                  </div>
+                  <div style={{ fontSize: 9, marginTop: 1, minHeight: 11 }}>{workoutIcons}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* shift picker + shift-image upload */}
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 12, marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: "#4a7a54", fontWeight: 700 }}>
+                {dayPlan.day} — {activeDateStr.slice(8,10)}/{activeDateStr.slice(5,7)}
+                {walkDays.includes(activeDay) && <span style={{ color: "#60a5fa", marginRight: 8 }}>🚶 יום הליכה</span>}
+                {activeDay === 5 && <span style={{ color: "#fbbf24", marginRight: 8 }}>🍕 יום חופשי</span>}
+                {activeDay === 6 && <span style={{ color: "#4ade80", marginRight: 8 }}>⚖️ יום שקילה</span>}
               </div>
-              {weekOffset > 0
-                ? <button onClick={() => setWeekOffset(w => w - 1)} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 8px", fontFamily: "inherit" }}>›</button>
-                : <div style={{ width: 28 }} />}
+              <label style={{ display: "flex", alignItems: "center", gap: 5, background: "#0b1a0d", border: "1px solid #1a3a1f", borderRadius: 7, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: imgLoading ? "#4a7a54" : "#4ade80", fontWeight: 700, fontFamily: "inherit" }}>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={readShiftImage} disabled={imgLoading} />
+                {imgLoading ? "⏳ קורא..." : "📷 סידור עבודה"}
+              </label>
             </div>
-
-            {/* shift banner */}
-            {shifts[activeDateStr] && (
-              <div style={{ background: "#0b1a0d", borderRadius: 8, border: `1px solid ${SHIFT_COLORS[shifts[activeDateStr]]}44`, padding: "8px 12px", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 14 }}>{SHIFT_ICONS[shifts[activeDateStr]]}</span>
-                <span style={{ fontSize: 11, color: SHIFT_COLORS[shifts[activeDateStr]], fontWeight: 700 }}>
-                  {shifts[activeDateStr] === "morning" ? "משמרת בוקר — אימון מתוכנן" : shifts[activeDateStr] === "evening" ? "משמרת ערב — יום מנוחה" : "יום חופש — אימון מתוכנן"}
-                </span>
-              </div>
-            )}
-
-            {/* day header */}
-            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: "#e0f0e0" }}>{activeDay.dayName} {activeDay.display}</span>
-                {total > 0 && <span style={{ fontSize: 12, color: allDone ? "#4ade80" : "#4a7a54", fontWeight: 700 }}>{doneCount}/{total}{allDone ? " ✅" : ""}</span>}
-              </div>
-              {/* multi-select type picker */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
-                {DAY_ACT_TYPES.map(at => {
-                  const on = selectedTypes.includes(at.key);
-                  return (
-                    <button key={at.key} onClick={() => toggleType(at.key)} style={{
-                      padding: "7px 2px", borderRadius: 8, border: `1px solid ${on ? at.color : "#1a3a1f"}`,
-                      cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit",
-                      background: on ? at.color + "22" : "#0b1a0d", color: on ? at.color : "#4a7a54", transition: "all 0.15s",
-                    }}>{at.label}</button>
-                  );
-                })}
-              </div>
-              {total > 0 && (
-                <div style={{ height: 5, background: "#1a3a1f", borderRadius: 3, overflow: "hidden", marginTop: 10 }}>
-                  <div style={{ height: "100%", width: pct + "%", borderRadius: 3, background: allDone ? "#4ade80" : "linear-gradient(90deg,#f87171aa,#f87171)", transition: "width 0.4s" }} />
-                </div>
-              )}
+            {imgMsg && <div style={{ fontSize: 11, color: imgMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginBottom: 8, textAlign: "center" }}>{imgMsg}</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+              {[["morning","☀️","בוקר"],["evening","🌙","ערב"],["off","🏠","חופש"]].map(([key,icon,label]) => {
+                const on = activeShift === key;
+                return (
+                  <button key={key} onClick={() => setShifts(p => ({ ...p, [activeDateStr]: on ? null : key }))}
+                    style={{ padding: "8px 4px", borderRadius: 8, border: `1px solid ${on ? SHIFT_COLORS[key] : "#1a3a1f"}`, cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: on ? SHIFT_COLORS[key] + "22" : "#0b1a0d", color: on ? SHIFT_COLORS[key] : "#4a7a54", transition: "all 0.15s" }}>
+                    {icon} {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div style={{ padding: "0 14px" }}>
+          {/* ── Section: תפריט המשימות ── */}
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+            <SectionHead icon="✅" title="משימות היום" done={doneTasks} total={totalTasks} color="#4ade80" />
+            <div style={{ height: 6, background: "#1a3a1f", borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
+              <div style={{ height: "100%", width: pctTasks + "%", borderRadius: 3, background: pctTasks === 100 ? "#4ade80" : "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.4s" }} />
+            </div>
+            {dayPlan.tasks.map(task => {
+              const isDone = !!checked[activeDateStr + "-" + task.id];
+              const color = CAT_COLORS[task.cat] || "#4ade80";
+              return (
+                <div key={task.id} onClick={() => toggleTask(task.id)} style={{
+                  marginBottom: 8, borderRadius: 11,
+                  border: "1px solid " + (isDone ? color + "55" : "#1a3a1f"),
+                  background: isDone ? color + "0f" : "#0b1a0d",
+                  padding: "13px 14px", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 12,
+                  opacity: isDone ? 0.7 : 1, transition: "all 0.2s",
+                }}>
+                  <div style={{
+                    width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                    border: "2px solid " + (isDone ? color : "#2d5a3a"),
+                    background: isDone ? color + "33" : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 14, color: color, fontWeight: 700, transition: "all 0.15s",
+                  }}>{isDone ? "✓" : ""}</div>
+                  <span style={{ fontSize: 16 }}>{task.cat}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, color: isDone ? "#4a7a54" : "#c8e8c8", textDecoration: isDone ? "line-through" : "none", lineHeight: 1.4 }}>{task.text}</div>
+                    {isDone && typeof checked[activeDateStr + "-" + task.id] === "string" && (
+                      <div style={{ fontSize: 10, color: "#3a6a44", marginTop: 2 }}>✓ {checked[activeDateStr + "-" + task.id]}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Section: אימון ── */}
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+            <SectionHead icon="💪" title="אימון היום" done={doneEx} total={totalEx} color="#f87171" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: totalEx > 0 ? 10 : 0 }}>
+              {DAY_ACT_TYPES.map(at => {
+                const on = selectedTypes.includes(at.key);
+                return (
+                  <button key={at.key} onClick={() => toggleType(at.key)} style={{
+                    padding: "7px 2px", borderRadius: 8, border: `1px solid ${on ? at.color : "#1a3a1f"}`,
+                    cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit",
+                    background: on ? at.color + "22" : "#0b1a0d", color: on ? at.color : "#4a7a54", transition: "all 0.15s",
+                  }}>{at.label}</button>
+                );
+              })}
+            </div>
+            {totalEx > 0 && (
+              <div style={{ height: 5, background: "#1a3a1f", borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
+                <div style={{ height: "100%", width: pctEx + "%", borderRadius: 3, background: allExDone ? "#4ade80" : "linear-gradient(90deg,#f87171aa,#f87171)", transition: "width 0.4s" }} />
+              </div>
+            )}
+
             {activeExSections.map(section => (
               <div key={section.type}>
                 <div style={{ fontSize: 11, color: section.color, fontWeight: 700, marginBottom: 6, marginTop: 4 }}>
@@ -1810,10 +1725,10 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
                 {section.exercises.map(ex => {
                   const isDone = !!exChecked[activeDateStr + "-" + ex.id];
                   return (
-                    <div key={ex.id} onClick={() => toggle(ex.id)} style={{
+                    <div key={ex.id} onClick={() => toggleEx(ex.id)} style={{
                       marginBottom: 8, borderRadius: 11,
                       border: `1px solid ${isDone ? section.color + "55" : "#1a3a1f"}`,
-                      background: isDone ? section.color + "0f" : "#0d1f10",
+                      background: isDone ? section.color + "0f" : "#0b1a0d",
                       padding: "12px 14px", cursor: "pointer",
                       display: "flex", alignItems: "center", gap: 12,
                       opacity: isDone ? 0.7 : 1, transition: "all 0.2s",
@@ -1837,40 +1752,47 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
             ))}
 
             {selectedTypes.includes("walk") && !selectedTypes.includes("strength") && !selectedTypes.includes("physio") && (
-              <div style={{ background: "#0a1a2e", borderRadius: 11, border: "1px solid #1a3a5a", padding: "12px 14px", marginBottom: 8, color: "#60a5fa", fontSize: 13 }}>
+              <div style={{ background: "#0a1a2e", borderRadius: 11, border: "1px solid #1a3a5a", padding: "12px 14px", color: "#60a5fa", fontSize: 13 }}>
                 🚶 יום הליכה — מתיחות בסוף, אין צורך לסמן תרגילים
               </div>
             )}
             {selectedTypes.includes("rest") && selectedTypes.length === 1 && (
-              <div style={{ background: "#0b1a0d", borderRadius: 11, border: "1px solid #1a3a1f", padding: "12px 14px", marginBottom: 8, color: "#4a7a54", fontSize: 13 }}>
+              <div style={{ background: "#0b1a0d", borderRadius: 11, border: "1px solid #1a3a1f", padding: "12px 14px", color: "#4a7a54", fontSize: 13 }}>
                 🛋 יום מנוחה — הגוף מתאושש ומתחזק
               </div>
             )}
             {selectedTypes.length === 0 && (
-              <div style={{ textAlign: "center", color: "#2d5a3a", fontSize: 13, padding: "20px 0" }}>בחר סוג פעילות למעלה</div>
+              <div style={{ textAlign: "center", color: "#2d5a3a", fontSize: 13, padding: "16px 0" }}>בחר סוג פעילות למעלה</div>
             )}
 
-            {allDone && (
-              <div style={{ background: "#0d2e18", borderRadius: 12, border: "1px solid #1e4a2e", padding: 16, textAlign: "center", marginBottom: 12 }}>
+            {allExDone && (
+              <div style={{ background: "#0d2e18", borderRadius: 12, border: "1px solid #1e4a2e", padding: 16, textAlign: "center", marginTop: 8 }}>
                 <div style={{ fontSize: 24, marginBottom: 6 }}>🎉</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#4ade80" }}>אימון הושלם!</div>
                 <div style={{ fontSize: 12, color: "#4a7a54", marginTop: 4 }}>כל הכבוד — תן לגוף לנוח ולהתאושש</div>
               </div>
             )}
+          </div>
 
-            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginTop: 4, marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📋 סיכום שבוע נוכחי</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
-                {DAY_ACT_TYPES.map(at => (
-                  <div key={at.key} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 4px", textAlign: "center" }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: at.color, fontFamily: "monospace" }}>{weeklyCount(at.key)}</div>
-                    <div style={{ fontSize: 9, color: "#4a7a54", marginTop: 2 }}>{at.label}</div>
-                  </div>
-                ))}
-              </div>
+          {/* ── combined weekly summary ── */}
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginTop: 6, marginBottom: 20 }}>
+            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📋 סיכום שבועי</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[
+                ["🚶 הליכות", walkDays.reduce((s,di)=>s+(WEEK_PLAN[di].tasks.filter(t=>checked[currentWeekDates[di]+"-"+t.id]&&t.cat==="🚶").length>0?1:0),0) + "/3"],
+                ["🚫 ימים ללא אלכוהול", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[currentWeekDates[i]+"-"+t.id]&&t.cat==="🚫").length>0?1:0),0) + "/5"],
+                ["🥗 ימי תפריט", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[currentWeekDates[i]+"-"+t.id]&&t.cat==="🥗").length>0?1:0),0) + "/7"],
+                ["💪 אימוני כוח", currentWeekDates.filter(d=>(dayTypes[d]||[]).includes("strength")).length + "/3"],
+                ["🧘 אימוני פיזיו", currentWeekDates.filter(d=>(dayTypes[d]||[]).includes("physio")).length + "/2"],
+              ].map(([l,v]) => (
+                <div key={l} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
+                  <div style={{ fontSize: 11, color: "#4a7a54" }}>{l}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#4ade80", fontFamily: "monospace", marginTop: 2 }}>{v}</div>
+                </div>
+              ))}
             </div>
           </div>
-        </>
+        </div>
       );
     }
 
@@ -1918,14 +1840,14 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
 
           {/* ── Content ── */}
           <div style={{ maxWidth: 520, margin: "0 auto" }}>
-            {tab === "plan" ? <PlanTab /> : tab === "checklist" ? <ChecklistTab /> : tab === "koach" ? <KoachTab /> : <WeightTab />}
+            {tab === "plan" ? <PlanTab /> : tab === "routine" ? <RoutineTab /> : <WeightTab />}
             <div style={{ textAlign: "center", padding: "6px 14px 10px", fontSize: 10, color: "#1a3320" }}>⚠️ יש להתייעץ עם דיאטנית/רופא לפני שינויים תזונתיים משמעותיים</div>
           </div>
 
           {/* ── Bottom Navigation ── */}
           <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 30, background: "rgba(6,13,7,0.97)", backdropFilter: "blur(24px)", borderTop: "1px solid rgba(34,197,94,0.1)" }}>
-            <div style={{ maxWidth: 520, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", padding: "6px 6px 8px" }} className="safe-bottom">
-              {[["plan","תפריט","🍽️"],["checklist","צ׳קליסט","✅"],["koach","כוח","💪"],["weight","משקל","⚖️"]].map(([k,l,e]) => {
+            <div style={{ maxWidth: 520, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "6px 6px 8px" }} className="safe-bottom">
+              {[["plan","תפריט","🍽️"],["routine","שגרה","🗓️"],["weight","משקל","⚖️"]].map(([k,l,e]) => {
                 const on = tab === k;
                 return (
                   <button key={k} onClick={() => setTab(k)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "7px 4px", borderRadius: 12, fontFamily: "inherit", transition: "all 0.15s" }}>
