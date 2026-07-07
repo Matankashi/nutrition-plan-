@@ -1500,7 +1500,6 @@ Return ONLY valid JSON, no markdown:
       const [dayTypes, setDayTypes] = usePersist("workout_day_types_v1", {});
       const [exChecked, setExChecked] = usePersist("workout_exercises_v2", {});
       const shiftWeekDates = getShiftWeekDates(shiftOffset);
-      const currentWeekDates = getShiftWeekDates(0);
       const activeDateStr = shiftWeekDates[activeDay];
       const activeShift = shifts[activeDateStr] || null;
       const dow = new Date(activeDateStr + "T12:00:00").getDay();
@@ -1772,25 +1771,6 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
                 <div style={{ fontSize: 12, color: "#4a7a54", marginTop: 4 }}>כל הכבוד — תן לגוף לנוח ולהתאושש</div>
               </div>
             )}
-          </div>
-
-          {/* ── combined weekly summary ── */}
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginTop: 6, marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📋 סיכום שבועי</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[
-                ["🚶 הליכות", walkDays.reduce((s,di)=>s+(WEEK_PLAN[di].tasks.filter(t=>checked[currentWeekDates[di]+"-"+t.id]&&t.cat==="🚶").length>0?1:0),0) + "/3"],
-                ["🚫 ימים ללא אלכוהול", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[currentWeekDates[i]+"-"+t.id]&&t.cat==="🚫").length>0?1:0),0) + "/5"],
-                ["🥗 ימי תפריט", WEEK_PLAN.reduce((s,d,i)=>s+(d.tasks.filter(t=>checked[currentWeekDates[i]+"-"+t.id]&&t.cat==="🥗").length>0?1:0),0) + "/7"],
-                ["💪 אימוני כוח", currentWeekDates.filter(d=>(dayTypes[d]||[]).includes("strength")).length + "/3"],
-                ["🧘 אימוני פיזיו", currentWeekDates.filter(d=>(dayTypes[d]||[]).includes("physio")).length + "/2"],
-              ].map(([l,v]) => (
-                <div key={l} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
-                  <div style={{ fontSize: 11, color: "#4a7a54" }}>{l}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#4ade80", fontFamily: "monospace", marginTop: 2 }}>{v}</div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       );
