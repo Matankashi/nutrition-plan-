@@ -1334,6 +1334,8 @@ Return ONLY valid JSON, no markdown:
       const [confirmAction, setConfirmAction] = useState(null);
       const [copyFrom, setCopyFrom] = useState("");
       const [copyTo, setCopyTo] = useState("");
+      const [exportUser, setExportUser] = useState("");
+      const [importUser, setImportUser] = useState("");
       const importFileRef = React.useRef(null);
 
       useEffect(() => {
@@ -1397,13 +1399,14 @@ Return ONLY valid JSON, no markdown:
       };
 
       const exportBackup = async () => {
-        const snap = await db.ref("nutrition").once("value");
+        const path = exportUser ? "nutrition/" + exportUser : "nutrition";
+        const snap = await db.ref(path).once("value");
         const data = snap.val() || {};
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `nutrition-backup-${toDateStr(new Date())}.json`;
+        a.download = `nutrition-backup-${exportUser || "all"}-${toDateStr(new Date())}.json`;
         a.click();
         URL.revokeObjectURL(url);
       };
@@ -1422,8 +1425,10 @@ Return ONLY valid JSON, no markdown:
             setTimeout(() => setSaved(""), 2500);
             return;
           }
-          requireAdminPin("לשחזר גיבוי? זה ידרוס את כל הנתונים הקיימים של כל המשתמשים!", async () => {
-            await db.ref("nutrition").set(parsed);
+          const path = importUser ? "nutrition/" + importUser : "nutrition";
+          const whoLabel = importUser ? `של "${importUser}"` : "של כל המשתמשים";
+          requireAdminPin(`לשחזר גיבוי ${whoLabel}? זה ידרוס את הנתונים הקיימים ${whoLabel}!`, async () => {
+            await db.ref(path).set(parsed);
             setSaved("הגיבוי שוחזר ✓");
             setTimeout(() => setSaved(""), 2500);
           });
@@ -1502,11 +1507,23 @@ Return ONLY valid JSON, no markdown:
             <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 14 }}>💾 גיבוי וייבוא נתונים</div>
 
-              <button onClick={exportBackup} style={{ background: "#166534", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", width: "100%", marginBottom: 8 }}>📥 ייצוא כל הנתונים (גיבוי)</button>
+              <div style={{ fontSize: 10, color: G.mid, marginBottom: 4 }}>משתמש לייצוא</div>
+              <select value={exportUser} onChange={e => setExportUser(e.target.value)}
+                style={{ width: "100%", background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 8px", color: G.text, fontSize: 12, outline: "none", fontFamily: "inherit", marginBottom: 8 }}>
+                <option value="">כל המשתמשים</option>
+                {managedUsers && Object.keys(managedUsers).map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+              <button onClick={exportBackup} style={{ background: "#166534", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", width: "100%", marginBottom: 16 }}>📥 ייצוא {exportUser ? `נתוני "${exportUser}"` : "כל הנתונים"} (גיבוי)</button>
 
+              <div style={{ fontSize: 10, color: G.mid, marginBottom: 4 }}>משתמש לייבוא</div>
+              <select value={importUser} onChange={e => setImportUser(e.target.value)}
+                style={{ width: "100%", background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 8px", color: G.text, fontSize: 12, outline: "none", fontFamily: "inherit", marginBottom: 8 }}>
+                <option value="">כל המשתמשים (שחזור מלא)</option>
+                {managedUsers && Object.keys(managedUsers).map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
               <input ref={importFileRef} type="file" accept=".json,application/json" onChange={handleImportFile} style={{ display: "none" }} />
-              <button onClick={() => importFileRef.current?.click()} style={{ background: "#7f1d1d", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fca5a5", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>📤 שחזור מגיבוי (ידרוס הכל)</button>
-              <div style={{ fontSize: 11, color: G.mid, marginTop: 8, marginBottom: 16 }}>הייצוא מוריד קובץ JSON עם נתוני כל המשתמשים; השחזור דורש אישור PIN מנהל ומחליף את כל הנתונים הקיימים</div>
+              <button onClick={() => importFileRef.current?.click()} style={{ background: "#7f1d1d", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fca5a5", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>📤 שחזור {importUser ? `לתוך "${importUser}"` : "(ידרוס הכל)"}</button>
+              <div style={{ fontSize: 11, color: G.mid, marginTop: 8, marginBottom: 16 }}>ייצוא של משתמש בודד מוריד רק את הנתונים שלו; ייבוא לתוך משתמש בודד דורש קובץ שיוצא לאותו משתמש (לא קובץ "כל המשתמשים"). השחזור תמיד דורש אישור PIN מנהל ומחליף נתונים קיימים</div>
 
               <div style={{ borderTop: `1px solid ${G.border}`, paddingTop: 14 }}>
                 <div style={{ fontSize: 12, color: G.mid, marginBottom: 8 }}>העתקת נתונים בין משתמשים:</div>
