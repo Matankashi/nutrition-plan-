@@ -1990,6 +1990,23 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const [pinOk, setPinOk] = useState(localStorage.getItem("matan_pin_ok") === "1");
       const [adminMode, setAdminMode] = useState(false);
       const [adminAuthed, setAdminAuthed] = useState(false);
+      const [liveVersion, setLiveVersion] = useState(null);
+
+      // Fetches the actual latest commit touching index.html on main, straight from
+      // GitHub — so the label always reflects what's really deployed, never a
+      // hand-typed string someone forgot to update.
+      useEffect(() => {
+        fetch("https://api.github.com/repos/Matankashi/nutrition-plan-/commits?path=index.html&sha=main&per_page=1")
+          .then(r => r.ok ? r.json() : Promise.reject())
+          .then(data => {
+            const commit = Array.isArray(data) && data[0];
+            if (!commit) return;
+            const sha = commit.sha.slice(0, 7);
+            const date = new Date(commit.commit.author.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
+            setLiveVersion(`${sha} · ${date}`);
+          })
+          .catch(() => {});
+      }, []);
 
       const selectUser = (u) => {
         localStorage.setItem("active_user", u);
@@ -2047,7 +2064,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
             </div>
           </div>
 
-          <div style={{ position: "fixed", bottom: 4, left: 6, zIndex: 31, fontSize: 9, color: "#2d5a3a", fontFamily: "monospace", pointerEvents: "none" }}>{APP_VERSION}</div>
+          <div style={{ position: "fixed", bottom: 4, left: 6, zIndex: 31, fontSize: 9, color: "#2d5a3a", fontFamily: "monospace", pointerEvents: "none" }}>{liveVersion || APP_VERSION}</div>
         </div>
       );
     }
