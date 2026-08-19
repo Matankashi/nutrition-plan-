@@ -227,6 +227,56 @@
           : (g.entries.length > 0 ? g.entries[g.entries.length - 1].kg : null);
       });
 
+      // ── waist measurement (היקף בטן) ────────────────────────────────────────────
+      const [waistEntriesRaw, setWaistEntries] = usePersist("waist_entries", []);
+      const waistEntries = asArray(waistEntriesRaw);
+      const [waistInput, setWaistInput] = useState("");
+      const [expandedWaistMonths, setExpandedWaistMonths] = useState({});
+      const toggleWaistMonth = key => setExpandedWaistMonths(p => ({ ...p, [key]: !p[key] }));
+
+      const addWaistEntry = () => {
+        const cm = parseFloat(waistInput.replace(",", "."));
+        if (isNaN(cm) || cm < 40 || cm > 200) return;
+        const now = new Date();
+        const date = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
+        setWaistEntries(p => [...asArray(p), { cm, date }]);
+        setWaistInput("");
+      };
+
+      const parseWaistDate = (e) => {
+        if (!e.date) return null;
+        const parts = e.date.split(".");
+        if (parts.length < 3) return null;
+        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      };
+
+      const waistMonthGroups = [];
+      waistEntries.forEach((e, i) => {
+        const d = parseWaistDate(e);
+        const key = d ? `${d.getFullYear()}-${d.getMonth()}` : `x-${i}`;
+        const isCur = d ? (d.getMonth() === curMonth && d.getFullYear() === curYear) : false;
+        const mLabel = d ? `${HE_MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)}` : "";
+        let g = waistMonthGroups.find(g => g.key === key);
+        if (!g) { g = { key, label: mLabel, isCurrent: isCur, entries: [], weekGroups: [] }; waistMonthGroups.push(g); }
+        g.entries.push({ ...e, origIdx: i });
+        if (d) {
+          const weekNum = Math.ceil(d.getDate() / 7);
+          const wKey = `${key}-w${weekNum}`;
+          const wLabel = `${EN_MONTHS[d.getMonth()]} ${String(d.getFullYear()).slice(2)} Week ${weekNum}`;
+          let wg = g.weekGroups.find(w => w.key === wKey);
+          if (!wg) { wg = { key: wKey, label: wLabel, weekNum, entries: [] }; g.weekGroups.push(wg); }
+          wg.entries.push({ ...e, origIdx: i });
+        }
+      });
+      waistMonthGroups.forEach(g => {
+        g.weekGroups.forEach(wg => {
+          wg.avg = +(wg.entries.reduce((s, e) => s + e.cm, 0) / wg.entries.length).toFixed(2);
+        });
+        g.monthAvg = g.weekGroups.length > 0
+          ? +(g.weekGroups.reduce((s, wg) => s + wg.avg, 0) / g.weekGroups.length).toFixed(2)
+          : (g.entries.length > 0 ? g.entries[g.entries.length - 1].cm : null);
+      });
+
       // ── personal stats ────────────────────────────────────────────────────────
       const BIRTHDAY = new Date(1991, 5, 5); // 5.6.1991
       const HEIGHT = 1.75;
@@ -527,6 +577,100 @@
                         <div onClick={() => toggleMonth(g.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", background: "#0b1a0d", borderRadius: 7, borderBottom: gi < monthGroups.length - 1 ? "1px solid #1a3a1f" : "none", marginBottom: 2, cursor: "pointer" }}>
                           <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{g.label} <span style={{ fontSize: 10, color: "#2d5a3a" }}>{expanded ? "▲" : "▼"}</span></div>
                           <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{g.monthAvg} ק״ג</span>
+                          <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: trend < 0 ? "#4ade80" : trend > 0 ? "#f87171" : "#4a7a54" }}>{trend < 0 ? "▼" : trend > 0 ? "▲" : "="} {Math.abs(trend)}</span>
+                        </div>
+                      </div>
+                    );
+                  }
+                });
+              })()}
+            </div>
+          )}
+
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>➕ הוסף מדידה</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={waistInput} onChange={e => setWaistInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addWaistEntry()}
+                placeholder="היקף בטן, למשל: 82" inputMode="decimal"
+                style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "9px 12px", color: "#e0f0e0", fontSize: 14, fontFamily: "inherit", direction: "ltr", outline: "none" }} />
+              <button onClick={addWaistEntry} style={{ background: "#166534", border: "none", borderRadius: 8, padding: "9px 18px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>שמור</button>
+            </div>
+            <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 8 }}>💡 מדידת היקף בטן בס״מ, בבוקר ובאותם תנאים</div>
+          </div>
+
+          {waistEntries.length > 0 && (
+            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📋 היסטוריית מדידות</div>
+              {(() => {
+                let prevWeekAvg = null;
+                return waistMonthGroups.map((g, gi) => {
+                  const renderWeekRow = (wg, wi, diff) => {
+                    const expanded = !!expandedWaistMonths[wg.key];
+                    const first = wg.entries[0];
+                    const last = wg.entries[wg.entries.length - 1];
+                    const trend = diff !== null ? diff : +(last.cm - first.cm).toFixed(2);
+                    return (
+                      <div key={wg.key} style={{ marginBottom: 4 }}>
+                        {expanded
+                          ? wg.entries.map((e, ei) => {
+                              const d = ei === 0 ? null : +(e.cm - wg.entries[ei - 1].cm).toFixed(1);
+                              return (
+                                <div key={e.origIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #0f2a12" }}>
+                                  <div style={{ fontSize: 12, color: "#c8e8c8" }}>{e.date}</div>
+                                  <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{e.cm} ס״מ</span>
+                                  {d !== null
+                                    ? <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: d < 0 ? "#4ade80" : d > 0 ? "#f87171" : "#4a7a54" }}>{d < 0 ? "▼" : d > 0 ? "▲" : "="} {Math.abs(d)}</span>
+                                    : <span style={{ minWidth: 48 }} />}
+                                </div>
+                              );
+                            })
+                          : (
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #0f2a12" }}>
+                              <div style={{ fontSize: 12, color: "#c8e8c8" }}>{first.date}</div>
+                              <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{first.cm} ס״מ</span>
+                              <span style={{ minWidth: 48 }} />
+                            </div>
+                          )
+                        }
+                        <div onClick={() => toggleWaistMonth(wg.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", background: "#0b1a0d", borderRadius: 7, marginBottom: 2, cursor: "pointer" }}>
+                          <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{wg.label} <span style={{ fontSize: 10, color: "#4a7a54" }}>{expanded ? "▲" : "▼"}</span></div>
+                          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{wg.avg} ס״מ</span>
+                          <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: trend < 0 ? "#4ade80" : trend > 0 ? "#f87171" : "#4a7a54" }}>{trend < 0 ? "▼" : trend > 0 ? "▲" : "="} {Math.abs(trend)}</span>
+                        </div>
+                      </div>
+                    );
+                  };
+                  if (g.isCurrent) {
+                    return g.weekGroups.map((wg, wi) => {
+                      const diff = prevWeekAvg !== null ? +(wg.avg - prevWeekAvg).toFixed(2) : null;
+                      prevWeekAvg = wg.avg;
+                      return renderWeekRow(wg, wi, diff);
+                    });
+                  } else {
+                    const lastWeekAvg = g.weekGroups.length > 0 ? g.weekGroups[g.weekGroups.length - 1].avg : null;
+                    const monthDiff = prevWeekAvg !== null && g.monthAvg !== null ? +(g.monthAvg - prevWeekAvg).toFixed(2) : null;
+                    prevWeekAvg = lastWeekAvg;
+                    const expanded = !!expandedWaistMonths[g.key];
+                    const firstEntry = g.entries[0];
+                    const trend = monthDiff !== null ? monthDiff : +(g.monthAvg - firstEntry.cm).toFixed(2);
+                    return (
+                      <div key={g.key} style={{ marginBottom: 6 }}>
+                        {expanded
+                          ? g.weekGroups.map((wg, wi) => {
+                              const d = wi === 0 ? null : +(wg.avg - g.weekGroups[wi - 1].avg).toFixed(2);
+                              return renderWeekRow(wg, wi, d);
+                            })
+                          : (
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid #0f2a12" }}>
+                              <div style={{ fontSize: 12, color: "#c8e8c8" }}>{firstEntry.date}</div>
+                              <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{firstEntry.cm} ס״מ</span>
+                              <span style={{ minWidth: 48 }} />
+                            </div>
+                          )
+                        }
+                        <div onClick={() => toggleWaistMonth(g.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 8px", background: "#0b1a0d", borderRadius: 7, borderBottom: gi < waistMonthGroups.length - 1 ? "1px solid #1a3a1f" : "none", marginBottom: 2, cursor: "pointer" }}>
+                          <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{g.label} <span style={{ fontSize: 10, color: "#2d5a3a" }}>{expanded ? "▲" : "▼"}</span></div>
+                          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{g.monthAvg} ס״מ</span>
                           <span style={{ fontSize: 12, fontFamily: "monospace", minWidth: 48, textAlign: "left", color: trend < 0 ? "#4ade80" : trend > 0 ? "#f87171" : "#4a7a54" }}>{trend < 0 ? "▼" : trend > 0 ? "▲" : "="} {Math.abs(trend)}</span>
                         </div>
                       </div>
