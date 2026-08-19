@@ -412,11 +412,11 @@
       const daysToNextBday = Math.ceil((nextBday - today) / 86400000);
       const turningAge = age + 1;
 
-      // US Navy body-fat formula (inches): 86.010·log10(waist−neck) − 70.041·log10(height) + 30.30
+      // US Navy body-fat formula, metric (cm): 86.010·log10(waist−neck) − 70.041·log10(height) + 30.30
       const lastWaist = waistEntries.length > 0 ? waistEntries[waistEntries.length - 1].cm : null;
       const lastNeck = neckEntries.length > 0 ? neckEntries[neckEntries.length - 1].cm : null;
       const bodyFat = (lastWaist !== null && lastNeck !== null && lastWaist > lastNeck)
-        ? +(86.010 * Math.log10((lastWaist - lastNeck) / 2.54) - 70.041 * Math.log10(HEIGHT * 100 / 2.54) + 30.30).toFixed(1)
+        ? +(86.010 * Math.log10(lastWaist - lastNeck) - 70.041 * Math.log10(HEIGHT * 100) + 30.30).toFixed(1)
         : null;
 
       const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
