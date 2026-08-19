@@ -2011,18 +2011,28 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
 
       // Fetches the actual latest commit touching test/index.html on main, straight
       // from GitHub — so the label always reflects what's really deployed, never a
-      // hand-typed string someone forgot to update.
+      // hand-typed string someone forgot to update. Shows the tag name (e.g. "Beta
+      // 3.3") when that exact commit is tagged; falls back to a short SHA + date for
+      // untagged work-in-progress so it's still readable.
       useEffect(() => {
-        fetch("https://api.github.com/repos/Matankashi/nutrition-plan-/commits?path=test/index.html&sha=main&per_page=1")
-          .then(r => r.ok ? r.json() : Promise.reject())
-          .then(data => {
-            const commit = Array.isArray(data) && data[0];
-            if (!commit) return;
-            const sha = commit.sha.slice(0, 7);
-            const date = new Date(commit.commit.author.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
-            setLiveVersion(`${sha} · ${date}`);
-          })
-          .catch(() => {});
+        const REPO = "https://api.github.com/repos/Matankashi/nutrition-plan-";
+        Promise.all([
+          fetch(`${REPO}/commits?path=test/index.html&sha=main&per_page=1`).then(r => r.ok ? r.json() : null),
+          fetch(`${REPO}/tags?per_page=30`).then(r => r.ok ? r.json() : null),
+        ]).then(([commits, tags]) => {
+          const commit = Array.isArray(commits) && commits[0];
+          if (!commit) return;
+          const sha = commit.sha;
+          const date = new Date(commit.commit.author.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
+          const matches = (Array.isArray(tags) ? tags : []).filter(t => t.commit && t.commit.sha === sha);
+          const betaTag = matches.find(t => /^beta-/i.test(t.name));
+          const chosen = betaTag || matches[0];
+          if (chosen) {
+            setLiveVersion(/^beta-/i.test(chosen.name) ? chosen.name.replace(/^beta-/i, "Beta ") : chosen.name);
+          } else {
+            setLiveVersion(`${sha.slice(0, 7)} · ${date}`);
+          }
+        }).catch(() => {});
       }, []);
 
       const selectUser = (u) => {
