@@ -141,6 +141,7 @@
       const [input, setInput] = useState("");
       const [expandedKeys, setExpandedKeys] = useState({});
       const toggleKey = key => setExpandedKeys(p => ({ ...p, [key]: !p[key] }));
+      const [historyOpen, setHistoryOpen] = useState(false);
 
       const handleAdd = () => {
         const val = parseFloat(input.replace(",", "."));
@@ -213,8 +214,11 @@
 
           {entries.length > 0 && (
             <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 20 }}>
-              <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>{historyLabel}</div>
-              {(() => {
+              <div onClick={() => setHistoryOpen(o => !o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", marginBottom: historyOpen ? 10 : 0 }}>
+                <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{historyLabel}</div>
+                <span style={{ fontSize: 10, color: "#4a7a54" }}>{historyOpen ? "▲" : "▼"}</span>
+              </div>
+              {historyOpen && (() => {
                 let prevWeekAvg = null;
 
                 const renderWeekRow = (wg, diff) => {
