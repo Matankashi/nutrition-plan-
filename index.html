@@ -2021,7 +2021,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       };
 
       const versionLabel = (
-        <div style={{ position: "fixed", bottom: 8, left: 10, zIndex: 9999, fontSize: 14, fontWeight: 700, color: "#4a7a54", fontFamily: "monospace", pointerEvents: "none" }}>{liveVersion || APP_VERSION}</div>
+        <div style={{ position: "fixed", bottom: 8, left: 10, zIndex: 9999, fontSize: 14, fontWeight: 700, color: "#4a7a54", fontFamily: "monospace", direction: "ltr", pointerEvents: "none" }}>{liveVersion || APP_VERSION}</div>
       );
 
       if (adminMode && !adminAuthed) return <>{versionLabel}<AdminPinScreen onSuccess={() => setAdminAuthed(true)} onBack={() => setAdminMode(false)} /></>;
