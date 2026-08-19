@@ -412,6 +412,13 @@
       const daysToNextBday = Math.ceil((nextBday - today) / 86400000);
       const turningAge = age + 1;
 
+      // US Navy body-fat formula (inches): 86.010·log10(waist−neck) − 70.041·log10(height) + 30.30
+      const lastWaist = waistEntries.length > 0 ? waistEntries[waistEntries.length - 1].cm : null;
+      const lastNeck = neckEntries.length > 0 ? neckEntries[neckEntries.length - 1].cm : null;
+      const bodyFat = (lastWaist !== null && lastNeck !== null && lastWaist > lastNeck)
+        ? +(86.010 * Math.log10((lastWaist - lastNeck) / 2.54) - 70.041 * Math.log10(HEIGHT * 100 / 2.54) + 30.30).toFixed(1)
+        : null;
+
       const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
       const iW = GW - PL - PR, iH = GH - PT - PB;
       const allKg = entries.map(e => e.kg);
@@ -452,6 +459,7 @@
                 ["📏 גובה", `${HEIGHT} מ׳`, ""],
                 ["⚖️ משקל", `${last} ק״ג`, ""],
                 ["📐 BMI", `${bmi}`, bmi < 18.5 ? "תת משקל" : bmi < 25 ? "תקין" : bmi < 30 ? "עודף קל" : "עודף"],
+                ["🔥 אחוז שומן", bodyFat !== null ? `${bodyFat}%` : "—", bodyFat !== null ? "לפי היקף בטן/צוואר" : "הוסף מדידות היקף"],
               ].map(([l, v, sub]) => (
                 <div key={l} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
                   <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>{l}</div>
