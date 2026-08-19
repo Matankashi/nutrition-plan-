@@ -1339,21 +1339,6 @@ Return ONLY valid JSON, no markdown:
       const importFileRef = React.useRef(null);
 
       useEffect(() => {
-        db.ref("nutrition").once("value", snap => {
-          if (!snap.exists()) { setLoading(false); return; }
-          const data = snap.val();
-          const userList = Object.keys(data).filter(k => k !== "_admin").map(username => {
-            const udata = data[username];
-            const weightEntries = udata.weight_entries ? (Array.isArray(udata.weight_entries) ? udata.weight_entries : Object.values(udata.weight_entries)) : [];
-            const lastEntry = weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null;
-            return { username, weightCount: weightEntries.length, lastWeight: lastEntry ? lastEntry.kg + " ק״ג" : "—", lastDate: lastEntry ? (lastEntry.date || lastEntry.label || "—") : "—" };
-          });
-          setUsers(userList);
-          setLoading(false);
-        });
-      }, []);
-
-      useEffect(() => {
         db.ref("nutrition/_admin/users").once("value", snap => {
           if (snap.exists()) {
             setManagedUsers(snap.val());
@@ -1362,6 +1347,23 @@ Return ONLY valid JSON, no markdown:
           }
         });
       }, []);
+
+      // Waits for the real registered-user list first, so stray top-level nodes
+      // that aren't actual users (leftover data from old bugs) never show up here.
+      useEffect(() => {
+        if (!managedUsers) return;
+        db.ref("nutrition").once("value", snap => {
+          const data = snap.val() || {};
+          const userList = Object.keys(managedUsers).map(username => {
+            const udata = data[username] || {};
+            const weightEntries = udata.weight_entries ? (Array.isArray(udata.weight_entries) ? udata.weight_entries : Object.values(udata.weight_entries)) : [];
+            const lastEntry = weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null;
+            return { username, weightCount: weightEntries.length, lastWeight: lastEntry ? lastEntry.kg + " ק״ג" : "—", lastDate: lastEntry ? (lastEntry.date || lastEntry.label || "—") : "—" };
+          });
+          setUsers(userList);
+          setLoading(false);
+        });
+      }, [managedUsers]);
 
       const savePin = async (type) => {
         const val = type === "matan" ? newMatanPin : newAdminPin;
@@ -1380,8 +1382,12 @@ Return ONLY valid JSON, no markdown:
       const addUser = async () => {
         const uname = newUsername.trim().toLowerCase().replace(/\s+/g,"_");
         if (!uname) return;
-        const pinVal = newUserPin.length === 4 ? newUserPin : null;
-        const updated = { ...(managedUsers || {}), [uname]: { pin: pinVal } };
+        // Firebase drops any field set to null, and refuses to store an object left
+        // with zero fields — so a PIN-less user must always carry some other real
+        // field (createdAt) or the whole entry silently fails to save.
+        const entry = { createdAt: Date.now() };
+        if (newUserPin.length === 4) entry.pin = newUserPin;
+        const updated = { ...(managedUsers || {}), [uname]: entry };
         await db.ref("nutrition/_admin/users").set(updated);
         setManagedUsers(updated);
         setNewUsername(""); setNewUserPin("");
