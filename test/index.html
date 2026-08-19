@@ -2020,10 +2020,14 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
         setPinOk(false);
       };
 
-      if (adminMode && !adminAuthed) return <AdminPinScreen onSuccess={() => setAdminAuthed(true)} onBack={() => setAdminMode(false)} />;
-      if (adminMode && adminAuthed) return <AdminPanel onBack={() => { setAdminMode(false); setAdminAuthed(false); }} />;
-      if (!activeUser) return <UserSelect onSelect={selectUser} onAdmin={() => setAdminMode(true)} />;
-      if (activeUser === "matan" && !pinOk) return <PinScreen onSuccess={() => setPinOk(true)} onBack={() => { localStorage.removeItem("active_user"); setActiveUser(null); }} />;
+      const versionLabel = (
+        <div style={{ position: "fixed", bottom: 8, left: 10, zIndex: 9999, fontSize: 14, fontWeight: 700, color: "#4a7a54", fontFamily: "monospace", pointerEvents: "none" }}>{liveVersion || APP_VERSION}</div>
+      );
+
+      if (adminMode && !adminAuthed) return <>{versionLabel}<AdminPinScreen onSuccess={() => setAdminAuthed(true)} onBack={() => setAdminMode(false)} /></>;
+      if (adminMode && adminAuthed) return <>{versionLabel}<AdminPanel onBack={() => { setAdminMode(false); setAdminAuthed(false); }} /></>;
+      if (!activeUser) return <>{versionLabel}<UserSelect onSelect={selectUser} onAdmin={() => setAdminMode(true)} /></>;
+      if (activeUser === "matan" && !pinOk) return <>{versionLabel}<PinScreen onSuccess={() => setPinOk(true)} onBack={() => { localStorage.removeItem("active_user"); setActiveUser(null); }} /></>;
       CURRENT_USER = activeUser;
       const todayStr = new Date().toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
       return (
@@ -2064,7 +2068,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
             </div>
           </div>
 
-          <div style={{ position: "fixed", bottom: 4, left: 6, zIndex: 31, fontSize: 9, color: "#2d5a3a", fontFamily: "monospace", pointerEvents: "none" }}>{liveVersion || APP_VERSION}</div>
+          {versionLabel}
         </div>
       );
     }
