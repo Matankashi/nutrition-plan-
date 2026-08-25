@@ -42,13 +42,14 @@
 
     // ─── helpers ────────────────────────────────────────────────────────────────
     const db = firebase.database();
+    const DB_ROOT = "nutrition_test";
     let CURRENT_USER = "guest";
 
     function usePersist(key, initial) {
       const [val, setVal] = useState(initial);
 
       useEffect(() => {
-        const path = 'nutrition/' + CURRENT_USER + '/' + key;
+        const path = DB_ROOT + '/' + CURRENT_USER + '/' + key;
         db.ref(path).on('value', snap => {
           if (snap.exists()) setVal(snap.val());
         });
@@ -58,7 +59,7 @@
       const update = (newVal) => {
         setVal(prev => {
           const resolved = typeof newVal === 'function' ? newVal(prev) : newVal;
-          db.ref('nutrition/' + CURRENT_USER + '/' + key).set(resolved);
+          db.ref(DB_ROOT + '/' + CURRENT_USER + '/' + key).set(resolved);
           return resolved;
         });
       };
@@ -96,7 +97,7 @@
     const BIRTHDAY = new Date(1991, 5, 5);
     const PLAN_CAL = MEALS.reduce((s, m) => s + m.cal, 0);   // 1,926
     const PLAN_PRO = MEALS.reduce((s, m) => s + m.pro, 0);   // 167
-    const APP_VERSION = "Beta 4.0";
+    const APP_VERSION = "Beta 4.0 TEST";
 
     // תיוג יום: מה נכנס (אכילה) ומה יצא (פעילות).
     // משמש לימים שלא נרשמו בהם ארוחות — רישום בפועל תמיד גובר על התג.
@@ -763,7 +764,7 @@
 
     // ─── PlanTab ─────────────────────────────────────────────────────────────────
     let GEMINI_API_KEY = "";
-    db.ref("nutrition/_admin/geminiKey").once("value", snap => { if (snap.val()) GEMINI_API_KEY = snap.val(); });
+    db.ref(`${DB_ROOT}/_admin/geminiKey`).once("value", snap => { if (snap.val()) GEMINI_API_KEY = snap.val(); });
 
     const getWeekDays = (offset = 0) => {
       const days = [];
@@ -1698,7 +1699,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const [users, setUsers] = useState(null);
 
       useEffect(() => {
-        db.ref("nutrition/_admin/users").once("value", snap => {
+        db.ref(`${DB_ROOT}/_admin/users`).once("value", snap => {
           if (snap.exists()) {
             const data = snap.val();
             setUsers(Object.keys(data).map(k => ({ username: k, ...data[k] })));
@@ -1742,7 +1743,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
 
       useEffect(() => {
         ref.current?.focus();
-        db.ref("nutrition/_admin/adminPin").once("value", snap => setAdminPin(snap.exists() ? snap.val() : "0000"));
+        db.ref(`${DB_ROOT}/_admin/adminPin`).once("value", snap => setAdminPin(snap.exists() ? snap.val() : "0000"));
       }, []);
 
       const check = p => {
@@ -1787,7 +1788,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
 
       useEffect(() => {
         ref.current?.focus();
-        db.ref("nutrition/_admin/adminPin").once("value", snap => setAdminPin(snap.exists() ? snap.val() : "0000"));
+        db.ref(`${DB_ROOT}/_admin/adminPin`).once("value", snap => setAdminPin(snap.exists() ? snap.val() : "0000"));
       }, []);
 
       const check = p => {
@@ -1831,7 +1832,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
 
       useEffect(() => {
         inputRef.current?.focus();
-        db.ref("nutrition/_admin/matanPin").once("value", snap => setCorrectPin(snap.exists() ? snap.val() : "1359"));
+        db.ref(`${DB_ROOT}/_admin/matanPin`).once("value", snap => setCorrectPin(snap.exists() ? snap.val() : "1359"));
       }, []);
 
       const check = (p) => {
@@ -1892,14 +1893,14 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const importFileRef = React.useRef(null);
 
       useEffect(() => {
-        db.ref("nutrition/_admin/users").once("value", snap => {
+        db.ref(`${DB_ROOT}/_admin/users`).once("value", snap => {
           setManagedUsers(snap.exists() ? snap.val() : { matan: { pin: null }, guest: { pin: null } });
         });
       }, []);
 
       useEffect(() => {
         if (!managedUsers) return;
-        db.ref("nutrition").once("value", snap => {
+        db.ref(DB_ROOT).once("value", snap => {
           const data = snap.val() || {};
           const userList = Object.keys(managedUsers).map(username => {
             const udata = data[username] || {};
@@ -1915,7 +1916,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const savePin = async (type) => {
         const val = type === "matan" ? newMatanPin : newAdminPin;
         if (val.length !== 4 || isNaN(val)) return;
-        await db.ref(type === "matan" ? "nutrition/_admin/matanPin" : "nutrition/_admin/adminPin").set(val);
+        await db.ref(type === "matan" ? `${DB_ROOT}/_admin/matanPin` : `${DB_ROOT}/_admin/adminPin`).set(val);
         setSaved(type === "matan" ? "PIN של מתן עודכן ✓" : "PIN מנהל עודכן ✓");
         setTimeout(() => setSaved(""), 2500);
         if (type === "matan") setNewMatanPin(""); else setNewAdminPin("");
@@ -1929,7 +1930,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
         const entry = { createdAt: Date.now() };
         if (newUserPin.length === 4) entry.pin = newUserPin;
         const updated = { ...(managedUsers || {}), [uname]: entry };
-        await db.ref("nutrition/_admin/users").set(updated);
+        await db.ref(`${DB_ROOT}/_admin/users`).set(updated);
         setManagedUsers(updated);
         setNewUsername(""); setNewUserPin("");
         setSaved(`משתמש "${uname}" נוסף ✓`);
@@ -1939,14 +1940,14 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const deleteUser = async (uname) => {
         const updated = { ...(managedUsers || {}) };
         delete updated[uname];
-        await db.ref("nutrition/_admin/users").set(updated);
+        await db.ref(`${DB_ROOT}/_admin/users`).set(updated);
         setManagedUsers(updated);
         setSaved(`משתמש "${uname}" נמחק ✓`);
         setTimeout(() => setSaved(""), 2500);
       };
 
       const exportBackup = async () => {
-        const path = exportUser ? "nutrition/" + exportUser : "nutrition";
+        const path = exportUser ? DB_ROOT + "/" + exportUser : DB_ROOT;
         const snap = await db.ref(path).once("value");
         const blob = new Blob([JSON.stringify(snap.val() || {}, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -1966,7 +1967,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           let parsed;
           try { parsed = JSON.parse(reader.result); }
           catch (err) { setSaved("קובץ לא תקין ✗"); setTimeout(() => setSaved(""), 2500); return; }
-          const path = importUser ? "nutrition/" + importUser : "nutrition";
+          const path = importUser ? DB_ROOT + "/" + importUser : DB_ROOT;
           const whoLabel = importUser ? `של "${importUser}"` : "של כל המשתמשים";
           requireAdminPin(`לשחזר גיבוי ${whoLabel}? זה ידרוס את הנתונים הקיימים ${whoLabel}!`, async () => {
             await db.ref(path).set(parsed);
@@ -1980,8 +1981,8 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const copyUserData = () => {
         if (!copyFrom || !copyTo || copyFrom === copyTo) return;
         requireAdminPin(`להעתיק את נתוני "${copyFrom}" אל "${copyTo}"? זה ידרוס את הנתונים הקיימים של "${copyTo}"!`, async () => {
-          const snap = await db.ref("nutrition/" + copyFrom).once("value");
-          await db.ref("nutrition/" + copyTo).set(snap.val() || {});
+          const snap = await db.ref(DB_ROOT + "/" + copyFrom).once("value");
+          await db.ref(DB_ROOT + "/" + copyTo).set(snap.val() || {});
           setSaved(`נתוני "${copyFrom}" הועתקו אל "${copyTo}" ✓`);
           setTimeout(() => setSaved(""), 2500);
           setCopyFrom(""); setCopyTo("");
@@ -1995,7 +1996,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           const targets = users.map(u => u.username);
           let removed = 0;
           for (const u of targets) {
-            const base = "nutrition/" + u;
+            const base = DB_ROOT + "/" + u;
             for (const k of ["plan_checked", "workout_type_v1"]) {
               const s = await db.ref(base + "/" + k).once("value");
               if (s.exists()) { await db.ref(base + "/" + k).remove(); removed++; }
@@ -2149,7 +2150,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
                 <input value={newGeminiKey} onChange={e => setNewGeminiKey(e.target.value.trim())}
                   placeholder="הדבק מפתח API חדש מ-Google AI Studio"
                   style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 12, outline: "none", direction: "ltr", fontFamily: "monospace" }} />
-                <button onClick={async () => { if (!newGeminiKey) return; await db.ref("nutrition/_admin/geminiKey").set(newGeminiKey); GEMINI_API_KEY = newGeminiKey; setSaved("gemini"); setNewGeminiKey(""); setTimeout(() => setSaved(""), 2000); }}
+                <button onClick={async () => { if (!newGeminiKey) return; await db.ref(`${DB_ROOT}/_admin/geminiKey`).set(newGeminiKey); GEMINI_API_KEY = newGeminiKey; setSaved("gemini"); setNewGeminiKey(""); setTimeout(() => setSaved(""), 2000); }}
                   disabled={!newGeminiKey}
                   style={{ background: newGeminiKey ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newGeminiKey ? "pointer" : "default", fontFamily: "inherit" }}>
                   {saved === "gemini" ? "✓" : "שמור"}
@@ -2209,6 +2210,11 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       return (
         <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#060d07 0%,#08130a 100%)", fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: "#f0fdf4", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 8px))" }}>
 
+          <div style={{ background: "#3a2a0a", color: "#fbbf24", fontSize: 11,
+            textAlign: "center", padding: "5px", borderBottom: "1px solid #5a4a1a",
+            position: "sticky", top: 0, zIndex: 25 }}>
+            🧪 TEST — separate data ({DB_ROOT})
+          </div>
           <div style={{ padding: "16px 18px 14px", background: "rgba(6,13,7,0.88)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(34,197,94,0.1)", position: "sticky", top: 0, zIndex: 20 }}>
             <div style={{ maxWidth: 520, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
