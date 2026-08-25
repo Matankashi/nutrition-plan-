@@ -70,45 +70,81 @@
     // ─── data ────────────────────────────────────────────────────────────────────
     const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
+    // קלוריות מאומתות מול מסדי נתונים (USDA + ישראליים), אוגוסט 2026.
+    // לחם שיפון מלא מאפייה ~210 קק״ל/100g, פרוסה 45g. טחינה מדוללת ~50 קק״ל/כף.
+    // חזה עוף מבושל 165 קק״ל/100g. גבינה לבנה 5% ~78 קק״ל/100g.
     const MEALS = [
-      { id: 1, time: "08:00–09:00", name: "ארוחת בוקר", emoji: "🌅", cal: 538, pro: 30,
-        items: ["2 פרוסות לחם שיפון", "2 ביצים", "גבינה לבנה 5% — 80–85 גרם", "ירקות חתוכים", "כפית טחינה"],
-        tip: "טווח קלורי 485–590 קק״ל. מים לפני הארוחה — הביצים והגבינה נותנות בסיס חלבון טוב לבוקר." },
-      { id: 2, time: "12:00", name: "ביניים", emoji: "🥗", cal: 215, pro: 27,
-        items: ["סלט ירקות בינוני", "כפית שטוחה שמן", "קופסת טונה במים (שלמה)", "תיבול לפי טעם"],
-        tip: "טווח קלורי 175–255 קק״ל. קופסה שלמה של טונה — לא חצי. מחזיק עד הצהריים." },
-      { id: 3, time: "14:00", name: "ארוחת צהריים", emoji: "🍽️", cal: 535, pro: 50,
-        items: ["150 גרם חזה עוף אחרי בישול", "100 גרם קינואה מבושלת", "חצי בטטה", "ירקות מבושלים (קישוא/סלק)", "כפית טחינה"],
-        tip: "טווח קלורי 470–600 קק״ל. קינואה במקום אורז — יותר חלבון וסיבים." },
-      { id: 4, time: "17:00–18:00", name: "שייק חלבון", emoji: "🥤", cal: 468, pro: 31,
-        items: ["30 גרם אבקת חלבון אפונה", "בננה", "30 גרם שיבולת שועל", "5 גרם צ׳יה", "5 גרם שיפון", "3 אגוזי מלך שלמים או כף חמאת בוטנים", "קינמון"],
-        tip: "טווח קלורי 430–505 קק״ל. ביום הליכה — חמאת בוטנים. ביום רגיל — אגוזי מלך." },
-      { id: 5, time: "20:00–21:00", name: "ארוחת ערב", emoji: "🌙", cal: 305, pro: 19,
-        items: ["ביצה אחת", "גבינה לבנה 5% — 80 גרם", "ירקות חתוכים", "פרוסת לחם שיפון אחת"],
-        tip: "טווח קלורי 270–340 קק״ל. אם רעב אחרי — יוגורט יווני בלבד, לא מתוק." },
+      { id: 1, time: "08:00–09:00", name: "ארוחת בוקר", emoji: "🌅", cal: 438, pro: 30,
+        items: ["2 פרוסות לחם שיפון מלא (45 גרם כל אחת)", "2 ביצים", "גבינה לבנה 5% — 80–85 גרם", "ירקות חתוכים", "כפית טחינה מדוללת"],
+        tip: "טווח 410–470 קק״ל. מים לפני הארוחה — הביצים והגבינה נותנות בסיס חלבון של 30 גרם לפתיחת היום." },
+      { id: 2, time: "12:00", name: "ביניים", emoji: "🥗", cal: 197, pro: 27,
+        items: ["סלט ירקות (שליש ממנה גדולה)", "שליש כפית שמן זית", "קופסת טונה במים 98 גרם מסונן", "כף טחינה מדוללת"],
+        tip: "טווח 180–215 קק״ל. הטונה לבדה נותנת 24 גרם חלבון — קופסה שלמה, לא חצי." },
+      { id: 3, time: "14:00", name: "ארוחת צהריים", emoji: "🍽️", cal: 549, pro: 56,
+        items: ["150 גרם חזה עוף אחרי בישול", "100 גרם קינואה מבושלת", "חצי בטטה (110 גרם)", "ירקות מבושלים (קישוא/סלק)", "כף טחינה מדוללת"],
+        tip: "טווח 510–590 קק״ל. הארוחה הגדולה של היום — 56 גרם חלבון. קינואה במקום אורז: יותר חלבון וסיבים." },
+      { id: 4, time: "17:00–18:00", name: "שייק חלבון", emoji: "🥤", cal: 489, pro: 34,
+        items: ["30 גרם אבקת חלבון אפונה", "בננה בינונית-גדולה (130 גרם)", "30 גרם שיבולת שועל", "5 גרם צ׳יה", "5 גרם שיפון", "3 אגוזי מלך שלמים או כף חמאת בוטנים", "קינמון"],
+        tip: "טווח 455–520 קק״ל. ביום הליכה — חמאת בוטנים. ביום מנוחה — אגוזי מלך (אומגה-3)." },
+      { id: 5, time: "20:00–21:00", name: "ארוחת ערב", emoji: "🌙", cal: 253, pro: 20,
+        items: ["ביצה אחת", "גבינה לבנה 5% — 80 גרם", "ירקות חתוכים", "פרוסת לחם שיפון מלא אחת"],
+        tip: "טווח 235–275 קק״ל. ארוחה קלה לסיום. אם רעב אחרי — יוגורט יווני בלבד, לא מתוק." },
     ];
 
     const EC = { "⚡":"#fbbf24","🌅":"#fb923c","🥗":"#4ade80","🍽️":"#60a5fa","🥤":"#a78bfa","🍫":"#d4a857","🌙":"#818cf8","🍌":"#facc15","🌃":"#c084fc" };
     const START_W = 86, GOAL_W = 75;
-    const APP_VERSION = "Beta 3.3";
+    const HEIGHT_CM = 175;
+    const BIRTHDAY = new Date(1991, 5, 5);
+    const PLAN_CAL = MEALS.reduce((s, m) => s + m.cal, 0);   // 1,926
+    const PLAN_PRO = MEALS.reduce((s, m) => s + m.pro, 0);   // 167
+    const APP_VERSION = "Beta 4.0";
 
-    // minutes from midnight for each meal's active window
+    // תיוג יום: מה נכנס (אכילה) ומה יצא (פעילות).
+    // משמש לימים שלא נרשמו בהם ארוחות — רישום בפועל תמיד גובר על התג.
+    const EAT_TYPES = [
+      { key: "plan",  label: "✅ תפריט",       cal: null, color: "#4ade80" },
+      { key: "light", label: "⚠️ חריגה קלה",  cal: 2300, color: "#fbbf24" },
+      { key: "big",   label: "🔴 חריגה גדולה", cal: 3200, color: "#f87171" },
+    ];
+    const ACT_TYPES = [
+      { key: "rest", label: "🛋 מנוחה",   mult: 1.35, color: "#4a7a54" },
+      { key: "work", label: "☕ עבודה",   mult: 1.55, color: "#fbbf24" },
+      { key: "gym",  label: "💪 אימון",   mult: 1.60, color: "#f87171" },
+      { key: "both", label: "☕💪 שניהם", mult: 1.75, color: "#a78bfa" },
+    ];
+
+    // Katch-McArdle משתמש במסה רזה ולכן מדויק יותר כשידוע אחוז שומן;
+    // בלי מדידות היקף נופלים חזרה ל-Mifflin-St Jeor.
+    const calcAge = (ref) => {
+      let a = ref.getFullYear() - BIRTHDAY.getFullYear();
+      if (ref < new Date(ref.getFullYear(), BIRTHDAY.getMonth(), BIRTHDAY.getDate())) a--;
+      return a;
+    };
+    const calcBodyFat = (waist, neck) =>
+      (waist !== null && neck !== null && waist > neck)
+        ? +(86.010 * Math.log10(waist - neck) - 70.041 * Math.log10(HEIGHT_CM) + 30.30).toFixed(1)
+        : null;
+    const calcBMR = (kg, bodyFat, ref) => {
+      if (bodyFat !== null) return Math.round(370 + 21.6 * (kg * (1 - bodyFat / 100)));
+      return Math.round(10 * kg + 6.25 * HEIGHT_CM - 5 * calcAge(ref) + 5);
+    };
+
+    // קו יעד היברידי: 0.8%/שבוע בחודש הראשון (ירידת מים וגליקוגן),
+    // 0.45%/שבוע אחריו. אחוזי ולא קבוע — מתעגל מעצמו ככל שהמשקל יורד.
+    const idealWeightAt = (startKg, weeks) => {
+      let w = startKg;
+      const full = Math.max(0, Math.floor(weeks));
+      for (let i = 0; i < full; i++) w *= (i < 4 ? 0.992 : 0.9955);
+      const frac = weeks - full;
+      if (frac > 0) w *= Math.pow(full < 4 ? 0.992 : 0.9955, frac);
+      return w;
+    };
+
     const MEAL_WINDOWS = { 1: [8*60, 11*60+59], 2: [12*60, 13*60+59], 3: [14*60, 16*60+59], 4: [17*60, 19*60+59], 5: [20*60, 23*60+59] };
 
-    const toDateStr = (d) => d.toISOString().split("T")[0];
-
-    const getLast7Days = () => {
-      const days = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        days.push({
-          dateStr: toDateStr(d),
-          dayName: DAY_NAMES[d.getDay()],
-          display: d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }),
-        });
-      }
-      return days;
+    const toDateStr = (d) => {
+      const p = n => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
     };
 
     const getActiveMealId = (now) => {
@@ -116,14 +152,12 @@
       for (const [id, [start, end]] of Object.entries(MEAL_WINDOWS)) {
         if (mins >= start && mins <= end) return Number(id);
       }
-      // next upcoming meal
       for (const [id, [start]] of Object.entries(MEAL_WINDOWS)) {
         if (mins < start) return Number(id);
       }
       return null;
     };
 
-    // ─── WeightTab ───────────────────────────────────────────────────────────────
     const asArray = (v) => Array.isArray(v) ? v : Object.values(v || {});
     const HE_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
     const EN_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -136,8 +170,7 @@
     };
 
     // Reusable add-entry + grouped-history widget (year → month → week → entry),
-    // shared by weight, waist and neck tracking — years other than the current
-    // one collapse to a single row to keep the history short as it grows.
+    // shared by weight, waist and neck tracking.
     function MeasurementCard({ entries, onAdd, valueField, unit, min, max, addLabel, addPlaceholder, addHint, historyLabel, sectionTitle }) {
       const [input, setInput] = useState("");
       const [expandedKeys, setExpandedKeys] = useState({});
@@ -332,6 +365,94 @@
       );
     }
 
+    // גרף קו כללי לכל מדד — משמש למשקל ולהיקף בטן.
+    function TrendGraph({ entries, valueField, unit, goal, color, idealFn, showIdeal }) {
+      const [selectedIdx, setSelectedIdx] = useState(null);
+      if (entries.length === 0) return <div style={{ fontSize: 12, color: "#4a7a54", textAlign: "center", padding: "20px 0" }}>אין עדיין מדידות</div>;
+
+      const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
+      const iW = GW - PL - PR, iH = GH - PT - PB;
+      const vals = entries.map(e => e[valueField]);
+      const mn = Math.min(...vals, goal !== null ? goal : Infinity) - 1.5;
+      const mx = Math.max(...vals) + 1;
+      const toX = i => PL + (entries.length > 1 ? (i / (entries.length - 1)) * iW : iW / 2);
+      const toY = v => PT + iH - ((v - mn) / (mx - mn)) * iH;
+      const pts = entries.map((e, i) => toX(i).toFixed(1) + "," + toY(e[valueField]).toFixed(1)).join(" ");
+      const goalY = goal !== null ? toY(goal) : null;
+
+      const shortDate = (e) => {
+        if (e.date) { const p = e.date.split("."); if (p.length >= 2) return p[0] + "/" + p[1]; }
+        return e.label || "";
+      };
+
+      const dates = entries.map(e => parseDMYDate(e));
+      const first = dates.find(Boolean);
+      const idealPts = (showIdeal && first && idealFn)
+        ? entries.map((e, i) => {
+            const d = dates[i];
+            const wk = d ? (d - first) / (7 * 86400000) : i;
+            return toX(i).toFixed(1) + "," + toY(Math.max(idealFn(entries[0][valueField], wk), goal !== null ? goal : -Infinity)).toFixed(1);
+          }).join(" ")
+        : null;
+
+      const maxLabels = 6;
+      const labelStep = Math.max(1, Math.ceil(entries.length / maxLabels));
+
+      return (
+        <>
+          <svg width={GW} height={GH} style={{ display: "block", maxWidth: "100%" }}>
+            {[0, 0.33, 0.67, 1].map(f => {
+              const y = PT + f * iH;
+              const v = (mx - f * (mx - mn)).toFixed(1);
+              return (
+                <g key={f}>
+                  <line x1={PL} y1={y} x2={GW - PR} y2={y} stroke="#1a3a1f" strokeWidth={1} />
+                  <text x={PL - 3} y={y + 4} textAnchor="end" fontSize={8} fill="#4a7a54">{v}</text>
+                </g>
+              );
+            })}
+            {goalY !== null && <>
+              <line x1={PL} y1={goalY} x2={GW - PR} y2={goalY} stroke={color + "55"} strokeWidth={1.5} strokeDasharray="4,3" />
+              <text x={GW - PR - 2} y={goalY - 4} textAnchor="end" fontSize={8} fill={color}>יעד {goal}</text>
+            </>}
+            {idealPts && <polyline points={idealPts} fill="none" stroke="#fbbf2470" strokeWidth={1.5} strokeDasharray="3,3" />}
+            {entries.length > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />}
+            {entries.map((e, i) => {
+              const showLabel = i % labelStep === 0 || i === entries.length - 1;
+              const isSel = selectedIdx === i;
+              return (
+                <g key={i} onClick={() => setSelectedIdx(isSel ? null : i)} style={{ cursor: "pointer" }}>
+                  <circle cx={toX(i).toFixed(1)} cy={toY(e[valueField]).toFixed(1)} r={11} fill="transparent" />
+                  <circle cx={toX(i).toFixed(1)} cy={toY(e[valueField]).toFixed(1)} r={isSel ? 5.5 : 4} fill={color} stroke="#0d1f10" strokeWidth={1.5} />
+                  {showLabel && <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={9} fill="#4a7a54">{shortDate(e)}</text>}
+                </g>
+              );
+            })}
+            {selectedIdx !== null && (() => {
+              const e = entries[selectedIdx];
+              const px = toX(selectedIdx), py = toY(e[valueField]);
+              const boxW = 66, boxH = 30;
+              const bx = Math.min(Math.max(px - boxW / 2, PL), GW - PR - boxW);
+              const above = py - boxH - 10 >= PT;
+              const by = above ? py - boxH - 8 : py + 8;
+              return (
+                <g style={{ pointerEvents: "none" }}>
+                  <rect x={bx.toFixed(1)} y={by.toFixed(1)} width={boxW} height={boxH} rx={6} fill="#0d2e18" stroke={color} strokeWidth={1} />
+                  <text x={(bx + boxW / 2).toFixed(1)} y={(by + 13).toFixed(1)} textAnchor="middle" fontSize={10} fontWeight="700" fill="#e0f0e0">{e[valueField]} {unit}</text>
+                  <text x={(bx + boxW / 2).toFixed(1)} y={(by + 24).toFixed(1)} textAnchor="middle" fontSize={8} fill="#4a7a54">{shortDate(e)}</text>
+                </g>
+              );
+            })()}
+          </svg>
+          <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 4 }}>
+            {showIdeal && <><span style={{ color: "#fbbf24" }}>── </span>קצב יעד &nbsp;</>}
+            <span style={{ color }}>── </span>בפועל &nbsp;
+            {goal !== null && <><span style={{ color: color + "55" }}>- - </span>יעד</>}
+          </div>
+        </>
+      );
+    }
+
     function WeightTab() {
       const [entriesRaw, setEntries] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
       const entries = asArray(entriesRaw);
@@ -341,24 +462,18 @@
       const neckEntries = asArray(neckEntriesRaw);
       const [customMeals] = usePersist("custom_meals_v1", {});
       const [checked] = usePersist("plan_checked_v3", {});
-      const todayStr = toDateStr(new Date());
-      const [dayType, setDayType] = useState("rest");
-      const [selectedIdx, setSelectedIdx] = useState(null);
+      const [eatTypes] = usePersist("day_eat_type_v1", {});
+      const [actTypes] = usePersist("day_act_type_v1", {});
+
+      const today = new Date();
+      const todayStr = toDateStr(today);
+      const curMonth = today.getMonth(), curYear = today.getFullYear();
 
       const last = entries[entries.length - 1].kg;
-      const lost = +(START_W - last).toFixed(1);
+      const startKg = entries[0].kg;
+      const lost = +(startKg - last).toFixed(1);
       const remaining = +(last - GOAL_W).toFixed(1);
-      const pct = Math.min((lost / (START_W - GOAL_W)) * 100, 100);
-      const weeksLeft = Math.round(remaining / 0.5);
-      const monthsLeft = Math.round(remaining / 2.5);
-
-      const shortDate = (e) => {
-        if (e.date) {
-          const parts = e.date.split(".");
-          if (parts.length >= 2) return parts[0] + "/" + parts[1];
-        }
-        return e.label;
-      };
+      const pct = Math.min((lost / (startKg - GOAL_W)) * 100, 100);
 
       const addWeightEntry = (kg, date) => {
         const w = entries[entries.length - 1].week + 1;
@@ -366,85 +481,128 @@
         setEntries(p => [...asArray(p), { week: w, kg, label, date }]);
       };
       const addWaistEntry = (cm, date) => setWaistEntries(p => [...asArray(p), { cm, date }]);
-      const addNeckEntry = (cm, date) => setNeckEntries(p => [...asArray(p), { cm, date }]);
+      const addNeckEntry  = (cm, date) => setNeckEntries(p => [...asArray(p), { cm, date }]);
 
-      const today = new Date();
-      const curMonth = today.getMonth(), curYear = today.getFullYear();
+      // ── body composition ──
+      const lastWaist = waistEntries.length > 0 ? waistEntries[waistEntries.length - 1].cm : null;
+      const lastNeck  = neckEntries.length  > 0 ? neckEntries[neckEntries.length - 1].cm  : null;
+      const bodyFat = calcBodyFat(lastWaist, lastNeck);
+      const fatMass  = bodyFat !== null ? +(last * bodyFat / 100).toFixed(1) : null;
+      const leanMass = bodyFat !== null ? +(last - fatMass).toFixed(1) : null;
+      const bmr = calcBMR(last, bodyFat, today);
+      const bmi = +(last / Math.pow(HEIGHT_CM / 100, 2)).toFixed(1);
+      const age = calcAge(today);
+      const nextBday = new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate());
+      if (nextBday <= today) nextBday.setFullYear(curYear + 1);
+      const daysToNextBday = Math.ceil((nextBday - today) / 86400000);
+
+      // כמה מהירידה הייתה שומן וכמה מסה רזה — רק אם יש שתי מדידות היקף
+      let compTrend = null;
+      if (waistEntries.length > 1 && neckEntries.length > 0) {
+        const firstWaist = waistEntries[0].cm;
+        const firstNeckE = neckEntries[0].cm;
+        const firstBF = calcBodyFat(firstWaist, firstNeckE);
+        const wDate = parseDMYDate(waistEntries[0]);
+        const nearest = entries.reduce((best, e) => {
+          const d = parseDMYDate(e);
+          if (!d || !wDate) return best;
+          const diff = Math.abs(d - wDate);
+          return (!best || diff < best.diff) ? { kg: e.kg, diff } : best;
+        }, null);
+        if (firstBF !== null && nearest) {
+          const f0 = nearest.kg * firstBF / 100, l0 = nearest.kg - f0;
+          compTrend = { fatDelta: +(fatMass - f0).toFixed(1), leanDelta: +(leanMass - l0).toFixed(1) };
+        }
+      }
+
+      // ── ממוצע 7 ימים ──
+      const dayCalories = (dateStr) => {
+        const logged = MEALS.filter(m => checked[dateStr + "-" + m.id] || customMeals[dateStr]?.[m.id]);
+        if (logged.length > 0) {
+          return logged.reduce((s, m) => s + (customMeals[dateStr]?.[m.id]?.calories ?? m.cal), 0);
+        }
+        const tag = eatTypes[dateStr];
+        if (!tag) return null;
+        const t = EAT_TYPES.find(x => x.key === tag);
+        return t ? (t.cal ?? PLAN_CAL) : null;
+      };
+      const dayTDEE = (dateStr) => {
+        const tag = actTypes[dateStr] || "rest";
+        const a = ACT_TYPES.find(x => x.key === tag) || ACT_TYPES[0];
+        return Math.round(bmr * a.mult);
+      };
+
+      const weekDays = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today); d.setDate(today.getDate() - i);
+        const ds = toDateStr(d);
+        weekDays.push({ dateStr: ds, name: DAY_NAMES[d.getDay()].slice(0,1), cal: dayCalories(ds), tdee: dayTDEE(ds) });
+      }
+      const tracked = weekDays.filter(d => d.cal !== null);
+      const weekStat = tracked.length > 0 ? (() => {
+        const avgCal  = Math.round(tracked.reduce((s,d) => s + d.cal, 0) / tracked.length);
+        const avgTDEE = Math.round(tracked.reduce((s,d) => s + d.tdee, 0) / tracked.length);
+        const deficit = avgTDEE - avgCal;
+        return { avgCal, avgTDEE, deficit, kgWeek: +(deficit * 7 / 7700).toFixed(2),
+                 pctWeek: +((deficit * 7 / 7700) / last * 100).toFixed(2), n: tracked.length };
+      })() : null;
+
+      // ── יעד חודשי ──
       const daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
       const daysRemaining = daysInMonth - today.getDate();
       const monthEntries = entries.filter(e => { const d = parseDMYDate(e); return d && d.getMonth() === curMonth && d.getFullYear() === curYear; });
-      const prevEntries = entries.filter(e => { const d = parseDMYDate(e); return d && (d.getFullYear() < curYear || (d.getFullYear() === curYear && d.getMonth() < curMonth)); });
+      const prevEntries  = entries.filter(e => { const d = parseDMYDate(e); return d && (d.getFullYear() < curYear || (d.getFullYear() === curYear && d.getMonth() < curMonth)); });
       const monthStart = monthEntries.length > 0 ? monthEntries[0] : (prevEntries.length > 0 ? prevEntries[prevEntries.length - 1] : null);
       const monthEnd = entries[entries.length - 1];
+      // יעד חודשי נגזר מקו 0.45%/שבוע: ~1.9% בחודש
+      const monthTargetMin = +(last * 0.014).toFixed(1);
+      const monthTargetMax = +(last * 0.026).toFixed(1);
       let monthStat = null;
       if (monthStart && monthEnd && monthStart !== monthEnd) {
         const startDate = parseDMYDate(monthStart) || today;
         const daysElapsed = Math.max(1, Math.round((today - startDate) / 86400000));
         const monthLost = +(monthStart.kg - monthEnd.kg).toFixed(2);
-        const projected = +(( monthLost / daysElapsed) * daysInMonth).toFixed(1);
-        const pctOfMax = Math.min((monthLost / 2.5) * 100, 105);
+        const projected = +((monthLost / daysElapsed) * daysInMonth).toFixed(1);
+        const pctOfMax = Math.min((monthLost / monthTargetMax) * 100, 105);
         let status, statusColor;
         if (daysElapsed < 5) { status = "🔍 מוקדם להעריך"; statusColor = "#4a7a54"; }
-        else if (projected > 2.5) { status = "⚡ קצב גבוה — שים לב"; statusColor = "#fb923c"; }
-        else if (projected >= 1.2) { status = "✅ בקצב טוב"; statusColor = "#4ade80"; }
-        else if (projected >= 0.6) { status = "⚠️ קצת מאחור"; statusColor = "#fbbf24"; }
+        else if (projected > monthTargetMax) { status = "⚡ קצב גבוה — שים לב"; statusColor = "#fb923c"; }
+        else if (projected >= monthTargetMin) { status = "✅ בקצב טוב"; statusColor = "#4ade80"; }
+        else if (projected >= monthTargetMin * 0.5) { status = "⚠️ קצת מאחור"; statusColor = "#fbbf24"; }
         else { status = "🔴 מאחור מהיעד"; statusColor = "#f87171"; }
         monthStat = { monthLost, projected, daysRemaining, pctOfMax, status, statusColor };
       }
 
-      // ── personal stats ────────────────────────────────────────────────────────
-      const BIRTHDAY = new Date(1991, 5, 5); // 5.6.1991
-      const HEIGHT = 1.75;
-      const bmi = +(last / (HEIGHT * HEIGHT)).toFixed(1);
-      const age = (() => {
-        let a = curYear - BIRTHDAY.getFullYear();
-        if (today < new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate())) a--;
-        return a;
+      // ── צפי הגעה ליעד לפי קו היעד ──
+      const weeksToGoal = (() => {
+        let w = last, n = 0;
+        const firstDate = parseDMYDate(entries[0]);
+        const lastDate  = parseDMYDate(entries[entries.length - 1]) || today;
+        let elapsed = firstDate ? (lastDate - firstDate) / (7 * 86400000) : 0;
+        while (w > GOAL_W && n < 200) { w *= (elapsed + n < 4 ? 0.992 : 0.9955); n++; }
+        return n;
       })();
-      const ageMonths = (() => {
-        const lastBday = new Date(curYear - (today < new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate()) ? 1 : 0), BIRTHDAY.getMonth(), BIRTHDAY.getDate());
-        let m = (today.getFullYear() - lastBday.getFullYear()) * 12 + (today.getMonth() - lastBday.getMonth());
-        if (today.getDate() < lastBday.getDate()) m--;
-        return m;
-      })();
-      const ageDisplay = `${age}.${String(ageMonths).padStart(2,"0")}`;
-      const nextBday = new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate());
-      if (nextBday <= today) nextBday.setFullYear(curYear + 1);
-      const daysToNextBday = Math.ceil((nextBday - today) / 86400000);
-      const turningAge = age + 1;
 
-      // US Navy body-fat formula, metric (cm): 86.010·log10(waist−neck) − 70.041·log10(height) + 30.30
-      const lastWaist = waistEntries.length > 0 ? waistEntries[waistEntries.length - 1].cm : null;
-      const lastNeck = neckEntries.length > 0 ? neckEntries[neckEntries.length - 1].cm : null;
-      const bodyFat = (lastWaist !== null && lastNeck !== null && lastWaist > lastNeck)
-        ? +(86.010 * Math.log10(lastWaist - lastNeck) - 70.041 * Math.log10(HEIGHT * 100) + 30.30).toFixed(1)
-        : null;
-
-      const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
-      const iW = GW - PL - PR, iH = GH - PT - PB;
-      const allKg = entries.map(e => e.kg);
-      const mn = Math.min(...allKg, GOAL_W) - 1.5;
-      const mx = Math.max(...allKg) + 1;
-      const toX = i => PL + (entries.length > 1 ? (i / (entries.length - 1)) * iW : iW / 2);
-      const toY = kg => PT + iH - ((kg - mn) / (mx - mn)) * iH;
-      const pts = entries.map((e, i) => toX(i).toFixed(1) + "," + toY(e.kg).toFixed(1)).join(" ");
-      const goalY = toY(GOAL_W);
+      const Stat = ({ label, value, color, sub }) => (
+        <div style={{ flex: 1, background: "#0d1f10", borderRadius: 10, border: "1px solid #1a3a1f", padding: "10px 6px", textAlign: "center" }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color, fontFamily: "monospace" }}>{value}</div>
+          <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 2 }}>{label}</div>
+          {sub ? <div style={{ fontSize: 9, color: "#4a7a54", marginTop: 2 }}>{sub}</div> : null}
+        </div>
+      );
 
       return (
         <div style={{ padding: "14px 14px 0" }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-            {[["משקל נוכחי", last + " ק״ג", "#4ade80"], ["ירדת", lost + " ק״ג", "#60a5fa"], ["נותר", remaining + " ק״ג", "#f87171"]].map(([l,v,c]) => (
-              <div key={l} style={{ flex: 1, background: "#0d1f10", borderRadius: 10, border: "1px solid #1a3a1f", padding: "10px 6px", textAlign: "center" }}>
-                <div style={{ fontSize: 17, fontWeight: 700, color: c, fontFamily: "monospace" }}>{v}</div>
-                <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 2 }}>{l}</div>
-              </div>
-            ))}
+            <Stat label="משקל נוכחי" value={last + " ק״ג"} color="#4ade80" />
+            <Stat label="ירדת" value={lost + " ק״ג"} color="#60a5fa" />
+            <Stat label="נותר" value={remaining + " ק״ג"} color="#f87171" />
           </div>
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
               <span style={{ color: "#4ade80", fontWeight: 700 }}>🎯 יעד: {GOAL_W} ק״ג</span>
-              <span style={{ color: "#4a7a54" }}>~{monthsLeft} חודשים נותרו</span>
+              <span style={{ color: "#4a7a54" }}>~{weeksToGoal} שבועות בקצב היעד</span>
             </div>
             <div style={{ height: 10, background: "#1a3a1f", borderRadius: 5, overflow: "hidden" }}>
               <div style={{ height: "100%", width: pct + "%", borderRadius: 5, background: "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.5s" }} />
@@ -452,15 +610,56 @@
             <div style={{ textAlign: "center", fontSize: 11, color: "#4a7a54", marginTop: 5 }}>{pct.toFixed(1)}% מהדרך</div>
           </div>
 
+          {/* ── ממוצע 7 ימים ── */}
+          {weekStat && (
+            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <span style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>📊 ממוצע 7 ימים</span>
+                <span style={{ fontSize: 10, color: "#4a7a54" }}>{weekStat.n}/7 ימים עם נתונים</span>
+              </div>
+              {[["נאכל בממוצע", weekStat.avgCal.toLocaleString() + " קל׳", "#e0f0e0"],
+                ["הוצאה בממוצע", weekStat.avgTDEE.toLocaleString() + " קל׳", "#60a5fa"]].map(([l,v,c]) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0b1a0d", borderRadius: 8, padding: "9px 12px", marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: "#4a7a54" }}>{l}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: c, fontFamily: "monospace" }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: weekStat.deficit > 0 ? "#0d2e18" : "#2e0d0d", border: `1px solid ${weekStat.deficit > 0 ? "#1e4a2e" : "#4a1e1e"}`, borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
+                <span style={{ fontSize: 12, color: weekStat.deficit > 0 ? "#4ade80" : "#f87171", fontWeight: 700 }}>{weekStat.deficit > 0 ? "גירעון יומי ממוצע" : "עודף יומי ממוצע"}</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: weekStat.deficit > 0 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>{weekStat.deficit > 0 ? "▼" : "▲"} {Math.abs(weekStat.deficit).toLocaleString()} קל׳</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0b1a0d", borderRadius: 8, padding: "9px 12px" }}>
+                <span style={{ fontSize: 11, color: "#4a7a54" }}>צפי ירידה שבועי</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#a78bfa", fontFamily: "monospace" }}>{weekStat.kgWeek} ק״ג · {weekStat.pctWeek}%</span>
+              </div>
+              {weekStat.deficit > 900 && <div style={{ fontSize: 10, color: "#fbbf24", marginTop: 8 }}>⚠️ גירעון מעל 900 קל׳ — מעל הסף שהמחקר ממליץ עליו לשמירת מסת שריר</div>}
+              <div style={{ display: "flex", gap: 3, marginTop: 10 }}>
+                {weekDays.map(d => {
+                  const h = d.cal === null ? 0 : Math.min(Math.round(d.cal / 3500 * 40), 44);
+                  const col = d.cal === null ? "#1a3a1f" : d.cal > d.tdee ? "#f87171" : d.cal > PLAN_CAL * 1.15 ? "#fbbf24" : "#4ade80";
+                  return (
+                    <div key={d.dateStr} style={{ flex: 1, textAlign: "center" }}>
+                      <div style={{ height: 44, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                        <div style={{ width: "100%", height: Math.max(h, 3), background: col + "44", border: `1px solid ${col}`, borderRadius: 3 }} />
+                      </div>
+                      <div style={{ fontSize: 8, color: "#4a7a54", marginTop: 3 }}>{d.name}</div>
+                      <div style={{ fontSize: 8, color: col, fontFamily: "monospace" }}>{d.cal === null ? "—" : d.cal}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── פרטים אישיים ── */}
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
             <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📊 פרטים אישיים</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
               {[
-                ["🎂 גיל", `${ageDisplay}`, `עוד ${daysToNextBday} ימים ל-${turningAge}`],
-                ["📏 גובה", `${HEIGHT} מ׳`, ""],
-                ["⚖️ משקל", `${last} ק״ג`, ""],
+                ["🎂 גיל", `${age}`, `עוד ${daysToNextBday} ימים ל-${age + 1}`],
+                ["📏 גובה", `${(HEIGHT_CM/100).toFixed(2)} מ׳`, ""],
                 ["📐 BMI", `${bmi}`, bmi < 18.5 ? "תת משקל" : bmi < 25 ? "תקין" : bmi < 30 ? "עודף קל" : "עודף"],
-                ["🔥 אחוז שומן", bodyFat !== null ? `${bodyFat}%` : "—", bodyFat !== null ? "לפי היקף בטן/צוואר" : "הוסף מדידות היקף"],
+                ["🔥 אחוז שומן", bodyFat !== null ? `${bodyFat}%` : "—", bodyFat !== null ? "נוסחת חיל הים" : "הוסף מדידות היקף"],
               ].map(([l, v, sub]) => (
                 <div key={l} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
                   <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>{l}</div>
@@ -469,76 +668,56 @@
                 </div>
               ))}
             </div>
+
+            {bodyFat !== null && (
+              <>
+                <div style={{ fontSize: 11, color: "#a78bfa", fontWeight: 700, marginBottom: 6 }}>⚖️ הרכב גוף</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                  <div style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
+                    <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>🔥 מסת שומן</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "#f87171", fontFamily: "monospace" }}>{fatMass} ק״ג</div>
+                    {compTrend && <div style={{ fontSize: 9, color: compTrend.fatDelta < 0 ? "#4ade80" : "#f87171", marginTop: 2 }}>{compTrend.fatDelta < 0 ? "▼" : "▲"} {Math.abs(compTrend.fatDelta)} מאז המדידה הראשונה</div>}
+                  </div>
+                  <div style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
+                    <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>💪 מסה רזה</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: "#4ade80", fontFamily: "monospace" }}>{leanMass} ק״ג</div>
+                    {compTrend && <div style={{ fontSize: 9, color: compTrend.leanDelta >= 0 ? "#4ade80" : "#fbbf24", marginTop: 2 }}>{compTrend.leanDelta >= 0 ? "▲" : "▼"} {Math.abs(compTrend.leanDelta)} {compTrend.leanDelta >= 0 ? "— שריר נשמר ✓" : "— שים לב"}</div>}
+                  </div>
+                </div>
+              </>
+            )}
+
             <div style={{ fontSize: 11, color: "#4ade80", fontWeight: 700, marginBottom: 6 }}>🔥 קלוריות</div>
             <div style={{ fontSize: 11, color: "#c8e8c8", lineHeight: 2 }}>
-              BMR (מנוחה מוחלטת): <span style={{ color: "#4ade80", fontWeight: 700 }}>1,775 קל׳</span><br/>
-              יום מנוחה (TDEE): <span style={{ color: "#60a5fa", fontWeight: 700 }}>2,350–2,550 קל׳</span><br/>
-              יום עבודה בקפה: <span style={{ color: "#60a5fa", fontWeight: 700 }}>+250–700 קל׳</span><br/>
-              הליכה 30–40 דק׳: <span style={{ color: "#60a5fa", fontWeight: 700 }}>+150–300 קל׳</span>
+              BMR ({bodyFat !== null ? "Katch-McArdle" : "Mifflin-St Jeor"}): <span style={{ color: "#4ade80", fontWeight: 700 }}>{bmr.toLocaleString()} קל׳</span><br/>
+              {ACT_TYPES.map(a => (
+                <span key={a.key}>{a.label}: <span style={{ color: "#60a5fa", fontWeight: 700 }}>{Math.round(bmr * a.mult).toLocaleString()} קל׳</span><br/></span>
+              ))}
             </div>
             <div style={{ marginTop: 8, background: "#0b1a0d", borderRadius: 8, border: "1px solid #1e4a2e", padding: "8px 10px" }}>
-              <div style={{ fontSize: 11, color: "#fbbf24", fontWeight: 700, marginBottom: 4 }}>⚡ גירעון באכילה של 2,000 קל׳</div>
+              <div style={{ fontSize: 11, color: "#fbbf24", fontWeight: 700, marginBottom: 4 }}>⚡ גירעון בתפריט מלא ({PLAN_CAL.toLocaleString()} קל׳)</div>
               <div style={{ fontSize: 11, color: "#c8e8c8", lineHeight: 1.9 }}>
-                יום מנוחה: <span style={{ color: "#4ade80", fontWeight: 700 }}>~350–550 קל׳ גירעון</span><br/>
-                יום עבודה / הליכה: <span style={{ color: "#4ade80", fontWeight: 700 }}>~700–1,200 קל׳ גירעון</span>
+                {ACT_TYPES.map(a => {
+                  const def = Math.round(bmr * a.mult) - PLAN_CAL;
+                  return <span key={a.key}>{a.label}: <span style={{ color: def > 900 ? "#fbbf24" : "#4ade80", fontWeight: 700 }}>{def > 0 ? "▼" : "▲"} {Math.abs(def)} קל׳</span><br/></span>;
+                })}
               </div>
             </div>
+            <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 8, lineHeight: 1.6 }}>
+              חלבון בתפריט: {PLAN_PRO}g = {(PLAN_PRO/last).toFixed(2)} g/ק״ג משקל{leanMass ? ` · ${(PLAN_PRO/leanMass).toFixed(2)} g/ק״ג מסה רזה` : ""}. מומלץ בגירעון עם אימוני כוח: 1.6–2.2 g/ק״ג.
+            </div>
           </div>
-
-          {(() => {
-            const MENU_CAL = MEALS.reduce((s, m) => {
-              const custom = customMeals[todayStr]?.[m.id];
-              const isDone = checked[todayStr + "-" + m.id] || custom;
-              return isDone ? s + (custom?.calories ?? m.cal) : s;
-            }, 0);
-            const DAY_TYPES = [
-              { key: "rest",      label: "🛋 מנוחה",           def: [50, 350] },
-              { key: "work",      label: "☕ עבודה",           def: [250, 650] },
-              { key: "workout",   label: "💪 אימון",           def: [250, 650] },
-              { key: "workwork",  label: "☕💪 עבודה+אימון",   def: [500, 950] },
-            ];
-            const dt = DAY_TYPES.find(d => d.key === dayType);
-            const defMin = dt.def[0];
-            const defMax = dt.def[1];
-            const tdeeMin = MENU_CAL + defMin;
-            const tdeeMax = MENU_CAL + defMax;
-            return (
-              <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
-                <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>⚡ מחשבון גירעון יומי</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
-                  {DAY_TYPES.map(d => (
-                    <button key={d.key} onClick={() => setDayType(d.key)}
-                      style={{ padding: "8px 4px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: dayType === d.key ? "#166534" : "#0b1a0d", color: dayType === d.key ? "#fff" : "#4a7a54", border: `1px solid ${dayType === d.key ? "#4ade80" : "#1a3a1f"}` }}>
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0b1a0d", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, color: "#4a7a54" }}>הוצאה יומית</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", fontFamily: "monospace" }}>{tdeeMin.toLocaleString()}–{tdeeMax.toLocaleString()} קל׳</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0b1a0d", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, color: "#4a7a54" }}>נאכל היום</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0", fontFamily: "monospace" }}>{MENU_CAL.toLocaleString()} קל׳</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0d2e18", borderRadius: 8, padding: "10px 12px", border: "1px solid #1e4a2e" }}>
-                  <span style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>גירעון משוער</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: "#4ade80", fontFamily: "monospace" }}>▼ {defMin}–{defMax} קל׳</span>
-                </div>
-              </div>
-            );
-          })()}
 
           {monthStat && (
             <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, marginBottom: 10 }}>
-                <span style={{ color: "#4ade80", fontWeight: 700 }}>📅 יעד חודשי: 1.2–2.5 ק״ג</span>
+                <span style={{ color: "#4ade80", fontWeight: 700 }}>📅 יעד חודשי: {monthTargetMin}–{monthTargetMax} ק״ג</span>
                 <span style={{ color: monthStat.statusColor, fontWeight: 700, fontSize: 11 }}>{monthStat.status}</span>
               </div>
               <div style={{ position: "relative", height: 10, background: "#1a3a1f", borderRadius: 5, marginBottom: 8 }}>
                 <div style={{ position: "absolute", top: 0, right: 0, height: "100%", width: monthStat.pctOfMax + "%", borderRadius: 5, background: "linear-gradient(90deg,#fbbf24,#4ade80)", transition: "width 0.5s" }} />
-                {[1.2,2.5].map(target => (
-                  <div key={target} style={{ position: "absolute", top: -3, right: (target/2.5*100) + "%", width: 2, height: 16, background: "#4a7a54", borderRadius: 1 }} />
+                {[monthTargetMin, monthTargetMax].map(t => (
+                  <div key={t} style={{ position: "absolute", top: -3, right: (t/monthTargetMax*100) + "%", width: 2, height: 16, background: "#4a7a54", borderRadius: 1 }} />
                 ))}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#4a7a54" }}>
@@ -550,115 +729,38 @@
           )}
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
-            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 8 }}>📈 גרף ירידה במשקל</div>
-            <svg width={GW} height={GH} style={{ display: "block", maxWidth: "100%" }}>
-              {[0, 0.33, 0.67, 1].map(f => {
-                const y = PT + f * iH;
-                const v = (mx - f * (mx - mn)).toFixed(1);
-                return (
-                  <g key={f}>
-                    <line x1={PL} y1={y} x2={GW - PR} y2={y} stroke="#1a3a1f" strokeWidth={1} />
-                    <text x={PL - 3} y={y + 4} textAnchor="end" fontSize={8} fill="#4a7a54">{v}</text>
-                  </g>
-                );
-              })}
-              <line x1={PL} y1={goalY} x2={GW - PR} y2={goalY} stroke="#4ade8055" strokeWidth={1.5} strokeDasharray="4,3" />
-              <text x={GW - PR - 2} y={goalY - 4} textAnchor="end" fontSize={8} fill="#4ade80">יעד {GOAL_W}</text>
-              {entries.length > 1 && (() => {
-                const dates = entries.map(e => parseDMYDate(e));
-                const firstDated = dates.find(Boolean);
-                const lastDated = [...dates].reverse().find(Boolean);
-                const idealWeeks = (firstDated && lastDated && firstDated !== lastDated)
-                  ? (lastDated - firstDated) / (7 * 86400000)
-                  : entries.length - 1;
-                const idealEnd = Math.max(entries[0].kg - idealWeeks * 0.45, GOAL_W);
-                return <line x1={toX(0).toFixed(1)} y1={toY(entries[0].kg).toFixed(1)} x2={toX(entries.length - 1).toFixed(1)} y2={toY(idealEnd).toFixed(1)} stroke="#fbbf2450" strokeWidth={1.5} strokeDasharray="3,3" />;
-              })()}
-              {entries.length > 1 && <polyline points={pts} fill="none" stroke="#4ade80" strokeWidth={2} strokeLinejoin="round" />}
-              {(() => {
-                const maxLabels = 6;
-                const labelStep = Math.max(1, Math.ceil(entries.length / maxLabels));
-                return entries.map((e, i) => {
-                  const showLabel = i % labelStep === 0 || i === entries.length - 1;
-                  const isSelected = selectedIdx === i;
-                  return (
-                    <g key={i}
-                      onClick={() => setSelectedIdx(isSelected ? null : i)}
-                      style={{ cursor: "pointer" }}>
-                      <circle cx={toX(i).toFixed(1)} cy={toY(e.kg).toFixed(1)} r={11} fill="transparent" />
-                      <circle cx={toX(i).toFixed(1)} cy={toY(e.kg).toFixed(1)} r={isSelected ? 5.5 : 4} fill="#4ade80" stroke="#0d1f10" strokeWidth={1.5} />
-                      {showLabel && <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={9} fill="#4a7a54">{shortDate(e)}</text>}
-                    </g>
-                  );
-                });
-              })()}
-              {selectedIdx !== null && (() => {
-                const e = entries[selectedIdx];
-                const px = toX(selectedIdx), py = toY(e.kg);
-                const boxW = 62, boxH = 30;
-                const bx = Math.min(Math.max(px - boxW / 2, PL), GW - PR - boxW);
-                const above = py - boxH - 10 >= PT;
-                const by = above ? py - boxH - 8 : py + 8;
-                return (
-                  <g style={{ pointerEvents: "none" }}>
-                    <rect x={bx.toFixed(1)} y={by.toFixed(1)} width={boxW} height={boxH} rx={6} fill="#0d2e18" stroke="#4ade80" strokeWidth={1} />
-                    <text x={(bx + boxW / 2).toFixed(1)} y={(by + 13).toFixed(1)} textAnchor="middle" fontSize={10} fontWeight="700" fill="#e0f0e0">{e.kg} ק״ג</text>
-                    <text x={(bx + boxW / 2).toFixed(1)} y={(by + 24).toFixed(1)} textAnchor="middle" fontSize={8} fill="#4a7a54">{shortDate(e)}</text>
-                  </g>
-                );
-              })()}
-            </svg>
-            <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 4 }}>
-              <span style={{ color: "#fbbf24" }}>── </span>קצב אידיאלי &nbsp;
-              <span style={{ color: "#4ade80" }}>── </span>בפועל &nbsp;
-              <span style={{ color: "#4ade8055" }}>- - </span>יעד
+            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 8 }}>📈 גרף משקל</div>
+            <TrendGraph entries={entries} valueField="kg" unit="ק״ג" goal={GOAL_W} color="#4ade80" idealFn={idealWeightAt} showIdeal={true} />
+            <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 6, lineHeight: 1.6 }}>
+              קו היעד: 0.8% ממשקל הגוף בשבוע בחודש הראשון, 0.45% אחריו — מבוסס על מחקרים שמצאו שקצב זה משמר מסת שריר.
             </div>
           </div>
 
           <MeasurementCard
-            entries={entries}
-            onAdd={addWeightEntry}
-            valueField="kg"
-            unit="ק״ג"
-            min={50}
-            max={130}
-            addLabel="➕ הוסף שקילה"
-            addPlaceholder="למשל: 81.5"
-            addHint="💡 בוקר, בצום, אותה שעה ואותם בגדים"
-            historyLabel="📋 היסטוריית שקילות"
-          />
+            entries={entries} onAdd={addWeightEntry} valueField="kg" unit="ק״ג" min={50} max={130}
+            addLabel="➕ הוסף שקילה" addPlaceholder="למשל: 79.5"
+            addHint="💡 בוקר, בצום, אותה שעה ואותם בגדים" historyLabel="📋 היסטוריית שקילות" />
+
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
+            <div style={{ fontSize: 12, color: "#60a5fa", fontWeight: 700, marginBottom: 8 }}>📏 גרף היקף בטן</div>
+            <TrendGraph entries={waistEntries} valueField="cm" unit="ס״מ" goal={null} color="#60a5fa" idealFn={null} showIdeal={false} />
+            <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 6, lineHeight: 1.6 }}>
+              היקף הבטן מודד שומן ויסרלי ישירות — הוא ממשיך לרדת גם כשהמשקל עומד במקום בגלל שריר או מים.
+            </div>
+          </div>
 
           <MeasurementCard
-            entries={waistEntries}
-            onAdd={addWaistEntry}
-            valueField="cm"
-            unit="ס״מ"
-            min={40}
-            max={200}
-            sectionTitle="📏 היקף בטן"
-            addLabel="➕ הוסף מדידה"
-            addPlaceholder="היקף בטן, למשל: 82"
-            addHint="💡 מדידת היקף בטן בס״מ, בבוקר ובאותם תנאים"
-            historyLabel="📋 היסטוריית מדידות"
-          />
+            entries={waistEntries} onAdd={addWaistEntry} valueField="cm" unit="ס״מ" min={40} max={200}
+            sectionTitle="📏 היקף בטן" addLabel="➕ הוסף מדידה" addPlaceholder="היקף בטן, למשל: 90"
+            addHint="💡 בגובה הטבור, בבוקר, בנשיפה רגילה" historyLabel="📋 היסטוריית מדידות" />
 
           <MeasurementCard
-            entries={neckEntries}
-            onAdd={addNeckEntry}
-            valueField="cm"
-            unit="ס״מ"
-            min={20}
-            max={60}
-            sectionTitle="📏 היקף צוואר"
-            addLabel="➕ הוסף מדידה"
-            addPlaceholder="היקף צוואר, למשל: 38"
-            addHint="💡 מדידת היקף צוואר בס״מ, בבוקר ובאותם תנאים"
-            historyLabel="📋 היסטוריית מדידות"
-          />
+            entries={neckEntries} onAdd={addNeckEntry} valueField="cm" unit="ס״מ" min={20} max={60}
+            sectionTitle="📏 היקף צוואר" addLabel="➕ הוסף מדידה" addPlaceholder="היקף צוואר, למשל: 40"
+            addHint="💡 מתחת לגרוגרת, בבוקר ובאותם תנאים" historyLabel="📋 היסטוריית מדידות" />
         </div>
       );
     }
-
 
     // ─── PlanTab ─────────────────────────────────────────────────────────────────
     let GEMINI_API_KEY = "";
@@ -699,16 +801,27 @@
       const [checked, setChecked] = usePersist("plan_checked_v3", {});
       const [customMeals, setCustomMeals] = usePersist("custom_meals_v1", {});
       const [altMeals, setAltMeals] = usePersist("alt_meals_v1", {});
+      const [eatTypes, setEatTypes] = usePersist("day_eat_type_v1", {});
+      const [actTypes, setActTypes] = usePersist("day_act_type_v1", {});
+      const [weightEntriesRaw] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
+      const [waistRaw] = usePersist("waist_entries", []);
+      const [neckRaw] = usePersist("neck_entries", []);
       const [altForm, setAltForm] = useState({ name: "", cal: "", protein: "" });
       const [editingMeal, setEditingMeal] = useState(null);
       const [editInput, setEditInput] = useState("");
-      const [editMode, setEditMode] = useState("auto"); // "auto" | "manual" | "alt"
+      const [editMode, setEditMode] = useState("auto");
       const [manualCal, setManualCal] = useState("");
       const [aiLoading, setAiLoading] = useState(false);
       const [aiError, setAiError] = useState("");
       const [aiBreakdown, setAiBreakdown] = useState(null);
       const [aiQuestions, setAiQuestions] = useState(null);
       const [aiAnswers, setAiAnswers] = useState("");
+
+      const wEntries = asArray(weightEntriesRaw);
+      const curKg = wEntries[wEntries.length - 1].kg;
+      const wa = asArray(waistRaw), ne = asArray(neckRaw);
+      const bodyFat = calcBodyFat(wa.length ? wa[wa.length-1].cm : null, ne.length ? ne[ne.length-1].cm : null);
+      const bmr = calcBMR(curKg, bodyFat, now);
 
       const isViewingToday = activeDateStr === todayStr;
       const activeMealId = isViewingToday ? getActiveMealId(now) : null;
@@ -717,19 +830,27 @@
       const getActualCal = (meal) => getCustom(meal.id)?.calories ?? meal.cal;
 
       const totalCal = MEALS.reduce((s, m) => s + getActualCal(m), 0);
-      const planCal  = MEALS.reduce((s, m) => s + m.cal, 0);
-      const doneCal  = MEALS.filter(m => checked[activeDateStr + "-" + m.id] || getCustom(m.id)).reduce((s, m) => s + getActualCal(m), 0);
-      const doneCount = MEALS.filter(m => checked[activeDateStr + "-" + m.id] || getCustom(m.id)).length;
+      const doneMeals = MEALS.filter(m => checked[activeDateStr + "-" + m.id] || getCustom(m.id));
+      const doneCal  = doneMeals.reduce((s, m) => s + getActualCal(m), 0);
+      const doneCount = doneMeals.length;
       const pct = Math.min((doneCal / totalCal) * 100, 100);
       const toggle = id => setChecked(p => ({ ...p, [activeDateStr + "-" + id]: !p[activeDateStr + "-" + id] }));
 
-      const TARGET_CAL = 2061;
-      const calGap = doneCal - TARGET_CAL;
+      // התג משמש רק אם לא נרשמו ארוחות בפועל
+      const eatTag = eatTypes[activeDateStr] || "plan";
+      const actTag = actTypes[activeDateStr] || "rest";
+      const eatObj = EAT_TYPES.find(e => e.key === eatTag) || EAT_TYPES[0];
+      const actObj = ACT_TYPES.find(a => a.key === actTag) || ACT_TYPES[0];
+      const estimatedCal = doneCount > 0 ? doneCal : (eatObj.cal ?? PLAN_CAL);
+      const estimatedTDEE = Math.round(bmr * actObj.mult);
+      const balance = estimatedTDEE - estimatedCal;
+
+      const setEat = k => setEatTypes(p => ({ ...p, [activeDateStr]: k }));
+      const setAct = k => setActTypes(p => ({ ...p, [activeDateStr]: k }));
 
       const callGemini = async (prompt) => {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
         const data = await res.json();
@@ -755,13 +876,9 @@ Otherwise, estimate calories per item and return:
 
 Return ONLY valid JSON, no markdown, no extra text.`;
           const parsed = await callGemini(prompt);
-          if (parsed.questions && parsed.questions.length > 0) {
-            setAiQuestions({ questions: parsed.questions, mealId });
-          } else if (parsed.total) {
-            setAiBreakdown({ items: parsed.items || [], total: parsed.total, mealId });
-          } else {
-            setAiError("לא הצלחתי לחשב. נסה לתאר בצורה יותר ברורה.");
-          }
+          if (parsed.questions && parsed.questions.length > 0) setAiQuestions({ questions: parsed.questions, mealId });
+          else if (parsed.total) setAiBreakdown({ items: parsed.items || [], total: parsed.total, mealId });
+          else setAiError("לא הצלחתי לחשב. נסה לתאר בצורה יותר ברורה.");
         } catch(e) { setAiError(`שגיאה: ${e.message}`); }
         setAiLoading(false);
       };
@@ -777,14 +894,10 @@ Additional details from user: "${aiAnswers}"
 Return ONLY valid JSON, no markdown:
 {"items":[{"name":"item name in the original language","calories":123}],"total":456}`;
           const parsed = await callGemini(prompt);
-          if (parsed.total) {
-            setAiBreakdown({ items: parsed.items || [], total: parsed.total, mealId: aiQuestions.mealId });
-          } else {
-            setAiError("לא הצלחתי לחשב. נסה שוב.");
-          }
+          if (parsed.total) setAiBreakdown({ items: parsed.items || [], total: parsed.total, mealId: aiQuestions.mealId });
+          else setAiError("לא הצלחתי לחשב. נסה שוב.");
         } catch(e) { setAiError(`שגיאה: ${e.message}`); }
-        setAiAnswers("");
-        setAiLoading(false);
+        setAiAnswers(""); setAiLoading(false);
       };
 
       const confirmBreakdown = () => {
@@ -814,8 +927,7 @@ Return ONLY valid JSON, no markdown:
         const name = altForm.name.trim();
         const range = parseCalRange(altForm.cal);
         if (!name || !range) return;
-        const entry = { name, calMin: range.calMin, calMax: range.calMax, protein: altForm.protein.trim() };
-        setAltMeals(prev => ({ ...prev, [mealId]: [...(prev[mealId] || []), entry] }));
+        setAltMeals(prev => ({ ...prev, [mealId]: [...(prev[mealId] || []), { name, calMin: range.calMin, calMax: range.calMax, protein: altForm.protein.trim() }] }));
         setAltForm({ name: "", cal: "", protein: "" });
       };
 
@@ -861,6 +973,8 @@ Return ONLY valid JSON, no markdown:
                   const dayDone = MEALS.filter(m => checked[day.dateStr + "-" + m.id] || customMeals[day.dateStr]?.[m.id]).length;
                   const isActive = day.dateStr === activeDateStr;
                   const isToday = day.dateStr === todayStr;
+                  const tag = eatTypes[day.dateStr];
+                  const tagObj = tag ? EAT_TYPES.find(e => e.key === tag) : null;
                   return (
                     <button key={day.dateStr} onClick={() => { setActiveDateStr(day.dateStr); setOpen(null); }} style={{
                       background: isActive ? "#166534" : "#0d1f10", border: isToday ? "1px solid #4ade80" : "1px solid #1a3a1f",
@@ -871,6 +985,7 @@ Return ONLY valid JSON, no markdown:
                       <div style={{ fontSize: 11, fontWeight: 700, color: dayDone === MEALS.length ? "#4ade80" : isActive ? "#e0f0e0" : "#4a7a54", marginTop: 2 }}>
                         {dayDone === MEALS.length ? "✓" : dayDone > 0 ? dayDone + "/" + MEALS.length : "—"}
                       </div>
+                      <div style={{ fontSize: 7, marginTop: 1, minHeight: 9, color: tagObj ? tagObj.color : "transparent" }}>{tagObj && tagObj.key !== "plan" ? "●" : ""}</div>
                     </button>
                   );
                 })}
@@ -878,19 +993,58 @@ Return ONLY valid JSON, no markdown:
               {weekOffset > 0 && <button onClick={() => { setWeekOffset(w => w - 1); setOpen(null); }} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 8px", fontFamily: "inherit" }}>›</button>}
               {weekOffset === 0 && <div style={{ width: 28 }} />}
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, marginTop: 8 }}>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, marginTop: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: "#4ade80" }}>🍽️ {activeDay.dayName} {activeDay.display}</span>
               <span style={{ fontSize: 11, color: "#4a7a54" }}>{doneCount}/{MEALS.length} · {doneCal} קל׳</span>
             </div>
-            {doneCal > 0 && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <span style={{ fontSize: 10, color: calGap > 200 ? "#f87171" : calGap > 0 ? "#fbbf24" : "#4ade80", fontWeight: 700 }}>
-                  {calGap > 0 ? `⚠️ +${calGap} קל׳ מעל היעד` : `✅ ${Math.abs(calGap)} קל׳ מתחת ליעד`}
-                </span>
-              </div>
-            )}
             <div style={{ height: 5, background: "#1a3a1f", borderRadius: 3, overflow: "hidden", marginBottom: 10 }}>
               <div style={{ height: "100%", width: pct + "%", borderRadius: 3, background: "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.4s" }} />
+            </div>
+
+            {/* ── תיוג יום ── */}
+            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 12, marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 6 }}>איך אכלת היום?</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5, marginBottom: 10 }}>
+                {EAT_TYPES.map(e => {
+                  const on = e.key === eatTag;
+                  return (
+                    <button key={e.key} onClick={() => setEat(e.key)} style={{
+                      padding: "9px 3px", borderRadius: 8, border: `1px solid ${on ? e.color : "#1a3a1f"}`,
+                      background: on ? e.color + "22" : "#0b1a0d", color: on ? e.color : "#4a7a54",
+                      fontSize: 11, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", transition: "all 0.15s",
+                    }}>{e.label}</button>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 6 }}>מה עשית היום?</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 5, marginBottom: 10 }}>
+                {ACT_TYPES.map(a => {
+                  const on = a.key === actTag;
+                  return (
+                    <button key={a.key} onClick={() => setAct(a.key)} style={{
+                      padding: "9px 2px", borderRadius: 8, border: `1px solid ${on ? a.color : "#1a3a1f"}`,
+                      background: on ? a.color + "22" : "#0b1a0d", color: on ? a.color : "#4a7a54",
+                      fontSize: 10, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", transition: "all 0.15s",
+                    }}>{a.label}</button>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0b1a0d", borderRadius: 8, padding: "9px 12px", marginBottom: 5 }}>
+                <span style={{ fontSize: 11, color: "#4a7a54" }}>{doneCount > 0 ? `נאכל בפועל (${doneCount}/${MEALS.length})` : "הערכת אכילה"}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0", fontFamily: "monospace" }}>{estimatedCal.toLocaleString()} קל׳</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0b1a0d", borderRadius: 8, padding: "9px 12px", marginBottom: 5 }}>
+                <span style={{ fontSize: 11, color: "#4a7a54" }}>הוצאה משוערת</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa", fontFamily: "monospace" }}>{estimatedTDEE.toLocaleString()} קל׳</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: balance > 0 ? "#0d2e18" : "#2e0d0d", border: `1px solid ${balance > 0 ? "#1e4a2e" : "#4a1e1e"}`, borderRadius: 8, padding: "10px 12px" }}>
+                <span style={{ fontSize: 12, color: balance > 0 ? "#4ade80" : "#f87171", fontWeight: 700 }}>{balance > 0 ? "גירעון" : "עודף"}</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: balance > 0 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>{balance > 0 ? "▼" : "▲"} {Math.abs(balance).toLocaleString()} קל׳</span>
+              </div>
+              {balance > 900 && <div style={{ fontSize: 10, color: "#fbbf24", marginTop: 7 }}>⚠️ גירעון מעל 900 קל׳ — שים לב לשמירת מסת שריר</div>}
+              {balance < 0 && <div style={{ fontSize: 10, color: "#fbbf24", marginTop: 7 }}>⚠️ יום בעודף — מאזן מול שאר השבוע</div>}
+              {doneCount > 0 && <div style={{ fontSize: 9, color: "#2d5a3a", marginTop: 7 }}>הרישום בפועל גובר על התג</div>}
             </div>
           </div>
 
@@ -987,6 +1141,11 @@ Return ONLY valid JSON, no markdown:
                                 <span>סה״כ</span>
                                 <span style={{ color: "#4ade80" }}>{aiBreakdown.total} קל׳</span>
                               </div>
+                              <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 4 }}>
+                                {aiBreakdown.total > meal.cal
+                                  ? `▲ ${aiBreakdown.total - meal.cal} קל׳ מעל התפריט (${meal.cal})`
+                                  : `▼ ${meal.cal - aiBreakdown.total} קל׳ מתחת לתפריט (${meal.cal})`}
+                              </div>
                               <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                                 <button onClick={confirmBreakdown}
                                   style={{ flex: 2, background: "#166534", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
@@ -1016,6 +1175,13 @@ Return ONLY valid JSON, no markdown:
                           <input value={manualCal} onChange={e => setManualCal(e.target.value.replace(/\D/g,""))}
                             placeholder="למשל: 650" inputMode="numeric"
                             style={{ width: "100%", background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#4ade80", fontSize: 18, fontWeight: 700, fontFamily: "monospace", outline: "none", direction: "ltr", textAlign: "center" }} />
+                          {manualCal && (
+                            <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 5, textAlign: "center" }}>
+                              {parseInt(manualCal) > meal.cal
+                                ? `▲ ${parseInt(manualCal) - meal.cal} קל׳ מעל התפריט (${meal.cal})`
+                                : `▼ ${meal.cal - parseInt(manualCal)} קל׳ מתחת לתפריט (${meal.cal})`}
+                            </div>
+                          )}
                           <button onClick={() => saveManual(meal.id)} disabled={!manualCal}
                             style={{ width: "100%", marginTop: 8, background: manualCal ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: manualCal ? "pointer" : "default", fontFamily: "inherit" }}>
                             שמור
@@ -1116,15 +1282,22 @@ Return ONLY valid JSON, no markdown:
                 </div>
               );
             })}
-            <div style={{ height: 20 }} />
+
+            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 12, marginTop: 4, marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 11, color: "#4a7a54" }}>תפריט מלא</span>
+                <span style={{ fontSize: 12, color: "#e0f0e0", fontFamily: "monospace", fontWeight: 700 }}>{PLAN_CAL.toLocaleString()} קל׳ · {PLAN_PRO}g חלבון</span>
+              </div>
+            </div>
           </div>
+
           <div style={{ padding: "0 14px 14px" }}>
             <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #2d1a1a", padding: 14 }}>
               <div style={{ fontSize: 12, color: "#f87171", fontWeight: 700, marginBottom: 8 }}>🍕 ארוחה חופשית שבועית (Refeed)</div>
               <div style={{ fontSize: 12, color: "#c8e8c8", lineHeight: 1.9 }}>
                 ✅ פעם בשבוע — ארוחה אחת גדולה, לא יום שלם<br/>
-                ✅ עד 2,500–2,800 קל׳ סה״כ באותו יום<br/>
-                ✅ עוזר ללפטין, למוטיבציה ולחילוף חומרים<br/>
+                ✅ חריגה מתונה (~2,300) כמעט לא פוגעת בקצב<br/>
+                ⚠️ חריגה גדולה (3,200) מורידה את הקצב השבועי בכשליש<br/>
                 ❌ לא לבחור יום לפני השקילה
               </div>
             </div>
@@ -1133,24 +1306,25 @@ Return ONLY valid JSON, no markdown:
       );
     }
 
-    // ─── RoutineTab data: daily task plan ────────────────────────────────────────
+    // ─── RoutineTab data ─────────────────────────────────────────────────────────
     const WEEK_PLAN = [
       { day: "ראשון", tasks: [
         { id:"w1", cat:"🥗", text:"הקפד על התפריט המלא" },
-        { id:"w2", cat:"🚶", text:"הליכה 30 דקות" },
+        { id:"w2", cat:"🚶", text:"הליכה מלאה — 30–40 דקות" },
         { id:"w4", cat:"💧", text:"2.5 ליטר מים" },
         { id:"w5", cat:"🚫", text:"ללא אלכוהול" },
         { id:"w6", cat:"😴", text:"7+ שעות שינה" },
       ]},
       { day: "שני", tasks: [
         { id:"m1", cat:"🥗", text:"הקפד על התפריט המלא" },
+        { id:"m2", cat:"🚶", text:"הליכה קלה — 15–20 דקות" },
         { id:"m3", cat:"💧", text:"2.5 ליטר מים" },
         { id:"m4", cat:"🚫", text:"ללא אלכוהול" },
         { id:"m5", cat:"😴", text:"7+ שעות שינה" },
       ]},
       { day: "שלישי", tasks: [
         { id:"t1", cat:"🥗", text:"הקפד על התפריט המלא" },
-        { id:"t2", cat:"🚶", text:"הליכה 30 דקות" },
+        { id:"t2", cat:"🚶", text:"הליכה מלאה — 30–40 דקות" },
         { id:"t4", cat:"💧", text:"2.5 ליטר מים" },
         { id:"t5", cat:"🚫", text:"ללא אלכוהול" },
         { id:"t6", cat:"😴", text:"7+ שעות שינה" },
@@ -1163,7 +1337,7 @@ Return ONLY valid JSON, no markdown:
       ]},
       { day: "חמישי", tasks: [
         { id:"h1", cat:"🥗", text:"הקפד על התפריט המלא" },
-        { id:"h2", cat:"🚶", text:"הליכה 30 דקות" },
+        { id:"h2", cat:"🚶", text:"הליכה מלאה — 30–40 דקות" },
         { id:"h4", cat:"💧", text:"2.5 ליטר מים" },
         { id:"h5", cat:"🚫", text:"ללא אלכוהול" },
         { id:"h6", cat:"😴", text:"7+ שעות שינה" },
@@ -1171,14 +1345,14 @@ Return ONLY valid JSON, no markdown:
       { day: "שישי", tasks: [
         { id:"s1", cat:"🥗", text:"הקפד על התפריט המלא" },
         { id:"s3", cat:"💧", text:"2.5 ליטר מים" },
-        { id:"s4", cat:"🍕", text:"אפשר ארוחה חופשית אחת (עד 800 קל׳)" },
+        { id:"s4", cat:"🍕", text:"ארוחה חופשית — עד ~2,300 קל׳ סה״כ ביום" },
         { id:"s5", cat:"🍺", text:"אפשר 1–2 משקאות (לא בירה)" },
         { id:"s6", cat:"😴", text:"7+ שעות שינה" },
       ]},
       { day: "שבת", tasks: [
         { id:"b1", cat:"🥗", text:"תפריט מאוזן — לא מושלם, לא קריסה" },
         { id:"b3", cat:"💧", text:"2.5 ליטר מים" },
-        { id:"b4", cat:"⚖️", text:"שקול בבוקר בצום — עדכן באפליקציה" },
+        { id:"b4", cat:"⚖️", text:"שקול בבוקר בצום + מדוד היקף בטן" },
         { id:"b5", cat:"😴", text:"7+ שעות שינה" },
         { id:"b6", cat:"🧠", text:"תכנן את השבוע הבא — מה הימים שיש משמרת?" },
       ]},
@@ -1186,485 +1360,6 @@ Return ONLY valid JSON, no markdown:
 
     const CAT_COLORS = { "🥗":"#4ade80","🚶":"#60a5fa","💪":"#f87171","💧":"#38bdf8","🚫":"#6b7280","😴":"#a78bfa","🍕":"#fbbf24","🍺":"#d97706","⚖️":"#4ade80","🧠":"#c084fc" };
 
-    // ─── User Select ──────────────────────────────────────────────────────────────
-    function UserSelect({ onSelect, onAdmin }) {
-      const [users, setUsers] = useState(null);
-
-      useEffect(() => {
-        db.ref(`${DB_ROOT}/_admin/users`).once("value", snap => {
-          if (snap.exists()) {
-            const data = snap.val();
-            setUsers(Object.keys(data).map(k => ({ username: k, ...data[k] })));
-          } else {
-            setUsers([{ username: "matan" }, { username: "guest" }]);
-          }
-        });
-      }, []);
-
-      const ICONS = ["👤","🙂","🌟","🎯","🦊","🐙","🧩","🚀"];
-
-      return (
-        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#060d07 0%,#09151f 55%,#060d07 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", fontFamily: "'Segoe UI',Tahoma,sans-serif", padding: "40px 32px", direction: "rtl" }}>
-          <div style={{ fontSize: 64, marginBottom: 14 }}>🥗</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "#f0fdf4", marginBottom: 6, letterSpacing: -0.5 }}>תכנית תזונה</div>
-          <div style={{ fontSize: 13, color: "#4ade80", marginBottom: 44, opacity: 0.6 }}>בחר משתמש להמשך</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
-            {users === null ? (
-              <div style={{ color: "#4a7a54", textAlign: "center", fontSize: 13 }}>טוען...</div>
-            ) : users.map((u, i) => (
-              <button key={u.username} onClick={() => onSelect(u.username)}
-                style={{ padding: "16px 20px", borderRadius: 16, border: `1px solid ${i === 0 ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.06)"}`, background: i === 0 ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.03)", color: i === 0 ? "#4ade80" : "#4a7a54", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s" }}>
-                <span style={{ fontSize: 22 }}>{ICONS[i % ICONS.length]}</span>
-                {u.username.charAt(0).toUpperCase() + u.username.slice(1)}
-              </button>
-            ))}
-            <button onClick={onAdmin} style={{ padding: "10px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", background: "transparent", color: "#2a4a2a", fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginTop: 10 }}>
-              🔧 ניהול
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // ─── AdminPinScreen ───────────────────────────────────────────────────────────
-    function AdminPinScreen({ onSuccess, onBack }) {
-      const [pin, setPin] = useState("");
-      const [adminPin, setAdminPin] = useState(null);
-      const [error, setError] = useState(false);
-      const ref = React.useRef(null);
-
-      useEffect(() => {
-        ref.current?.focus();
-        db.ref(`${DB_ROOT}/_admin/adminPin`).once("value", snap => {
-          setAdminPin(snap.exists() ? snap.val() : "0000");
-        });
-      }, []);
-
-      const check = p => {
-        const correct = adminPin || "0000";
-        if (p === correct) { onSuccess(); }
-        else if (p.length === 4) { setError(true); setTimeout(() => { setError(false); setPin(""); }, 800); }
-      };
-      const press = d => { const next = pin + d; setPin(next); if (next.length === 4 && adminPin !== null) check(next); };
-      const handleKey = e => {
-        if (e.key >= "0" && e.key <= "9") press(e.key);
-        else if (e.key === "Backspace") setPin(p => p.slice(0, -1));
-        else if (e.key === "Escape") onBack();
-      };
-
-      return (
-        <div onKeyDown={handleKey} tabIndex={0} ref={ref} style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28, fontFamily: "'Segoe UI',Tahoma,sans-serif", outline: "none" }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#4a7a54" }}>🔧 כניסת מנהל</div>
-          <div style={{ display: "flex", gap: 12, marginBottom: 4 }}>
-            {[0,1,2,3].map(i => (
-              <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#4ade80") : "#1a3a1f", border: `2px solid ${error ? "#f87171" : "#2d5a3a"}`, transition: "all 0.15s" }} />
-            ))}
-          </div>
-          {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -16 }}>קוד שגוי</div>}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: 10, direction: "ltr" }}>
-            {[7,8,9,4,5,6,1,2,3,"",0,"⌫"].map((d, i) => (
-              <button key={i} onClick={() => { if (d === "⌫") setPin(p => p.slice(0,-1)); else if (d !== "") press(String(d)); }}
-                style={{ height: 70, borderRadius: 14, border: "1px solid #1a3a1f", background: d === "" ? "transparent" : "#0d1f10", color: d === "⌫" ? "#f87171" : "#e0f0e0", fontSize: d === "⌫" ? 20 : 24, fontWeight: 600, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit" }}>
-                {d}
-              </button>
-            ))}
-          </div>
-          <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#4a7a54", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← חזור</button>
-        </div>
-      );
-    }
-
-    // ─── AdminConfirmPin ──────────────────────────────────────────────────────────
-    function AdminConfirmPin({ label, onConfirm, onCancel }) {
-      const [pin, setPin] = useState("");
-      const [error, setError] = useState(false);
-      const [adminPin, setAdminPin] = useState(null);
-      const ref = React.useRef(null);
-
-      useEffect(() => {
-        ref.current?.focus();
-        db.ref(`${DB_ROOT}/_admin/adminPin`).once("value", snap => {
-          setAdminPin(snap.exists() ? snap.val() : "0000");
-        });
-      }, []);
-
-      const check = p => {
-        const correct = adminPin || "0000";
-        if (p === correct) { onConfirm(); }
-        else if (p.length === 4) { setError(true); setTimeout(() => { setError(false); setPin(""); }, 800); }
-      };
-      const press = d => { const next = pin + d; setPin(next); if (next.length === 4 && adminPin !== null) check(next); };
-
-      return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div ref={ref} tabIndex={0} onKeyDown={e => { if (e.key >= "0" && e.key <= "9") press(e.key); else if (e.key === "Backspace") setPin(p => p.slice(0,-1)); else if (e.key === "Escape") onCancel(); }}
-            style={{ background: "#0b1a0d", borderRadius: 18, padding: 28, width: 280, display: "flex", flexDirection: "column", alignItems: "center", gap: 18, outline: "none", border: "1px solid #1a3a1f" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#4a7a54", textAlign: "center" }}>🔐 אשר פעולה</div>
-            <div style={{ fontSize: 12, color: "#2d5a3a", textAlign: "center" }}>{label}</div>
-            <div style={{ display: "flex", gap: 10 }}>
-              {[0,1,2,3].map(i => (
-                <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#4ade80") : "#1a3a1f", border: `2px solid ${error ? "#f87171" : "#2d5a3a"}`, transition: "all 0.15s" }} />
-              ))}
-            </div>
-            {error && <div style={{ color: "#f87171", fontSize: 12, marginTop: -10 }}>קוד שגוי</div>}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 58px)", gap: 8, direction: "ltr" }}>
-              {[7,8,9,4,5,6,1,2,3,"",0,"⌫"].map((d, i) => (
-                <button key={i} onClick={() => { if (d === "⌫") setPin(p => p.slice(0,-1)); else if (d !== "") press(String(d)); }}
-                  style={{ height: 58, borderRadius: 12, border: "1px solid #1a3a1f", background: d === "" ? "transparent" : "#0d1f10", color: d === "⌫" ? "#f87171" : "#e0f0e0", fontSize: d === "⌫" ? 18 : 20, fontWeight: 600, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit" }}>
-                  {d}
-                </button>
-              ))}
-            </div>
-            <button onClick={onCancel} style={{ background: "transparent", border: "none", color: "#2d5a3a", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>ביטול</button>
-          </div>
-        </div>
-      );
-    }
-
-    // ─── AdminPanel ───────────────────────────────────────────────────────────────
-    function AdminPanel({ onBack }) {
-      const [users, setUsers] = useState([]);
-      const [loading, setLoading] = useState(true);
-      const [newMatanPin, setNewMatanPin] = useState("");
-      const [newAdminPin, setNewAdminPin] = useState("");
-      const [newGeminiKey, setNewGeminiKey] = useState("");
-      const [saved, setSaved] = useState("");
-      const [newUsername, setNewUsername] = useState("");
-      const [newUserPin, setNewUserPin] = useState("");
-      const [managedUsers, setManagedUsers] = useState(null);
-      const [confirmAction, setConfirmAction] = useState(null);
-      const [copyFrom, setCopyFrom] = useState("");
-      const [copyTo, setCopyTo] = useState("");
-      const [exportUser, setExportUser] = useState("");
-      const [importUser, setImportUser] = useState("");
-      const importFileRef = React.useRef(null);
-
-      useEffect(() => {
-        db.ref(`${DB_ROOT}/_admin/users`).once("value", snap => {
-          if (snap.exists()) {
-            setManagedUsers(snap.val());
-          } else {
-            setManagedUsers({ matan: { pin: null }, guest: { pin: null } });
-          }
-        });
-      }, []);
-
-      // Waits for the real registered-user list first, so stray top-level nodes
-      // that aren't actual users (leftover data from old bugs) never show up here.
-      useEffect(() => {
-        if (!managedUsers) return;
-        db.ref(DB_ROOT).once("value", snap => {
-          const data = snap.val() || {};
-          const userList = Object.keys(managedUsers).map(username => {
-            const udata = data[username] || {};
-            const weightEntries = udata.weight_entries ? (Array.isArray(udata.weight_entries) ? udata.weight_entries : Object.values(udata.weight_entries)) : [];
-            const lastEntry = weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null;
-            return { username, weightCount: weightEntries.length, lastWeight: lastEntry ? lastEntry.kg + " ק״ג" : "—", lastDate: lastEntry ? (lastEntry.date || lastEntry.label || "—") : "—" };
-          });
-          setUsers(userList);
-          setLoading(false);
-        });
-      }, [managedUsers]);
-
-      const savePin = async (type) => {
-        const val = type === "matan" ? newMatanPin : newAdminPin;
-        if (val.length !== 4 || isNaN(val)) return;
-        const path = type === "matan" ? `${DB_ROOT}/_admin/matanPin` : `${DB_ROOT}/_admin/adminPin`;
-        await db.ref(path).set(val);
-        setSaved(type === "matan" ? "PIN של מתן עודכן ✓" : "PIN מנהל עודכן ✓");
-        setTimeout(() => setSaved(""), 2500);
-        if (type === "matan") setNewMatanPin(""); else setNewAdminPin("");
-      };
-
-      const requireAdminPin = (label, action) => {
-        setConfirmAction({ label, onConfirm: () => { setConfirmAction(null); action(); } });
-      };
-
-      const addUser = async () => {
-        const uname = newUsername.trim().toLowerCase().replace(/\s+/g,"_");
-        if (!uname) return;
-        // Firebase drops any field set to null, and refuses to store an object left
-        // with zero fields — so a PIN-less user must always carry some other real
-        // field (createdAt) or the whole entry silently fails to save.
-        const entry = { createdAt: Date.now() };
-        if (newUserPin.length === 4) entry.pin = newUserPin;
-        const updated = { ...(managedUsers || {}), [uname]: entry };
-        await db.ref(`${DB_ROOT}/_admin/users`).set(updated);
-        setManagedUsers(updated);
-        setNewUsername(""); setNewUserPin("");
-        setSaved(`משתמש "${uname}" נוסף ✓`);
-        setTimeout(() => setSaved(""), 2500);
-      };
-
-      const deleteUser = async (uname) => {
-        const updated = { ...(managedUsers || {}) };
-        delete updated[uname];
-        await db.ref(`${DB_ROOT}/_admin/users`).set(updated);
-        setManagedUsers(updated);
-        setSaved(`משתמש "${uname}" נמחק ✓`);
-        setTimeout(() => setSaved(""), 2500);
-      };
-
-      const exportBackup = async () => {
-        const path = exportUser ? DB_ROOT + "/" + exportUser : DB_ROOT;
-        const snap = await db.ref(path).once("value");
-        const data = snap.val() || {};
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `nutrition-backup-${exportUser || "all"}-${toDateStr(new Date())}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-      };
-
-      const handleImportFile = (e) => {
-        const file = e.target.files[0];
-        e.target.value = "";
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          let parsed;
-          try {
-            parsed = JSON.parse(reader.result);
-          } catch (err) {
-            setSaved("קובץ לא תקין ✗");
-            setTimeout(() => setSaved(""), 2500);
-            return;
-          }
-          const path = importUser ? DB_ROOT + "/" + importUser : DB_ROOT;
-          const whoLabel = importUser ? `של "${importUser}"` : "של כל המשתמשים";
-          requireAdminPin(`לשחזר גיבוי ${whoLabel}? זה ידרוס את הנתונים הקיימים ${whoLabel}!`, async () => {
-            await db.ref(path).set(parsed);
-            setSaved("הגיבוי שוחזר ✓");
-            setTimeout(() => setSaved(""), 2500);
-          });
-        };
-        reader.readAsText(file);
-      };
-
-      const copyUserData = () => {
-        if (!copyFrom || !copyTo || copyFrom === copyTo) return;
-        requireAdminPin(`להעתיק את נתוני "${copyFrom}" אל "${copyTo}"? זה ידרוס את הנתונים הקיימים של "${copyTo}"!`, async () => {
-          const snap = await db.ref(DB_ROOT + "/" + copyFrom).once("value");
-          const data = snap.val() || {};
-          await db.ref(DB_ROOT + "/" + copyTo).set(data);
-          setSaved(`נתוני "${copyFrom}" הועתקו אל "${copyTo}" ✓`);
-          setTimeout(() => setSaved(""), 2500);
-          setCopyFrom(""); setCopyTo("");
-        });
-      };
-
-      const G = { bg: "#080f0a", card: "#0b1a0d", border: "#1a3a1f", text: "#e0f0e0", mid: "#4a7a54", green: "#4ade80", red: "#f87171" };
-
-      return (
-        <div style={{ minHeight: "100vh", background: G.bg, fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: G.text, paddingBottom: 40 }}>
-          {confirmAction && <AdminConfirmPin label={confirmAction.label} onConfirm={confirmAction.onConfirm} onCancel={() => setConfirmAction(null)} />}
-          <div style={{ background: G.card, padding: "14px 18px", borderBottom: `1px solid ${G.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: G.mid }}>🔧 פאנל ניהול</div>
-            <button onClick={onBack} style={{ background: "#1a3a1f", border: "none", borderRadius: 8, padding: "6px 14px", color: G.mid, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← יציאה</button>
-          </div>
-          <div style={{ padding: 16, maxWidth: 500, margin: "0 auto" }}>
-            {saved && <div style={{ background: "#166534", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: G.green }}>{saved}</div>}
-
-            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 14 }}>👥 סטטיסטיקות משתמשים</div>
-              {loading ? <div style={{ color: G.mid, fontSize: 13 }}>טוען...</div> : users.length === 0 ? <div style={{ color: G.mid, fontSize: 13 }}>אין נתונים עדיין</div> : users.map(u => (
-                <div key={u.username} style={{ background: G.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 8, border: `1px solid ${G.border}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: G.green }}>👤 {u.username}</div>
-                    <div style={{ fontSize: 11, color: G.mid }}>שקילה אחרונה: {u.lastDate}</div>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                    {[["שקילות", u.weightCount, G.green], ["משקל נוכחי", u.lastWeight, "#60a5fa"]].map(([l,v,c]) => (
-                      <div key={l} style={{ textAlign: "center", background: G.card, borderRadius: 8, padding: "6px 4px" }}>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: c }}>{v}</div>
-                        <div style={{ fontSize: 10, color: G.mid }}>{l}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 14 }}>➕ ניהול משתמשים</div>
-              {managedUsers && Object.keys(managedUsers).map(uname => (
-                <div key={uname} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: G.bg, borderRadius: 8, padding: "8px 12px", marginBottom: 6, border: `1px solid ${G.border}` }}>
-                  <div style={{ fontSize: 13, color: G.green }}>👤 {uname}</div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <div style={{ fontSize: 11, color: G.mid }}>{managedUsers[uname].pin ? "🔒 PIN" : "🔓 ללא PIN"}</div>
-                    {uname !== "matan" && (
-                      <button onClick={() => requireAdminPin(`למחוק את המשתמש "${uname}"?`, () => deleteUser(uname))}
-                        style={{ background: "#7f1d1d", border: "none", borderRadius: 6, padding: "4px 10px", color: "#fca5a5", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>מחק</button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <div style={{ marginTop: 12, fontSize: 12, color: G.mid, marginBottom: 8 }}>הוסף משתמש חדש:</div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="שם משתמש"
-                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
-                <input value={newUserPin} onChange={e => setNewUserPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="PIN (אופציונלי)" maxLength={4} inputMode="numeric"
-                  style={{ width: 110, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 13, outline: "none", direction: "ltr", fontFamily: "inherit" }} />
-              </div>
-              <button onClick={addUser} disabled={!newUsername.trim()} style={{ background: newUsername.trim() ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newUsername.trim() ? "pointer" : "default", fontFamily: "inherit", width: "100%" }}>➕ הוסף משתמש</button>
-            </div>
-
-            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 14 }}>💾 גיבוי וייבוא נתונים</div>
-
-              <div style={{ fontSize: 10, color: G.mid, marginBottom: 4 }}>משתמש לייצוא</div>
-              <select value={exportUser} onChange={e => setExportUser(e.target.value)}
-                style={{ width: "100%", background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 8px", color: G.text, fontSize: 12, outline: "none", fontFamily: "inherit", marginBottom: 8 }}>
-                <option value="">כל המשתמשים</option>
-                {managedUsers && Object.keys(managedUsers).map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-              <button onClick={exportBackup} style={{ background: "#166534", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", width: "100%", marginBottom: 16 }}>📥 ייצוא {exportUser ? `נתוני "${exportUser}"` : "כל הנתונים"} (גיבוי)</button>
-
-              <div style={{ fontSize: 10, color: G.mid, marginBottom: 4 }}>משתמש לייבוא</div>
-              <select value={importUser} onChange={e => setImportUser(e.target.value)}
-                style={{ width: "100%", background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 8px", color: G.text, fontSize: 12, outline: "none", fontFamily: "inherit", marginBottom: 8 }}>
-                <option value="">כל המשתמשים (שחזור מלא)</option>
-                {managedUsers && Object.keys(managedUsers).map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-              <input ref={importFileRef} type="file" accept=".json,application/json" onChange={handleImportFile} style={{ display: "none" }} />
-              <button onClick={() => importFileRef.current?.click()} style={{ background: "#7f1d1d", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fca5a5", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>📤 שחזור {importUser ? `לתוך "${importUser}"` : "(ידרוס הכל)"}</button>
-              <div style={{ fontSize: 11, color: G.mid, marginTop: 8, marginBottom: 16 }}>ייצוא של משתמש בודד מוריד רק את הנתונים שלו; ייבוא לתוך משתמש בודד דורש קובץ שיוצא לאותו משתמש (לא קובץ "כל המשתמשים"). השחזור תמיד דורש אישור PIN מנהל ומחליף נתונים קיימים</div>
-
-              <div style={{ borderTop: `1px solid ${G.border}`, paddingTop: 14 }}>
-                <div style={{ fontSize: 12, color: G.mid, marginBottom: 8 }}>העתקת נתונים בין משתמשים:</div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, color: G.mid, marginBottom: 4 }}>מקור (העתק מ)</div>
-                    <select value={copyFrom} onChange={e => setCopyFrom(e.target.value)}
-                      style={{ width: "100%", background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 8px", color: G.text, fontSize: 12, outline: "none", fontFamily: "inherit" }}>
-                      <option value="">בחר...</option>
-                      {managedUsers && Object.keys(managedUsers).map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, color: G.mid, marginBottom: 4 }}>יעד (העתק אל)</div>
-                    <select value={copyTo} onChange={e => setCopyTo(e.target.value)}
-                      style={{ width: "100%", background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 8px", color: G.text, fontSize: 12, outline: "none", fontFamily: "inherit" }}>
-                      <option value="">בחר...</option>
-                      {managedUsers && Object.keys(managedUsers).map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <button onClick={copyUserData} disabled={!copyFrom || !copyTo || copyFrom === copyTo}
-                  style={{ background: (copyFrom && copyTo && copyFrom !== copyTo) ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: (copyFrom && copyTo && copyFrom !== copyTo) ? "pointer" : "default", fontFamily: "inherit", width: "100%" }}>📋 העתק נתונים</button>
-                <div style={{ fontSize: 11, color: G.mid, marginTop: 8 }}>מעתיק את כל הנתונים (משקל, מדידות, תפריט וכו') מהמשתמש הראשון אל השני — דורש אישור PIN מנהל ומחליף את הנתונים הקיימים של היעד</div>
-              </div>
-            </div>
-
-            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 12 }}>🔑 שנה PIN של Matan</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input value={newMatanPin} onChange={e => setNewMatanPin(e.target.value.replace(/\D/g,"").slice(0,4))}
-                  placeholder="4 ספרות חדשות" maxLength={4} inputMode="numeric"
-                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 14, outline: "none", direction: "ltr", fontFamily: "inherit" }} />
-                <button onClick={() => savePin("matan")} disabled={newMatanPin.length !== 4} style={{ background: newMatanPin.length === 4 ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newMatanPin.length === 4 ? "pointer" : "default", fontFamily: "inherit" }}>שמור</button>
-              </div>
-            </div>
-
-            <div style={{ background: G.card, borderRadius: 14, padding: 16, border: `1px solid ${G.border}` }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 12 }}>🔧 שנה PIN מנהל</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input value={newAdminPin} onChange={e => setNewAdminPin(e.target.value.replace(/\D/g,"").slice(0,4))}
-                  placeholder="4 ספרות חדשות" maxLength={4} inputMode="numeric"
-                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 14, outline: "none", direction: "ltr", fontFamily: "inherit" }} />
-                <button onClick={() => savePin("admin")} disabled={newAdminPin.length !== 4} style={{ background: newAdminPin.length === 4 ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newAdminPin.length === 4 ? "pointer" : "default", fontFamily: "inherit" }}>שמור</button>
-              </div>
-              <div style={{ fontSize: 11, color: G.mid, marginTop: 8 }}>PIN ברירת מחדל: 0000</div>
-            </div>
-
-            <div style={{ background: G.card, borderRadius: 14, padding: 16, border: `1px solid ${G.border}` }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 12 }}>🤖 מפתח Gemini AI</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input value={newGeminiKey} onChange={e => setNewGeminiKey(e.target.value.trim())}
-                  placeholder="הדבק מפתח API חדש מ-Google AI Studio"
-                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 12, outline: "none", direction: "ltr", fontFamily: "monospace" }} />
-                <button onClick={async () => { if (!newGeminiKey) return; await db.ref(`${DB_ROOT}/_admin/geminiKey`).set(newGeminiKey); GEMINI_API_KEY = newGeminiKey; setSaved("gemini"); setNewGeminiKey(""); setTimeout(() => setSaved(""), 2000); }}
-                  disabled={!newGeminiKey}
-                  style={{ background: newGeminiKey ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newGeminiKey ? "pointer" : "default", fontFamily: "inherit" }}>
-                  {saved === "gemini" ? "✓" : "שמור"}
-                </button>
-              </div>
-              <div style={{ fontSize: 11, color: G.mid, marginTop: 8 }}>המפתח נשמר ב-Firebase ולא בקוד</div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // ─── PIN ──────────────────────────────────────────────────────────────────────
-    function PinScreen({ onSuccess, onBack }) {
-      const [pin, setPin] = useState("");
-      const [error, setError] = useState(false);
-      const [correctPin, setCorrectPin] = useState(null);
-      const inputRef = React.useRef(null);
-
-      useEffect(() => {
-        inputRef.current?.focus();
-        db.ref(`${DB_ROOT}/_admin/matanPin`).once("value", snap => {
-          setCorrectPin(snap.exists() ? snap.val() : "1359");
-        });
-      }, []);
-
-      const check = (p) => {
-        if (correctPin === null) return;
-        if (p === correctPin) {
-          localStorage.setItem("matan_pin_ok", "1");
-          onSuccess();
-        } else if (p.length === 4) {
-          setError(true);
-          setTimeout(() => { setError(false); setPin(""); }, 800);
-        }
-      };
-
-      const press = (d) => {
-        const next = pin + d;
-        setPin(next);
-        if (next.length === 4 && correctPin !== null) check(next);
-      };
-
-      const handleKey = (e) => {
-        if (e.key >= "0" && e.key <= "9") press(e.key);
-        else if (e.key === "Backspace") setPin(p => p.slice(0, -1));
-        else if (e.key === "Escape") onBack();
-      };
-
-      return (
-        <div onKeyDown={handleKey} tabIndex={0} ref={inputRef} style={{ minHeight: "100vh", background: "linear-gradient(160deg,#060d07 0%,#09151f 55%,#060d07 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 32, fontFamily: "'Segoe UI',Tahoma,sans-serif", outline: "none", direction: "rtl" }}>
-          <div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#f0fdf4", textAlign: "center", letterSpacing: -0.5 }}>👤 Matan</div>
-            <div style={{ fontSize: 13, color: "#4ade80", textAlign: "center", marginTop: 4, opacity: 0.6 }}>הכנס קוד כניסה</div>
-          </div>
-          <div style={{ display: "flex", gap: 14 }}>
-            {[0,1,2,3].map(i => (
-              <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#22c55e") : "transparent", border: `2px solid ${error ? "#f87171" : pin.length > i ? "#22c55e" : "#2d5a3a"}`, transition: "all 0.15s" }} />
-            ))}
-          </div>
-          {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -20, fontWeight: 600 }}>קוד שגוי</div>}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 76px)", gap: 10, direction: "ltr" }}>
-            {[7,8,9,4,5,6,1,2,3,"",0,"⌫"].map((d, i) => (
-              <button key={i} onClick={() => {
-                if (d === "⌫") setPin(p => p.slice(0,-1));
-                else if (d !== "") press(String(d));
-              }} style={{ height: 76, borderRadius: 16, border: `1px solid ${d === "" ? "transparent" : "rgba(34,197,94,0.12)"}`, background: d === "" ? "transparent" : "rgba(255,255,255,0.04)", color: d === "⌫" ? "#f87171" : "#f0fdf4", fontSize: d === "⌫" ? 20 : 26, fontWeight: 500, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.1s" }}
-                onTouchStart={e => { if (d !== "") e.currentTarget.style.background = "rgba(34,197,94,0.12)"; }}
-                onTouchEnd={e => { if (d !== "") e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}>
-                {d}
-              </button>
-            ))}
-          </div>
-          <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#3a6a3a", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← חזור</button>
-        </div>
-      );
-    }
-
-    // ─── RoutineTab (משימות + אימון) ──────────────────────────────────────────────
     const DAY_ACT_TYPES = [
       { key: "walk",     label: "🚶 הליכה", color: "#60a5fa" },
       { key: "strength", label: "💪 כוח",   color: "#f87171" },
@@ -1672,7 +1367,6 @@ Return ONLY valid JSON, no markdown:
       { key: "rest",     label: "🛋 מנוחה", color: "#4a7a54" },
     ];
 
-    // exercises per type, with day-of-week variant for strength (tue=B) and physio (wed=B)
     const TYPE_EX = {
       strength: {
         A: [
@@ -1692,17 +1386,17 @@ Return ONLY valid JSON, no markdown:
       },
       physio: {
         A: [
-          { id: "pa1", name: "תלייה קלה",               sets: "2×10–20 שנ׳",      cat: "כתפיים"   },
-          { id: "pa2", name: "מוביליות כתפיים",          sets: "",                  cat: "מוביליות" },
-          { id: "pa3", name: "סקוואט איטי קל",           sets: "1×8–10",            cat: "רגליים"   },
-          { id: "pa4", name: "פתיחת ירכיים / קרסוליים",  sets: "",                  cat: "מוביליות" },
-          { id: "pa5", name: "מתיחות בסוף",              sets: "",                  cat: ""         },
+          { id: "pa1", name: "תלייה קלה",               sets: "2×10–20 שנ׳", cat: "כתפיים"   },
+          { id: "pa2", name: "מוביליות כתפיים",          sets: "",             cat: "מוביליות" },
+          { id: "pa3", name: "סקוואט איטי קל",           sets: "1×8–10",       cat: "רגליים"   },
+          { id: "pa4", name: "פתיחת ירכיים / קרסוליים",  sets: "",             cat: "מוביליות" },
+          { id: "pa5", name: "מתיחות בסוף",              sets: "",             cat: ""         },
         ],
         B: [
-          { id: "pb1", name: "תרגילי שכמות קלים", sets: "",                    cat: "כתפיים"   },
-          { id: "pb2", name: "תלייה קלה",          sets: "אם הכתפיים בסדר",    cat: "כתפיים"   },
-          { id: "pb3", name: "מוביליות ירכיים",    sets: "",                    cat: "מוביליות" },
-          { id: "pb4", name: "מתיחות בסוף",        sets: "",                    cat: ""         },
+          { id: "pb1", name: "תרגילי שכמות קלים", sets: "",                 cat: "כתפיים"   },
+          { id: "pb2", name: "תלייה קלה",          sets: "אם הכתפיים בסדר", cat: "כתפיים"   },
+          { id: "pb3", name: "מוביליות ירכיים",    sets: "",                 cat: "מוביליות" },
+          { id: "pb4", name: "מתיחות בסוף",        sets: "",                 cat: ""         },
         ],
       },
     };
@@ -1735,7 +1429,6 @@ Return ONLY valid JSON, no markdown:
       const activeShift = shifts[activeDateStr] || null;
       const dow = new Date(activeDateStr + "T12:00:00").getDay();
 
-      // tasks (checklist)
       const dayPlan = WEEK_PLAN[activeDay];
       const doneTasks = dayPlan.tasks.filter(t => checked[activeDateStr + "-" + t.id]).length;
       const totalTasks = dayPlan.tasks.length;
@@ -1753,7 +1446,7 @@ Return ONLY valid JSON, no markdown:
       const weekLabel = shiftOffset === 0 ? "שבוע זה" : shiftOffset === 1 ? "שבוע הבא" : shiftOffset === -1 ? "שבוע שעבר" : (shiftOffset > 0 ? "+" : "") + shiftOffset + " שבועות";
 
       const [imgLoading, setImgLoading] = useState(false);
-      const [imgMsg, setImgMsg]         = useState("");
+      const [imgMsg, setImgMsg] = useState("");
 
       const readShiftImage = async (e) => {
         const file = e.target.files?.[0];
@@ -1801,7 +1494,6 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
         e.target.value = "";
       };
 
-      // workout
       const selectedTypes = dayTypes[activeDateStr] || [];
       const toggleType = (key) => setDayTypes(p => {
         const cur = p[activeDateStr] || [];
@@ -1824,14 +1516,12 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
         <div style={{ padding: "14px 14px 0" }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: "#e0f0e0", marginBottom: 12 }}>🗓️ שגרה יומית</div>
 
-          {/* week navigator */}
           <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
             <button onClick={() => setShiftOffset(o => o - 1)} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 7px", fontFamily: "inherit" }}>‹</button>
             <div style={{ flex: 1, textAlign: "center", fontSize: 11, color: "#4a7a54", fontWeight: 700 }}>{weekLabel}</div>
             <button onClick={() => setShiftOffset(o => o + 1)} style={{ background: "#0d1f10", border: "1px solid #1a3a1f", borderRadius: 6, color: "#4a7a54", fontSize: 14, cursor: "pointer", padding: "2px 7px", fontFamily: "inherit" }}>›</button>
           </div>
 
-          {/* combined day strip: shift + task progress + workout icons */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, marginBottom: 10 }}>
             {WEEK_PLAN.map((d, i) => {
               const dateStr = shiftWeekDates[i];
@@ -1861,7 +1551,6 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
             })}
           </div>
 
-          {/* shift picker + shift-image upload */}
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 12, marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ fontSize: 11, color: "#4a7a54", fontWeight: 700 }}>
@@ -1889,7 +1578,6 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
             </div>
           </div>
 
-          {/* ── Section: תפריט המשימות ── */}
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
             <SectionHead icon="✅" title="משימות היום" done={doneTasks} total={totalTasks} color="#4ade80" />
             <div style={{ height: 6, background: "#1a3a1f", borderRadius: 3, overflow: "hidden", marginBottom: 12 }}>
@@ -1926,7 +1614,6 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
             })}
           </div>
 
-          {/* ── Section: אימון ── */}
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
             <SectionHead icon="💪" title="אימון היום" done={doneEx} total={totalEx} color="#f87171" />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: totalEx > 0 ? 10 : 0 }}>
@@ -2007,6 +1694,475 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       );
     }
 
+    // ─── User Select ──────────────────────────────────────────────────────────────
+    function UserSelect({ onSelect, onAdmin }) {
+      const [users, setUsers] = useState(null);
+
+      useEffect(() => {
+        db.ref(`${DB_ROOT}/_admin/users`).once("value", snap => {
+          if (snap.exists()) {
+            const data = snap.val();
+            setUsers(Object.keys(data).map(k => ({ username: k, ...data[k] })));
+          } else {
+            setUsers([{ username: "matan" }, { username: "guest" }]);
+          }
+        });
+      }, []);
+
+      const ICONS = ["👤","🙂","🌟","🎯","🦊","🐙","🧩","🚀"];
+
+      return (
+        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#060d07 0%,#09151f 55%,#060d07 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", fontFamily: "'Segoe UI',Tahoma,sans-serif", padding: "40px 32px", direction: "rtl" }}>
+          <div style={{ fontSize: 64, marginBottom: 14 }}>🥗</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#f0fdf4", marginBottom: 6, letterSpacing: -0.5 }}>תכנית תזונה</div>
+          <div style={{ fontSize: 13, color: "#4ade80", marginBottom: 44, opacity: 0.6 }}>בחר משתמש להמשך</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
+            {users === null ? (
+              <div style={{ color: "#4a7a54", textAlign: "center", fontSize: 13 }}>טוען...</div>
+            ) : users.map((u, i) => (
+              <button key={u.username} onClick={() => onSelect(u.username)}
+                style={{ padding: "16px 20px", borderRadius: 16, border: `1px solid ${i === 0 ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.06)"}`, background: i === 0 ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.03)", color: i === 0 ? "#4ade80" : "#4a7a54", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s" }}>
+                <span style={{ fontSize: 22 }}>{ICONS[i % ICONS.length]}</span>
+                {u.username.charAt(0).toUpperCase() + u.username.slice(1)}
+              </button>
+            ))}
+            <button onClick={onAdmin} style={{ padding: "10px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", background: "transparent", color: "#2a4a2a", fontSize: 12, cursor: "pointer", fontFamily: "inherit", marginTop: 10 }}>
+              🔧 ניהול
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── PIN pads ─────────────────────────────────────────────────────────────────
+    function AdminPinScreen({ onSuccess, onBack }) {
+      const [pin, setPin] = useState("");
+      const [adminPin, setAdminPin] = useState(null);
+      const [error, setError] = useState(false);
+      const ref = React.useRef(null);
+
+      useEffect(() => {
+        ref.current?.focus();
+        db.ref(`${DB_ROOT}/_admin/adminPin`).once("value", snap => setAdminPin(snap.exists() ? snap.val() : "0000"));
+      }, []);
+
+      const check = p => {
+        const correct = adminPin || "0000";
+        if (p === correct) onSuccess();
+        else if (p.length === 4) { setError(true); setTimeout(() => { setError(false); setPin(""); }, 800); }
+      };
+      const press = d => { const next = pin + d; setPin(next); if (next.length === 4 && adminPin !== null) check(next); };
+      const handleKey = e => {
+        if (e.key >= "0" && e.key <= "9") press(e.key);
+        else if (e.key === "Backspace") setPin(p => p.slice(0, -1));
+        else if (e.key === "Escape") onBack();
+      };
+
+      return (
+        <div onKeyDown={handleKey} tabIndex={0} ref={ref} style={{ minHeight: "100vh", background: "linear-gradient(160deg,#080f0a 0%,#0a1520 60%,#080f0a 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28, fontFamily: "'Segoe UI',Tahoma,sans-serif", outline: "none" }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#4a7a54" }}>🔧 כניסת מנהל</div>
+          <div style={{ display: "flex", gap: 12, marginBottom: 4 }}>
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#4ade80") : "#1a3a1f", border: `2px solid ${error ? "#f87171" : "#2d5a3a"}`, transition: "all 0.15s" }} />
+            ))}
+          </div>
+          {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -16 }}>קוד שגוי</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 70px)", gap: 10, direction: "ltr" }}>
+            {[7,8,9,4,5,6,1,2,3,"",0,"⌫"].map((d, i) => (
+              <button key={i} onClick={() => { if (d === "⌫") setPin(p => p.slice(0,-1)); else if (d !== "") press(String(d)); }}
+                style={{ height: 70, borderRadius: 14, border: "1px solid #1a3a1f", background: d === "" ? "transparent" : "#0d1f10", color: d === "⌫" ? "#f87171" : "#e0f0e0", fontSize: d === "⌫" ? 20 : 24, fontWeight: 600, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit" }}>
+                {d}
+              </button>
+            ))}
+          </div>
+          <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#4a7a54", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← חזור</button>
+        </div>
+      );
+    }
+
+    function AdminConfirmPin({ label, onConfirm, onCancel }) {
+      const [pin, setPin] = useState("");
+      const [error, setError] = useState(false);
+      const [adminPin, setAdminPin] = useState(null);
+      const ref = React.useRef(null);
+
+      useEffect(() => {
+        ref.current?.focus();
+        db.ref(`${DB_ROOT}/_admin/adminPin`).once("value", snap => setAdminPin(snap.exists() ? snap.val() : "0000"));
+      }, []);
+
+      const check = p => {
+        const correct = adminPin || "0000";
+        if (p === correct) onConfirm();
+        else if (p.length === 4) { setError(true); setTimeout(() => { setError(false); setPin(""); }, 800); }
+      };
+      const press = d => { const next = pin + d; setPin(next); if (next.length === 4 && adminPin !== null) check(next); };
+
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div ref={ref} tabIndex={0} onKeyDown={e => { if (e.key >= "0" && e.key <= "9") press(e.key); else if (e.key === "Backspace") setPin(p => p.slice(0,-1)); else if (e.key === "Escape") onCancel(); }}
+            style={{ background: "#0b1a0d", borderRadius: 18, padding: 28, width: 280, display: "flex", flexDirection: "column", alignItems: "center", gap: 18, outline: "none", border: "1px solid #1a3a1f" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#4a7a54", textAlign: "center" }}>🔐 אשר פעולה</div>
+            <div style={{ fontSize: 12, color: "#2d5a3a", textAlign: "center" }}>{label}</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {[0,1,2,3].map(i => (
+                <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#4ade80") : "#1a3a1f", border: `2px solid ${error ? "#f87171" : "#2d5a3a"}`, transition: "all 0.15s" }} />
+              ))}
+            </div>
+            {error && <div style={{ color: "#f87171", fontSize: 12, marginTop: -10 }}>קוד שגוי</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 58px)", gap: 8, direction: "ltr" }}>
+              {[7,8,9,4,5,6,1,2,3,"",0,"⌫"].map((d, i) => (
+                <button key={i} onClick={() => { if (d === "⌫") setPin(p => p.slice(0,-1)); else if (d !== "") press(String(d)); }}
+                  style={{ height: 58, borderRadius: 12, border: "1px solid #1a3a1f", background: d === "" ? "transparent" : "#0d1f10", color: d === "⌫" ? "#f87171" : "#e0f0e0", fontSize: d === "⌫" ? 18 : 20, fontWeight: 600, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit" }}>
+                  {d}
+                </button>
+              ))}
+            </div>
+            <button onClick={onCancel} style={{ background: "transparent", border: "none", color: "#2d5a3a", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>ביטול</button>
+          </div>
+        </div>
+      );
+    }
+
+    function PinScreen({ onSuccess, onBack }) {
+      const [pin, setPin] = useState("");
+      const [error, setError] = useState(false);
+      const [correctPin, setCorrectPin] = useState(null);
+      const inputRef = React.useRef(null);
+
+      useEffect(() => {
+        inputRef.current?.focus();
+        db.ref(`${DB_ROOT}/_admin/matanPin`).once("value", snap => setCorrectPin(snap.exists() ? snap.val() : "1359"));
+      }, []);
+
+      const check = (p) => {
+        if (correctPin === null) return;
+        if (p === correctPin) { localStorage.setItem("matan_pin_ok", "1"); onSuccess(); }
+        else if (p.length === 4) { setError(true); setTimeout(() => { setError(false); setPin(""); }, 800); }
+      };
+      const press = (d) => { const next = pin + d; setPin(next); if (next.length === 4 && correctPin !== null) check(next); };
+      const handleKey = (e) => {
+        if (e.key >= "0" && e.key <= "9") press(e.key);
+        else if (e.key === "Backspace") setPin(p => p.slice(0, -1));
+        else if (e.key === "Escape") onBack();
+      };
+
+      return (
+        <div onKeyDown={handleKey} tabIndex={0} ref={inputRef} style={{ minHeight: "100vh", background: "linear-gradient(160deg,#060d07 0%,#09151f 55%,#060d07 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 32, fontFamily: "'Segoe UI',Tahoma,sans-serif", outline: "none", direction: "rtl" }}>
+          <div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#f0fdf4", textAlign: "center", letterSpacing: -0.5 }}>👤 Matan</div>
+            <div style={{ fontSize: 13, color: "#4ade80", textAlign: "center", marginTop: 4, opacity: 0.6 }}>הכנס קוד כניסה</div>
+          </div>
+          <div style={{ display: "flex", gap: 14 }}>
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#22c55e") : "transparent", border: `2px solid ${error ? "#f87171" : pin.length > i ? "#22c55e" : "#2d5a3a"}`, transition: "all 0.15s" }} />
+            ))}
+          </div>
+          {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -20, fontWeight: 600 }}>קוד שגוי</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 76px)", gap: 10, direction: "ltr" }}>
+            {[7,8,9,4,5,6,1,2,3,"",0,"⌫"].map((d, i) => (
+              <button key={i} onClick={() => { if (d === "⌫") setPin(p => p.slice(0,-1)); else if (d !== "") press(String(d)); }}
+                style={{ height: 76, borderRadius: 16, border: `1px solid ${d === "" ? "transparent" : "rgba(34,197,94,0.12)"}`, background: d === "" ? "transparent" : "rgba(255,255,255,0.04)", color: d === "⌫" ? "#f87171" : "#f0fdf4", fontSize: d === "⌫" ? 20 : 26, fontWeight: 500, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.1s" }}
+                onTouchStart={e => { if (d !== "") e.currentTarget.style.background = "rgba(34,197,94,0.12)"; }}
+                onTouchEnd={e => { if (d !== "") e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}>
+                {d}
+              </button>
+            ))}
+          </div>
+          <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#3a6a3a", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← חזור</button>
+        </div>
+      );
+    }
+
+    // ─── AdminPanel ───────────────────────────────────────────────────────────────
+    function AdminPanel({ onBack }) {
+      const [users, setUsers] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [newMatanPin, setNewMatanPin] = useState("");
+      const [newAdminPin, setNewAdminPin] = useState("");
+      const [newGeminiKey, setNewGeminiKey] = useState("");
+      const [saved, setSaved] = useState("");
+      const [newUsername, setNewUsername] = useState("");
+      const [newUserPin, setNewUserPin] = useState("");
+      const [managedUsers, setManagedUsers] = useState(null);
+      const [confirmAction, setConfirmAction] = useState(null);
+      const [copyFrom, setCopyFrom] = useState("");
+      const [copyTo, setCopyTo] = useState("");
+      const [exportUser, setExportUser] = useState("");
+      const [importUser, setImportUser] = useState("");
+      const importFileRef = React.useRef(null);
+
+      useEffect(() => {
+        db.ref(`${DB_ROOT}/_admin/users`).once("value", snap => {
+          setManagedUsers(snap.exists() ? snap.val() : { matan: { pin: null }, guest: { pin: null } });
+        });
+      }, []);
+
+      useEffect(() => {
+        if (!managedUsers) return;
+        db.ref(DB_ROOT).once("value", snap => {
+          const data = snap.val() || {};
+          const userList = Object.keys(managedUsers).map(username => {
+            const udata = data[username] || {};
+            const weightEntries = udata.weight_entries ? asArray(udata.weight_entries) : [];
+            const lastEntry = weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null;
+            return { username, weightCount: weightEntries.length, lastWeight: lastEntry ? lastEntry.kg + " ק״ג" : "—", lastDate: lastEntry ? (lastEntry.date || lastEntry.label || "—") : "—" };
+          });
+          setUsers(userList);
+          setLoading(false);
+        });
+      }, [managedUsers]);
+
+      const savePin = async (type) => {
+        const val = type === "matan" ? newMatanPin : newAdminPin;
+        if (val.length !== 4 || isNaN(val)) return;
+        await db.ref(type === "matan" ? `${DB_ROOT}/_admin/matanPin` : `${DB_ROOT}/_admin/adminPin`).set(val);
+        setSaved(type === "matan" ? "PIN של מתן עודכן ✓" : "PIN מנהל עודכן ✓");
+        setTimeout(() => setSaved(""), 2500);
+        if (type === "matan") setNewMatanPin(""); else setNewAdminPin("");
+      };
+
+      const requireAdminPin = (label, action) => setConfirmAction({ label, onConfirm: () => { setConfirmAction(null); action(); } });
+
+      const addUser = async () => {
+        const uname = newUsername.trim().toLowerCase().replace(/\s+/g,"_");
+        if (!uname) return;
+        const entry = { createdAt: Date.now() };
+        if (newUserPin.length === 4) entry.pin = newUserPin;
+        const updated = { ...(managedUsers || {}), [uname]: entry };
+        await db.ref(`${DB_ROOT}/_admin/users`).set(updated);
+        setManagedUsers(updated);
+        setNewUsername(""); setNewUserPin("");
+        setSaved(`משתמש "${uname}" נוסף ✓`);
+        setTimeout(() => setSaved(""), 2500);
+      };
+
+      const deleteUser = async (uname) => {
+        const updated = { ...(managedUsers || {}) };
+        delete updated[uname];
+        await db.ref(`${DB_ROOT}/_admin/users`).set(updated);
+        setManagedUsers(updated);
+        setSaved(`משתמש "${uname}" נמחק ✓`);
+        setTimeout(() => setSaved(""), 2500);
+      };
+
+      const exportBackup = async () => {
+        const path = exportUser ? DB_ROOT + "/" + exportUser : DB_ROOT;
+        const snap = await db.ref(path).once("value");
+        const blob = new Blob([JSON.stringify(snap.val() || {}, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `nutrition-backup-${exportUser || "all"}-${toDateStr(new Date())}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const handleImportFile = (e) => {
+        const file = e.target.files[0];
+        e.target.value = "";
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          let parsed;
+          try { parsed = JSON.parse(reader.result); }
+          catch (err) { setSaved("קובץ לא תקין ✗"); setTimeout(() => setSaved(""), 2500); return; }
+          const path = importUser ? DB_ROOT + "/" + importUser : DB_ROOT;
+          const whoLabel = importUser ? `של "${importUser}"` : "של כל המשתמשים";
+          requireAdminPin(`לשחזר גיבוי ${whoLabel}? זה ידרוס את הנתונים הקיימים ${whoLabel}!`, async () => {
+            await db.ref(path).set(parsed);
+            setSaved("הגיבוי שוחזר ✓");
+            setTimeout(() => setSaved(""), 2500);
+          });
+        };
+        reader.readAsText(file);
+      };
+
+      const copyUserData = () => {
+        if (!copyFrom || !copyTo || copyFrom === copyTo) return;
+        requireAdminPin(`להעתיק את נתוני "${copyFrom}" אל "${copyTo}"? זה ידרוס את הנתונים הקיימים של "${copyTo}"!`, async () => {
+          const snap = await db.ref(DB_ROOT + "/" + copyFrom).once("value");
+          await db.ref(DB_ROOT + "/" + copyTo).set(snap.val() || {});
+          setSaved(`נתוני "${copyFrom}" הועתקו אל "${copyTo}" ✓`);
+          setTimeout(() => setSaved(""), 2500);
+          setCopyFrom(""); setCopyTo("");
+        });
+      };
+
+      // ניקוי שרידים מגרסאות ישנות: plan_checked (בלי v3), workout_type_v1,
+      // ורשומות checklist עם מפתח מספרי במקום תאריך.
+      const cleanLegacy = () => {
+        requireAdminPin("למחוק נתוני שאריות מגרסאות ישנות? (plan_checked, workout_type_v1, מפתחות ישנים בצ׳קליסט)", async () => {
+          const targets = users.map(u => u.username);
+          let removed = 0;
+          for (const u of targets) {
+            const base = DB_ROOT + "/" + u;
+            for (const k of ["plan_checked", "workout_type_v1"]) {
+              const s = await db.ref(base + "/" + k).once("value");
+              if (s.exists()) { await db.ref(base + "/" + k).remove(); removed++; }
+            }
+            const cs = await db.ref(base + "/checklist_checked").once("value");
+            if (cs.exists()) {
+              const obj = cs.val() || {};
+              const cleaned = {};
+              for (const [k, v] of Object.entries(obj)) {
+                if (/^\d{4}-\d{2}-\d{2}-/.test(k)) cleaned[k] = v; else removed++;
+              }
+              await db.ref(base + "/checklist_checked").set(cleaned);
+            }
+          }
+          setSaved(`ניקוי הושלם — ${removed} רשומות הוסרו ✓`);
+          setTimeout(() => setSaved(""), 3000);
+        });
+      };
+
+      const G = { bg: "#080f0a", card: "#0b1a0d", border: "#1a3a1f", text: "#e0f0e0", mid: "#4a7a54", green: "#4ade80", red: "#f87171" };
+
+      return (
+        <div style={{ minHeight: "100vh", background: G.bg, fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: G.text, paddingBottom: 40 }}>
+          {confirmAction && <AdminConfirmPin label={confirmAction.label} onConfirm={confirmAction.onConfirm} onCancel={() => setConfirmAction(null)} />}
+          <div style={{ background: G.card, padding: "14px 18px", borderBottom: `1px solid ${G.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: G.mid }}>🔧 פאנל ניהול</div>
+            <button onClick={onBack} style={{ background: "#1a3a1f", border: "none", borderRadius: 8, padding: "6px 14px", color: G.mid, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← יציאה</button>
+          </div>
+          <div style={{ padding: 16, maxWidth: 500, margin: "0 auto" }}>
+            {saved && <div style={{ background: "#166534", borderRadius: 10, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: G.green }}>{saved}</div>}
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 14 }}>👥 סטטיסטיקות משתמשים</div>
+              {loading ? <div style={{ color: G.mid, fontSize: 13 }}>טוען...</div> : users.length === 0 ? <div style={{ color: G.mid, fontSize: 13 }}>אין נתונים עדיין</div> : users.map(u => (
+                <div key={u.username} style={{ background: G.bg, borderRadius: 10, padding: "12px 14px", marginBottom: 8, border: `1px solid ${G.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: G.green }}>👤 {u.username}</div>
+                    <div style={{ fontSize: 11, color: G.mid }}>שקילה אחרונה: {u.lastDate}</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    {[["שקילות", u.weightCount, G.green], ["משקל נוכחי", u.lastWeight, "#60a5fa"]].map(([l,v,c]) => (
+                      <div key={l} style={{ textAlign: "center", background: G.card, borderRadius: 8, padding: "6px 4px" }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: c }}>{v}</div>
+                        <div style={{ fontSize: 10, color: G.mid }}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 14 }}>➕ ניהול משתמשים</div>
+              {managedUsers && Object.keys(managedUsers).map(uname => (
+                <div key={uname} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: G.bg, borderRadius: 8, padding: "8px 12px", marginBottom: 6, border: `1px solid ${G.border}` }}>
+                  <div style={{ fontSize: 13, color: G.green }}>👤 {uname}</div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ fontSize: 11, color: G.mid }}>{managedUsers[uname].pin ? "🔒 PIN" : "🔓 ללא PIN"}</div>
+                    {uname !== "matan" && (
+                      <button onClick={() => requireAdminPin(`למחוק את המשתמש "${uname}"?`, () => deleteUser(uname))}
+                        style={{ background: "#7f1d1d", border: "none", borderRadius: 6, padding: "4px 10px", color: "#fca5a5", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>מחק</button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div style={{ marginTop: 12, fontSize: 12, color: G.mid, marginBottom: 8 }}>הוסף משתמש חדש:</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <input value={newUsername} onChange={e => setNewUsername(e.target.value)} placeholder="שם משתמש"
+                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 13, outline: "none", fontFamily: "inherit" }} />
+                <input value={newUserPin} onChange={e => setNewUserPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="PIN (אופציונלי)" maxLength={4} inputMode="numeric"
+                  style={{ width: 110, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 13, outline: "none", direction: "ltr", fontFamily: "inherit" }} />
+              </div>
+              <button onClick={addUser} disabled={!newUsername.trim()} style={{ background: newUsername.trim() ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newUsername.trim() ? "pointer" : "default", fontFamily: "inherit", width: "100%" }}>➕ הוסף משתמש</button>
+            </div>
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 14 }}>💾 גיבוי וייבוא נתונים</div>
+
+              <div style={{ fontSize: 10, color: G.mid, marginBottom: 4 }}>משתמש לייצוא</div>
+              <select value={exportUser} onChange={e => setExportUser(e.target.value)}
+                style={{ width: "100%", background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 8px", color: G.text, fontSize: 12, outline: "none", fontFamily: "inherit", marginBottom: 8 }}>
+                <option value="">כל המשתמשים</option>
+                {managedUsers && Object.keys(managedUsers).map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+              <button onClick={exportBackup} style={{ background: "#166534", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", width: "100%", marginBottom: 16 }}>📥 ייצוא {exportUser ? `נתוני "${exportUser}"` : "כל הנתונים"} (גיבוי)</button>
+
+              <div style={{ fontSize: 10, color: G.mid, marginBottom: 4 }}>משתמש לייבוא</div>
+              <select value={importUser} onChange={e => setImportUser(e.target.value)}
+                style={{ width: "100%", background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 8px", color: G.text, fontSize: 12, outline: "none", fontFamily: "inherit", marginBottom: 8 }}>
+                <option value="">כל המשתמשים (שחזור מלא)</option>
+                {managedUsers && Object.keys(managedUsers).map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+              <input ref={importFileRef} type="file" accept=".json,application/json" onChange={handleImportFile} style={{ display: "none" }} />
+              <button onClick={() => importFileRef.current?.click()} style={{ background: "#7f1d1d", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fca5a5", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>📤 שחזור {importUser ? `לתוך "${importUser}"` : "(ידרוס הכל)"}</button>
+              <div style={{ fontSize: 11, color: G.mid, marginTop: 8, marginBottom: 16 }}>ייצוא של משתמש בודד מוריד רק את הנתונים שלו; ייבוא לתוך משתמש בודד דורש קובץ שיוצא לאותו משתמש. השחזור תמיד דורש אישור PIN מנהל ומחליף נתונים קיימים</div>
+
+              <div style={{ borderTop: `1px solid ${G.border}`, paddingTop: 14 }}>
+                <div style={{ fontSize: 12, color: G.mid, marginBottom: 8 }}>העתקת נתונים בין משתמשים:</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: G.mid, marginBottom: 4 }}>מקור (העתק מ)</div>
+                    <select value={copyFrom} onChange={e => setCopyFrom(e.target.value)}
+                      style={{ width: "100%", background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 8px", color: G.text, fontSize: 12, outline: "none", fontFamily: "inherit" }}>
+                      <option value="">בחר...</option>
+                      {managedUsers && Object.keys(managedUsers).map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: G.mid, marginBottom: 4 }}>יעד (העתק אל)</div>
+                    <select value={copyTo} onChange={e => setCopyTo(e.target.value)}
+                      style={{ width: "100%", background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 8px", color: G.text, fontSize: 12, outline: "none", fontFamily: "inherit" }}>
+                      <option value="">בחר...</option>
+                      {managedUsers && Object.keys(managedUsers).map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <button onClick={copyUserData} disabled={!copyFrom || !copyTo || copyFrom === copyTo}
+                  style={{ background: (copyFrom && copyTo && copyFrom !== copyTo) ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: (copyFrom && copyTo && copyFrom !== copyTo) ? "pointer" : "default", fontFamily: "inherit", width: "100%" }}>📋 העתק נתונים</button>
+              </div>
+
+              <div style={{ borderTop: `1px solid ${G.border}`, paddingTop: 14, marginTop: 14 }}>
+                <button onClick={cleanLegacy} style={{ background: "#3a2a0a", border: "1px solid #5a4a1a", borderRadius: 8, padding: "9px 16px", color: "#fbbf24", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>🧹 נקה שאריות מגרסאות ישנות</button>
+                <div style={{ fontSize: 11, color: G.mid, marginTop: 8 }}>מוחק את plan_checked הישן, workout_type_v1, ורשומות צ׳קליסט עם מפתח מספרי (לפני המעבר לתאריכים). לא נוגע בנתונים פעילים.</div>
+              </div>
+            </div>
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 12 }}>🔑 שנה PIN של Matan</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={newMatanPin} onChange={e => setNewMatanPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+                  placeholder="4 ספרות חדשות" maxLength={4} inputMode="numeric"
+                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 14, outline: "none", direction: "ltr", fontFamily: "inherit" }} />
+                <button onClick={() => savePin("matan")} disabled={newMatanPin.length !== 4} style={{ background: newMatanPin.length === 4 ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newMatanPin.length === 4 ? "pointer" : "default", fontFamily: "inherit" }}>שמור</button>
+              </div>
+            </div>
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, marginBottom: 12, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 12 }}>🔧 שנה PIN מנהל</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={newAdminPin} onChange={e => setNewAdminPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+                  placeholder="4 ספרות חדשות" maxLength={4} inputMode="numeric"
+                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 14, outline: "none", direction: "ltr", fontFamily: "inherit" }} />
+                <button onClick={() => savePin("admin")} disabled={newAdminPin.length !== 4} style={{ background: newAdminPin.length === 4 ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newAdminPin.length === 4 ? "pointer" : "default", fontFamily: "inherit" }}>שמור</button>
+              </div>
+              <div style={{ fontSize: 11, color: G.mid, marginTop: 8 }}>PIN ברירת מחדל: 0000</div>
+            </div>
+
+            <div style={{ background: G.card, borderRadius: 14, padding: 16, border: `1px solid ${G.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: G.mid, marginBottom: 12 }}>🤖 מפתח Gemini AI</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={newGeminiKey} onChange={e => setNewGeminiKey(e.target.value.trim())}
+                  placeholder="הדבק מפתח API חדש מ-Google AI Studio"
+                  style={{ flex: 1, background: G.bg, border: `1px solid ${G.border}`, borderRadius: 8, padding: "9px 12px", color: G.text, fontSize: 12, outline: "none", direction: "ltr", fontFamily: "monospace" }} />
+                <button onClick={async () => { if (!newGeminiKey) return; await db.ref(`${DB_ROOT}/_admin/geminiKey`).set(newGeminiKey); GEMINI_API_KEY = newGeminiKey; setSaved("gemini"); setNewGeminiKey(""); setTimeout(() => setSaved(""), 2000); }}
+                  disabled={!newGeminiKey}
+                  style={{ background: newGeminiKey ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: newGeminiKey ? "pointer" : "default", fontFamily: "inherit" }}>
+                  {saved === "gemini" ? "✓" : "שמור"}
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: G.mid, marginTop: 8 }}>המפתח נשמר ב-Firebase ולא בקוד</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     // ─── App ──────────────────────────────────────────────────────────────────────
     function NutritionApp() {
       const [tab, setTab] = useState("plan");
@@ -2016,11 +2172,6 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const [adminAuthed, setAdminAuthed] = useState(false);
       const [liveVersion, setLiveVersion] = useState(null);
 
-      // Fetches the actual latest commit touching index.html on main, straight
-      // from GitHub — so the label always reflects what's really deployed, never a
-      // hand-typed string someone forgot to update. Shows the tag name (e.g. "Beta
-      // 3.3") when that exact commit is tagged; falls back to a short SHA + date for
-      // untagged work-in-progress so it's still readable.
       useEffect(() => {
         const REPO = "https://api.github.com/repos/Matankashi/nutrition-plan-";
         Promise.all([
@@ -2034,24 +2185,16 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           const matches = (Array.isArray(tags) ? tags : []).filter(t => t.commit && t.commit.sha === sha);
           const betaTag = matches.find(t => /^beta-/i.test(t.name));
           const chosen = betaTag || matches[0];
-          if (chosen) {
-            setLiveVersion(/^beta-/i.test(chosen.name) ? chosen.name.replace(/^beta-/i, "Beta ") : chosen.name);
-          } else {
-            setLiveVersion(`${sha.slice(0, 7)} · ${date}`);
-          }
+          if (chosen) setLiveVersion(/^beta-/i.test(chosen.name) ? chosen.name.replace(/^beta-/i, "Beta ") : chosen.name);
+          else setLiveVersion(`${sha.slice(0, 7)} · ${date}`);
         }).catch(() => {});
       }, []);
 
-      const selectUser = (u) => {
-        localStorage.setItem("active_user", u);
-        setActiveUser(u);
-      };
-
+      const selectUser = (u) => { localStorage.setItem("active_user", u); setActiveUser(u); };
       const logout = () => {
         localStorage.removeItem("active_user");
         localStorage.removeItem("matan_pin_ok");
-        setActiveUser(null);
-        setPinOk(false);
+        setActiveUser(null); setPinOk(false);
       };
 
       const versionLabel = (
@@ -2067,7 +2210,6 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       return (
         <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#060d07 0%,#08130a 100%)", fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: "#f0fdf4", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 8px))" }}>
 
-          {/* ── Header ── */}
           <div style={{ padding: "16px 18px 14px", background: "rgba(6,13,7,0.88)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(34,197,94,0.1)", position: "sticky", top: 0, zIndex: 20 }}>
             <div style={{ maxWidth: 520, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
@@ -2080,13 +2222,11 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
             </div>
           </div>
 
-          {/* ── Content ── */}
           <div style={{ maxWidth: 520, margin: "0 auto" }}>
             {tab === "plan" ? <PlanTab /> : tab === "routine" ? <RoutineTab /> : <WeightTab />}
             <div style={{ textAlign: "center", padding: "6px 14px 10px", fontSize: 10, color: "#1a3320" }}>⚠️ יש להתייעץ עם דיאטנית/רופא לפני שינויים תזונתיים משמעותיים</div>
           </div>
 
-          {/* ── Bottom Navigation ── */}
           <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 30, background: "rgba(6,13,7,0.97)", backdropFilter: "blur(24px)", borderTop: "1px solid rgba(34,197,94,0.1)" }}>
             <div style={{ maxWidth: 520, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", padding: "6px 6px 8px" }} className="safe-bottom">
               {[["plan","תפריט","🍽️"],["routine","שגרה","🗓️"],["weight","משקל","⚖️"]].map(([k,l,e]) => {
