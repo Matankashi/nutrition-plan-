@@ -73,7 +73,7 @@
     // קלוריות מאומתות מול מסדי נתונים (USDA + ישראליים), אוגוסט 2026.
     // לחם שיפון מלא מאפייה ~210 קק״ל/100g, פרוסה 45g. טחינה מדוללת ~50 קק״ל/כף.
     // חזה עוף מבושל 165 קק״ל/100g. גבינה לבנה 5% ~78 קק״ל/100g.
-    const MEALS = [
+    const DEFAULT_MEALS = [
       { id: 1, time: "08:00–09:00", name: "ארוחת בוקר", emoji: "🌅", cal: 438, pro: 30,
         items: ["2 פרוסות לחם שיפון מלא (45 גרם כל אחת)", "2 ביצים", "גבינה לבנה 5% — 80–85 גרם", "ירקות חתוכים", "כפית טחינה מדוללת"],
         tip: "טווח 410–470 קק״ל. מים לפני הארוחה — הביצים והגבינה נותנות בסיס חלבון של 30 גרם לפתיחת היום." },
@@ -95,9 +95,7 @@
     const START_W = 86, GOAL_W = 75;
     const HEIGHT_CM = 175;
     const BIRTHDAY = new Date(1991, 5, 5);
-    const PLAN_CAL = MEALS.reduce((s, m) => s + m.cal, 0);   // 1,926
-    const PLAN_PRO = MEALS.reduce((s, m) => s + m.pro, 0);   // 167
-    const APP_VERSION = "Beta 4.0 TEST";
+    const APP_VERSION = "Beta 4.1 TEST";
 
     // תיוג יום: מה נכנס (אכילה) ומה יצא (פעילות).
     // משמש לימים שלא נרשמו בהם ארוחות — רישום בפועל תמיד גובר על התג.
@@ -464,6 +462,10 @@
       const [checked] = usePersist("plan_checked_v3", {});
       const [eatTypes] = usePersist("day_eat_type_v1", {});
       const [actTypes] = usePersist("day_act_type_v1", {});
+      const [menuOverrides] = usePersist("menu_override_v1", {});
+      const MEALS = DEFAULT_MEALS.map(m => ({ ...m, ...(menuOverrides[m.id] || {}) }));
+      const PLAN_CAL = MEALS.reduce((s, m) => s + m.cal, 0);
+      const PLAN_PRO = MEALS.reduce((s, m) => s + m.pro, 0);
 
       const today = new Date();
       const todayStr = toDateStr(today);
@@ -803,6 +805,11 @@
       const [altMeals, setAltMeals] = usePersist("alt_meals_v1", {});
       const [eatTypes, setEatTypes] = usePersist("day_eat_type_v1", {});
       const [actTypes, setActTypes] = usePersist("day_act_type_v1", {});
+      const [menuOverrides, setMenuOverrides] = usePersist("menu_override_v1", {});
+      const MEALS = DEFAULT_MEALS.map(m => ({ ...m, ...(menuOverrides[m.id] || {}) }));
+      const PLAN_CAL = MEALS.reduce((s, m) => s + m.cal, 0);
+      const PLAN_PRO = MEALS.reduce((s, m) => s + m.pro, 0);
+      const [permForm, setPermForm] = useState({ name: "", time: "", emoji: "", cal: "", pro: "", items: "", tip: "" });
       const [weightEntriesRaw] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
       const [waistRaw] = usePersist("waist_entries", []);
       const [neckRaw] = usePersist("neck_entries", []);
@@ -961,6 +968,25 @@ Return ONLY valid JSON, no markdown:
         });
       };
 
+      const savePermanent = (mealId) => {
+        const cal = parseInt(permForm.cal), pro = parseInt(permForm.pro);
+        const items = permForm.items.split("\n").map(s => s.trim()).filter(Boolean);
+        if (!permForm.name.trim() || !cal || cal < 1 || !pro || pro < 0 || items.length === 0) return;
+        setMenuOverrides(prev => ({ ...prev, [mealId]: {
+          name: permForm.name.trim(), time: permForm.time.trim(), emoji: permForm.emoji.trim() || "🍽️",
+          cal, pro, items, tip: permForm.tip.trim()
+        } }));
+        setEditingMeal(null);
+      };
+
+      const resetPermanent = (mealId) => {
+        setMenuOverrides(prev => {
+          const n = { ...prev };
+          delete n[mealId];
+          return n;
+        });
+      };
+
       const activeDay = days.find(d => d.dateStr === activeDateStr) || { dayName: "", display: activeDateStr };
 
       return (
@@ -1055,6 +1081,7 @@ Return ONLY valid JSON, no markdown:
               const custom = getCustom(meal.id);
               const isEditing = editingMeal === meal.id;
               const isCurrent = meal.id === activeMealId && !isDone && !custom;
+              const isPermCustom = !!menuOverrides[meal.id];
               const ac = EC[meal.emoji] || "#4ade80";
               const actualCal = getActualCal(meal);
               const borderColor = isOpen ? ac + "66" : isCurrent ? ac : (isDone || custom) ? "#1a5a2e" : "#1a3a1f";
@@ -1073,13 +1100,14 @@ Return ONLY valid JSON, no markdown:
                           <span style={{ fontSize: 14, fontWeight: 600, color: (isDone && !custom) ? "#4a7a54" : "#e0f0e0" }}>{custom ? custom.description : meal.name}</span>
                           {isCurrent && <span style={{ fontSize: 9, background: ac + "33", color: ac, borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>עכשיו</span>}
                           {custom && <span style={{ fontSize: 9, background: "#1e4a2e", color: "#4ade80", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>מותאם</span>}
+                          {!custom && isPermCustom && <span style={{ fontSize: 9, background: "#1e3a5a", color: "#60a5fa", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>מותאם קבוע</span>}
                         </div>
                         <div style={{ fontSize: 11, color: "#4a7a54" }}>{meal.time}</div>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <button onClick={e => { e.stopPropagation(); setEditingMeal(isEditing ? null : meal.id); setEditInput(custom?.description || ""); setManualCal(""); setEditMode("auto"); setAiError(""); setAiBreakdown(null); setAiQuestions(null); setAiAnswers(""); }}
-                        style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, color: custom ? "#4ade80" : "#2d5a3a", padding: "2px 4px" }}>✏️</button>
+                        style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, color: custom ? "#4ade80" : isPermCustom ? "#60a5fa" : "#2d5a3a", padding: "2px 4px" }}>✏️</button>
                       <div style={{ textAlign: "center" }}>
                         <div style={{ fontSize: 16, fontWeight: 700, color: custom ? "#4ade80" : ac, fontFamily: "monospace" }}>{actualCal}</div>
                         <div style={{ fontSize: 9, color: "#4a7a54" }}>קל׳</div>
@@ -1090,8 +1118,8 @@ Return ONLY valid JSON, no markdown:
                   {isEditing && (
                     <div style={{ background: "#071510", borderTop: "1px solid #1a3a1f", padding: "12px 14px" }}>
                       <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-                        {[["auto","🤖 חשב אוטומטי"],["manual","✏️ הכנס ידנית"],["alt","🔄 חלופות"]].map(([m,l]) => (
-                          <button key={m} onClick={() => { setEditMode(m); setAiError(""); }}
+                        {[["auto","🤖 חשב אוטומטי"],["manual","✏️ הכנס ידנית"],["alt","🔄 חלופות"],["perm","🔧 קבוע"]].map(([m,l]) => (
+                          <button key={m} onClick={() => { setEditMode(m); setAiError(""); if (m === "perm") setPermForm({ name: meal.name, time: meal.time, emoji: meal.emoji, cal: String(meal.cal), pro: String(meal.pro), items: meal.items.join("\n"), tip: meal.tip }); }}
                             style={{ flex: 1, padding: "6px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: editMode === m ? "#166534" : "#0b1a0d", color: editMode === m ? "#fff" : "#4a7a54" }}>
                             {l}
                           </button>
@@ -1187,7 +1215,7 @@ Return ONLY valid JSON, no markdown:
                             שמור
                           </button>
                         </>
-                      ) : (
+                      ) : editMode === "alt" ? (
                         <>
                           {(altMeals[meal.id] || []).length === 0 && (
                             <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 8 }}>אין עדיין חלופות שמורות לארוחה הזו — הוסף למטה.</div>
@@ -1231,6 +1259,48 @@ Return ONLY valid JSON, no markdown:
                               style={{ width: "100%", background: (altForm.name.trim() && parseCalRange(altForm.cal)) ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: (altForm.name.trim() && parseCalRange(altForm.cal)) ? "pointer" : "default", fontFamily: "inherit" }}>
                               הוסף לרשימה
                             </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 10, color: "#fbbf24", marginBottom: 8, lineHeight: 1.4 }}>⚠️ שינוי כאן משנה את הארוחה הקבועה בתפריט לכל הימים (לא רק היום).</div>
+                          <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                            <input value={permForm.name} onChange={e => setPermForm(p => ({ ...p, name: e.target.value }))}
+                              placeholder="שם הארוחה"
+                              style={{ flex: 2, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", direction: "rtl" }} />
+                            <input value={permForm.emoji} onChange={e => setPermForm(p => ({ ...p, emoji: e.target.value }))}
+                              placeholder="אימוג׳י"
+                              style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", textAlign: "center" }} />
+                          </div>
+                          <input value={permForm.time} onChange={e => setPermForm(p => ({ ...p, time: e.target.value }))}
+                            placeholder="שעה, למשל 08:00–09:00"
+                            style={{ width: "100%", background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", marginBottom: 6, direction: "ltr", textAlign: "center" }} />
+                          <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                            <input value={permForm.cal} onChange={e => setPermForm(p => ({ ...p, cal: e.target.value.replace(/\D/g,"") }))}
+                              placeholder="קלוריות" inputMode="numeric"
+                              style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#4ade80", fontSize: 12, fontFamily: "monospace", outline: "none", direction: "ltr", textAlign: "center" }} />
+                            <input value={permForm.pro} onChange={e => setPermForm(p => ({ ...p, pro: e.target.value.replace(/\D/g,"") }))}
+                              placeholder="חלבון (גרם)" inputMode="numeric"
+                              style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#60a5fa", fontSize: 12, fontFamily: "monospace", outline: "none", direction: "ltr", textAlign: "center" }} />
+                          </div>
+                          <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 4 }}>רכיבים (שורה לכל רכיב):</div>
+                          <textarea value={permForm.items} onChange={e => setPermForm(p => ({ ...p, items: e.target.value }))} rows={4}
+                            style={{ width: "100%", background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", resize: "none", marginBottom: 6, direction: "rtl" }} />
+                          <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 4 }}>טיפ (אופציונלי):</div>
+                          <textarea value={permForm.tip} onChange={e => setPermForm(p => ({ ...p, tip: e.target.value }))} rows={2}
+                            style={{ width: "100%", background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", resize: "none", direction: "rtl" }} />
+                          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                            <button onClick={() => savePermanent(meal.id)}
+                              disabled={!permForm.name.trim() || !permForm.cal || !permForm.pro || !permForm.items.trim()}
+                              style={{ flex: 2, background: (permForm.name.trim() && permForm.cal && permForm.pro && permForm.items.trim()) ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                              💾 שמור לתמיד
+                            </button>
+                            {menuOverrides[meal.id] && (
+                              <button onClick={() => resetPermanent(meal.id)}
+                                style={{ flex: 1, background: "transparent", border: "1px solid #5a1a1a", borderRadius: 8, padding: "9px", color: "#f87171", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                                ↩️ אפס
+                              </button>
+                            )}
                           </div>
                         </>
                       )}
