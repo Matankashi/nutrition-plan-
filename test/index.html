@@ -815,6 +815,7 @@
       const [neckRaw] = usePersist("neck_entries", []);
       const [altForm, setAltForm] = useState({ name: "", cal: "", protein: "" });
       const [editingMeal, setEditingMeal] = useState(null);
+      const [editScope, setEditScope] = useState("today");
       const [editInput, setEditInput] = useState("");
       const [editMode, setEditMode] = useState("auto");
       const [manualCal, setManualCal] = useState("");
@@ -823,6 +824,11 @@
       const [aiBreakdown, setAiBreakdown] = useState(null);
       const [aiQuestions, setAiQuestions] = useState(null);
       const [aiAnswers, setAiAnswers] = useState("");
+      const [itemChecks, setItemChecks] = useState({});
+      const [itemAmounts, setItemAmounts] = useState({});
+      const [extraItems, setExtraItems] = useState([]);
+      const [newExtraItem, setNewExtraItem] = useState("");
+      const [itemsCal, setItemsCal] = useState("");
 
       const wEntries = asArray(weightEntriesRaw);
       const curKg = wEntries[wEntries.length - 1].kg;
@@ -922,6 +928,18 @@ Return ONLY valid JSON, no markdown:
         setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: desc, calories } } }));
         rememberAltMeal(mealId, desc, calories);
         setEditingMeal(null); setEditInput(""); setManualCal(""); setAiError("");
+      };
+
+      const saveItemsLog = (mealId) => {
+        const calories = parseInt(itemsCal);
+        if (!calories || calories < 1) return;
+        const kept = (MEALS.find(m => m.id === mealId)?.items || [])
+          .map((_, i) => (itemChecks[i] ? (itemAmounts[i] || "").trim() : null))
+          .filter(Boolean);
+        const desc = [...kept, ...extraItems].join(", ") || "ארוחה מותאמת";
+        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: desc, calories } } }));
+        rememberAltMeal(mealId, desc, calories);
+        setEditingMeal(null); setItemsCal("");
       };
 
       const parseCalRange = (str) => {
@@ -1106,7 +1124,7 @@ Return ONLY valid JSON, no markdown:
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <button onClick={e => { e.stopPropagation(); setEditingMeal(isEditing ? null : meal.id); setEditInput(custom?.description || ""); setManualCal(""); setEditMode("auto"); setAiError(""); setAiBreakdown(null); setAiQuestions(null); setAiAnswers(""); }}
+                      <button onClick={e => { e.stopPropagation(); setEditingMeal(isEditing ? null : meal.id); setEditScope("today"); setEditInput(custom?.description || ""); setManualCal(""); setEditMode("auto"); setAiError(""); setAiBreakdown(null); setAiQuestions(null); setAiAnswers(""); }}
                         style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, color: custom ? "#4ade80" : isPermCustom ? "#60a5fa" : "#2d5a3a", padding: "2px 4px" }}>✏️</button>
                       <div style={{ textAlign: "center" }}>
                         <div style={{ fontSize: 16, fontWeight: 700, color: custom ? "#4ade80" : ac, fontFamily: "monospace" }}>{actualCal}</div>
@@ -1117,15 +1135,25 @@ Return ONLY valid JSON, no markdown:
                   </div>
                   {isEditing && (
                     <div style={{ background: "#071510", borderTop: "1px solid #1a3a1f", padding: "12px 14px" }}>
+                      <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                        {[["today","📝 מה אכלתי היום"],["perm","🔧 ערוך תפריט קבוע"]].map(([s,l]) => (
+                          <button key={s} onClick={() => { setEditScope(s); if (s === "perm") setPermForm({ name: meal.name, time: meal.time, emoji: meal.emoji, cal: String(meal.cal), pro: String(meal.pro), items: meal.items.join("\n"), tip: meal.tip }); }}
+                            style={{ flex: 1, padding: "6px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: editScope === s ? "#0d3a5a" : "#0b1a0d", color: editScope === s ? "#fff" : "#4a7a54" }}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                      {editScope === "today" && (
                       <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-                        {[["auto","🤖 חשב אוטומטי"],["manual","✏️ הכנס ידנית"],["alt","🔄 חלופות"],["perm","🔧 קבוע"]].map(([m,l]) => (
-                          <button key={m} onClick={() => { setEditMode(m); setAiError(""); if (m === "perm") setPermForm({ name: meal.name, time: meal.time, emoji: meal.emoji, cal: String(meal.cal), pro: String(meal.pro), items: meal.items.join("\n"), tip: meal.tip }); }}
+                        {[["auto","🤖 אוטומטי"],["manual","✏️ ידני"],["items","🥗 רכיבים"],["alt","🔄 חלופות"]].map(([m,l]) => (
+                          <button key={m} onClick={() => { setEditMode(m); setAiError(""); if (m === "items") { setItemChecks(Object.fromEntries(meal.items.map((_, i) => [i, true]))); setItemAmounts(Object.fromEntries(meal.items.map((it, i) => [i, it]))); setExtraItems([]); setNewExtraItem(""); setItemsCal(String(getActualCal(meal))); } }}
                             style={{ flex: 1, padding: "6px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", background: editMode === m ? "#166534" : "#0b1a0d", color: editMode === m ? "#fff" : "#4a7a54" }}>
                             {l}
                           </button>
                         ))}
                       </div>
-                      {editMode === "auto" ? (
+                      )}
+                      {editScope === "today" && editMode === "auto" ? (
                         <>
                           <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>תאר מה אכלת — בעברית או אנגלית:</div>
                           <textarea value={editInput} onChange={e => setEditInput(e.target.value)} rows={2}
@@ -1193,7 +1221,7 @@ Return ONLY valid JSON, no markdown:
                             </button>
                           )}
                         </>
-                      ) : editMode === "manual" ? (
+                      ) : editScope === "today" && editMode === "manual" ? (
                         <>
                           <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>תאר מה אכלת (אופציונלי):</div>
                           <input value={editInput} onChange={e => setEditInput(e.target.value)}
@@ -1215,7 +1243,48 @@ Return ONLY valid JSON, no markdown:
                             שמור
                           </button>
                         </>
-                      ) : editMode === "alt" ? (
+                      ) : editScope === "today" && editMode === "items" ? (
+                        <>
+                          <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>סמן מה אכלת מהתפריט, ערוך כמויות, או הוסף/הסר רכיבים:</div>
+                          {meal.items.map((it, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                              <div onClick={() => setItemChecks(p => ({ ...p, [i]: !p[i] }))}
+                                style={{ width: 20, height: 20, borderRadius: 6, flexShrink: 0, border: "2px solid " + (itemChecks[i] ? "#4ade80" : "#2d5a3a"), background: itemChecks[i] ? "#4ade8033" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 12, color: "#4ade80", fontWeight: 700 }}>
+                                {itemChecks[i] ? "✓" : ""}
+                              </div>
+                              <input value={itemAmounts[i] ?? it} onChange={e => setItemAmounts(p => ({ ...p, [i]: e.target.value }))}
+                                disabled={!itemChecks[i]}
+                                style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "7px 10px", color: itemChecks[i] ? "#e0f0e0" : "#3a5a3a", fontSize: 12, fontFamily: "inherit", outline: "none", direction: "rtl" }} />
+                            </div>
+                          ))}
+                          {extraItems.map((it, i) => (
+                            <div key={"extra"+i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                              <span style={{ fontSize: 12, color: "#60a5fa" }}>➕</span>
+                              <input value={it} onChange={e => setExtraItems(p => p.map((v, idx) => idx === i ? e.target.value : v))}
+                                style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "7px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", direction: "rtl" }} />
+                              <button onClick={() => setExtraItems(p => p.filter((_, idx) => idx !== i))}
+                                style={{ background: "transparent", border: "none", color: "#f87171", fontSize: 13, cursor: "pointer", padding: "2px 4px" }}>✕</button>
+                            </div>
+                          ))}
+                          <div style={{ display: "flex", gap: 6, marginTop: 8, marginBottom: 8 }}>
+                            <input value={newExtraItem} onChange={e => setNewExtraItem(e.target.value)}
+                              placeholder="הוסף רכיב שאכלת ולא ברשימה"
+                              style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "7px 10px", color: "#e0f0e0", fontSize: 12, fontFamily: "inherit", outline: "none", direction: "rtl" }} />
+                            <button onClick={() => { if (!newExtraItem.trim()) return; setExtraItems(p => [...p, newExtraItem.trim()]); setNewExtraItem(""); }}
+                              style={{ background: "#0d2010", border: "1px solid #2d5a3a", borderRadius: 8, padding: "7px 12px", color: "#4ade80", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>
+                              הוסף
+                            </button>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 6 }}>סה״כ קלוריות להיום (חפש בגוגל אם לא בטוח):</div>
+                          <input value={itemsCal} onChange={e => setItemsCal(e.target.value.replace(/\D/g,""))}
+                            placeholder="למשל: 650" inputMode="numeric"
+                            style={{ width: "100%", background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 10px", color: "#4ade80", fontSize: 18, fontWeight: 700, fontFamily: "monospace", outline: "none", direction: "ltr", textAlign: "center" }} />
+                          <button onClick={() => saveItemsLog(meal.id)} disabled={!itemsCal}
+                            style={{ width: "100%", marginTop: 8, background: itemsCal ? "#166534" : "#1a3a1f", border: "none", borderRadius: 8, padding: "9px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: itemsCal ? "pointer" : "default", fontFamily: "inherit" }}>
+                            שמור
+                          </button>
+                        </>
+                      ) : editScope === "today" && editMode === "alt" ? (
                         <>
                           {(altMeals[meal.id] || []).length === 0 && (
                             <div style={{ fontSize: 11, color: "#4a7a54", marginBottom: 8 }}>אין עדיין חלופות שמורות לארוחה הזו — הוסף למטה.</div>
@@ -1306,7 +1375,7 @@ Return ONLY valid JSON, no markdown:
                       )}
                       {custom && (
                         <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                          <button onClick={() => { setEditingMeal(meal.id); setEditInput(custom.description || ""); setManualCal(""); setEditMode("auto"); setAiError(""); setAiBreakdown(null); setAiQuestions(null); setAiAnswers(""); }}
+                          <button onClick={() => { setEditingMeal(meal.id); setEditScope("today"); setEditInput(custom.description || ""); setManualCal(""); setEditMode("auto"); setAiError(""); setAiBreakdown(null); setAiQuestions(null); setAiAnswers(""); }}
                             style={{ flex: 1, background: "#0d2010", border: "1px solid #2d5a3a", borderRadius: 8, padding: "6px", color: "#4ade80", fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>
                             🔄 חשב מחדש
                           </button>
