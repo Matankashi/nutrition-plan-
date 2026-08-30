@@ -802,7 +802,6 @@
 
     // ─── PlanTab ─────────────────────────────────────────────────────────────────
     let GEMINI_API_KEY = "";
-    db.ref(`${DB_ROOT}/_admin/geminiKey`).once("value", snap => { if (snap.val()) GEMINI_API_KEY = snap.val(); }, err => console.error("[Firebase] read failed for _admin/geminiKey:", err));
 
     const getWeekDays = (offset = 0) => {
       const days = [];
@@ -827,7 +826,7 @@
     const SHIFT_ICONS  = { morning: "☀️", evening: "🌙", off: "🏠" };
     const SHIFT_COLORS = { morning: "#fbbf24", evening: "#818cf8", off: "#4a7a54" };
 
-    function PlanTab() {
+    function PlanTab({ geminiReady }) {
       const [now, setNow] = useState(new Date());
       useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
 
@@ -898,6 +897,7 @@
       const setAct = k => setActTypes(p => ({ ...p, [activeDateStr]: k }));
 
       const callGemini = async (prompt) => {
+        if (!GEMINI_API_KEY) throw new Error(geminiReady ? "תכונת ה-AI לא מוגדרת (חסר מפתח)" : "מפתח ה-AI עדיין נטען, נסה שוב בעוד רגע");
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -1594,7 +1594,7 @@ Return ONLY valid JSON, no markdown:
       );
     }
 
-    function RoutineTab() {
+    function RoutineTab({ geminiReady }) {
       const todayIdx = new Date().getDay();
       const [activeDay, setActiveDay] = useState(todayIdx < 7 ? todayIdx : 0);
       const [shiftOffset, setShiftOffset] = useState(0);
@@ -1631,6 +1631,7 @@ Return ONLY valid JSON, no markdown:
         if (!file) return;
         setImgLoading(true); setImgMsg("");
         try {
+          if (!GEMINI_API_KEY) throw new Error(geminiReady ? "תכונת ה-AI לא מוגדרת (חסר מפתח)" : "מפתח ה-AI עדיין נטען, נסה שוב בעוד רגע");
           const base64 = await new Promise((res, rej) => {
             const r = new FileReader();
             r.onload = () => res(r.result.split(",")[1]);
@@ -2390,11 +2391,23 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const [adminAuthed, setAdminAuthed] = useState(false);
       const [liveVersion, setLiveVersion] = useState(null);
       const [authUser, setAuthUser] = useState(undefined);
+      const [geminiReady, setGeminiReady] = useState(false);
 
       useEffect(() => {
         const unsubscribe = firebase.auth().onAuthStateChanged(u => setAuthUser(u));
         return unsubscribe;
       }, []);
+
+      useEffect(() => {
+        if (!authUser) return;
+        db.ref(`${DB_ROOT}/_admin/geminiKey`).once("value", snap => {
+          if (snap.val()) GEMINI_API_KEY = snap.val();
+          setGeminiReady(true);
+        }, err => {
+          console.error("[Firebase] read failed for _admin/geminiKey:", err);
+          setGeminiReady(true);
+        });
+      }, [authUser]);
 
       useEffect(() => {
         const REPO = "https://api.github.com/repos/Matankashi/nutrition-plan-";
@@ -2450,7 +2463,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           </div>
 
           <div style={{ maxWidth: 520, margin: "0 auto" }}>
-            {tab === "plan" ? <PlanTab /> : tab === "routine" ? <RoutineTab /> : <WeightTab />}
+            {tab === "plan" ? <PlanTab geminiReady={geminiReady} /> : tab === "routine" ? <RoutineTab geminiReady={geminiReady} /> : <WeightTab />}
             <div style={{ textAlign: "center", padding: "6px 14px 10px", fontSize: 10, color: "#1a3320" }}>⚠️ יש להתייעץ עם דיאטנית/רופא לפני שינויים תזונתיים משמעותיים</div>
           </div>
 
