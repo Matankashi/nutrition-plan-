@@ -17,7 +17,6 @@
       messagingSenderId: "1019976182145",
       appId: "1:1019976182145:web:d2dc3e1b7763604d68a080"
     });
-    firebase.auth().signInAnonymously().catch(console.error);
   </script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -47,11 +46,15 @@
 
     function usePersist(key, initial) {
       const [val, setVal] = useState(initial);
+      const [error, setError] = useState(null);
 
       useEffect(() => {
         const path = DB_ROOT + '/' + CURRENT_USER + '/' + key;
         db.ref(path).on('value', snap => {
           if (snap.exists()) setVal(snap.val());
+        }, err => {
+          console.error(`[Firebase] read failed for ${path}:`, err);
+          setError(err.message);
         });
         return () => db.ref(path).off();
       }, [key]);
@@ -64,7 +67,18 @@
         });
       };
 
-      return [val, update];
+      return [val, update, error];
+    }
+
+    function DataError({ message }) {
+      return (
+        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#060d07 0%,#09151f 55%,#060d07 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 10, fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", padding: "40px 32px", textAlign: "center" }}>
+          <div style={{ fontSize: 36 }}>⚠️</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#f87171" }}>שגיאה בטעינת הנתונים</div>
+          <div style={{ fontSize: 13, color: "#4a7a54" }}>נסה לרענן את הדף</div>
+          {message && <div style={{ fontSize: 11, color: "#3a5a3a", marginTop: 8, direction: "ltr" }}>{message}</div>}
+        </div>
+      );
     }
 
     // ─── data ────────────────────────────────────────────────────────────────────
@@ -95,7 +109,7 @@
     const START_W = 86, GOAL_W = 75;
     const HEIGHT_CM = 175;
     const BIRTHDAY = new Date(1991, 5, 5);
-    const APP_VERSION = "Beta 4.1 TEST";
+    const APP_VERSION = "Version 1 TEST";
 
     // תיוג יום: מה נכנס (אכילה) ומה יצא (פעילות).
     // משמש לימים שלא נרשמו בהם ארוחות — רישום בפועל תמיד גובר על התג.
@@ -471,17 +485,17 @@
     }
 
     function WeightTab() {
-      const [entriesRaw, setEntries] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
+      const [entriesRaw, setEntries, entriesErr] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
       const entries = asArray(entriesRaw);
-      const [waistEntriesRaw, setWaistEntries] = usePersist("waist_entries", []);
+      const [waistEntriesRaw, setWaistEntries, waistErr] = usePersist("waist_entries", []);
       const waistEntries = asArray(waistEntriesRaw);
-      const [neckEntriesRaw, setNeckEntries] = usePersist("neck_entries", []);
+      const [neckEntriesRaw, setNeckEntries, neckErr] = usePersist("neck_entries", []);
       const neckEntries = asArray(neckEntriesRaw);
-      const [customMeals] = usePersist("custom_meals_v1", {});
-      const [checked] = usePersist("plan_checked_v3", {});
-      const [eatTypes] = usePersist("day_eat_type_v1", {});
-      const [actTypes] = usePersist("day_act_type_v1", {});
-      const [menuOverrides] = usePersist("menu_override_v1", {});
+      const [customMeals, , customMealsErr] = usePersist("custom_meals_v1", {});
+      const [checked, , checkedErr] = usePersist("plan_checked_v3", {});
+      const [eatTypes, , eatTypesErr] = usePersist("day_eat_type_v1", {});
+      const [actTypes, , actTypesErr] = usePersist("day_act_type_v1", {});
+      const [menuOverrides, , menuOverridesErr] = usePersist("menu_override_v1", {});
       const MEALS = DEFAULT_MEALS.map(m => ({ ...m, ...(menuOverrides[m.id] || {}) }));
       const PLAN_CAL = MEALS.reduce((s, m) => s + m.cal, 0);
       const PLAN_PRO = MEALS.reduce((s, m) => s + m.pro, 0);
@@ -611,6 +625,9 @@
           {sub ? <div style={{ fontSize: 9, color: "#4a7a54", marginTop: 2 }}>{sub}</div> : null}
         </div>
       );
+
+      const dataError = entriesErr || waistErr || neckErr || customMealsErr || checkedErr || eatTypesErr || actTypesErr || menuOverridesErr;
+      if (dataError) return <DataError message={dataError} />;
 
       return (
         <div style={{ padding: "14px 14px 0" }}>
@@ -785,7 +802,6 @@
 
     // ─── PlanTab ─────────────────────────────────────────────────────────────────
     let GEMINI_API_KEY = "";
-    db.ref(`${DB_ROOT}/_admin/geminiKey`).once("value", snap => { if (snap.val()) GEMINI_API_KEY = snap.val(); });
 
     const getWeekDays = (offset = 0) => {
       const days = [];
@@ -810,7 +826,7 @@
     const SHIFT_ICONS  = { morning: "☀️", evening: "🌙", off: "🏠" };
     const SHIFT_COLORS = { morning: "#fbbf24", evening: "#818cf8", off: "#4a7a54" };
 
-    function PlanTab() {
+    function PlanTab({ geminiReady }) {
       const [now, setNow] = useState(new Date());
       useEffect(() => { const t = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(t); }, []);
 
@@ -819,19 +835,19 @@
       const days = getWeekDays(weekOffset);
       const [activeDateStr, setActiveDateStr] = useState(todayStr);
       const [open, setOpen] = useState(null);
-      const [checked, setChecked] = usePersist("plan_checked_v3", {});
-      const [customMeals, setCustomMeals] = usePersist("custom_meals_v1", {});
-      const [altMeals, setAltMeals] = usePersist("alt_meals_v1", {});
-      const [eatTypes, setEatTypes] = usePersist("day_eat_type_v1", {});
-      const [actTypes, setActTypes] = usePersist("day_act_type_v1", {});
-      const [menuOverrides, setMenuOverrides] = usePersist("menu_override_v1", {});
+      const [checked, setChecked, checkedErr] = usePersist("plan_checked_v3", {});
+      const [customMeals, setCustomMeals, customMealsErr] = usePersist("custom_meals_v1", {});
+      const [altMeals, setAltMeals, altMealsErr] = usePersist("alt_meals_v1", {});
+      const [eatTypes, setEatTypes, eatTypesErr] = usePersist("day_eat_type_v1", {});
+      const [actTypes, setActTypes, actTypesErr] = usePersist("day_act_type_v1", {});
+      const [menuOverrides, setMenuOverrides, menuOverridesErr] = usePersist("menu_override_v1", {});
       const MEALS = DEFAULT_MEALS.map(m => ({ ...m, ...(menuOverrides[m.id] || {}) }));
       const PLAN_CAL = MEALS.reduce((s, m) => s + m.cal, 0);
       const PLAN_PRO = MEALS.reduce((s, m) => s + m.pro, 0);
       const [permForm, setPermForm] = useState({ name: "", time: "", emoji: "", cal: "", pro: "", items: "", tip: "" });
-      const [weightEntriesRaw] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
-      const [waistRaw] = usePersist("waist_entries", []);
-      const [neckRaw] = usePersist("neck_entries", []);
+      const [weightEntriesRaw, , weightEntriesErr] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
+      const [waistRaw, , waistErr] = usePersist("waist_entries", []);
+      const [neckRaw, , neckErr] = usePersist("neck_entries", []);
       const [altForm, setAltForm] = useState({ name: "", cal: "", protein: "" });
       const [editingMeal, setEditingMeal] = useState(null);
       const [editScope, setEditScope] = useState("today");
@@ -881,6 +897,7 @@
       const setAct = k => setActTypes(p => ({ ...p, [activeDateStr]: k }));
 
       const callGemini = async (prompt) => {
+        if (!GEMINI_API_KEY) throw new Error(geminiReady ? "תכונת ה-AI לא מוגדרת (חסר מפתח)" : "מפתח ה-AI עדיין נטען, נסה שוב בעוד רגע");
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
@@ -1025,6 +1042,9 @@ Return ONLY valid JSON, no markdown:
       };
 
       const activeDay = days.find(d => d.dateStr === activeDateStr) || { dayName: "", display: activeDateStr };
+
+      const dataError = checkedErr || customMealsErr || altMealsErr || eatTypesErr || actTypesErr || menuOverridesErr || weightEntriesErr || waistErr || neckErr;
+      if (dataError) return <DataError message={dataError} />;
 
       return (
         <>
@@ -1574,14 +1594,14 @@ Return ONLY valid JSON, no markdown:
       );
     }
 
-    function RoutineTab() {
+    function RoutineTab({ geminiReady }) {
       const todayIdx = new Date().getDay();
       const [activeDay, setActiveDay] = useState(todayIdx < 7 ? todayIdx : 0);
       const [shiftOffset, setShiftOffset] = useState(0);
-      const [checked, setChecked] = usePersist("checklist_checked", {});
-      const [shifts, setShifts] = usePersist("shifts_v1", {});
-      const [dayTypes, setDayTypes] = usePersist("workout_day_types_v1", {});
-      const [exChecked, setExChecked] = usePersist("workout_exercises_v2", {});
+      const [checked, setChecked, checkedErr] = usePersist("checklist_checked", {});
+      const [shifts, setShifts, shiftsErr] = usePersist("shifts_v1", {});
+      const [dayTypes, setDayTypes, dayTypesErr] = usePersist("workout_day_types_v1", {});
+      const [exChecked, setExChecked, exCheckedErr] = usePersist("workout_exercises_v2", {});
       const shiftWeekDates = getShiftWeekDates(shiftOffset);
       const activeDateStr = shiftWeekDates[activeDay];
       const activeShift = shifts[activeDateStr] || null;
@@ -1611,6 +1631,7 @@ Return ONLY valid JSON, no markdown:
         if (!file) return;
         setImgLoading(true); setImgMsg("");
         try {
+          if (!GEMINI_API_KEY) throw new Error(geminiReady ? "תכונת ה-AI לא מוגדרת (חסר מפתח)" : "מפתח ה-AI עדיין נטען, נסה שוב בעוד רגע");
           const base64 = await new Promise((res, rej) => {
             const r = new FileReader();
             r.onload = () => res(r.result.split(",")[1]);
@@ -1669,6 +1690,9 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const pctEx = totalEx > 0 ? Math.round((doneEx / totalEx) * 100) : 0;
       const allExDone = totalEx > 0 && doneEx === totalEx;
       const toggleEx = (exId) => setExChecked(p => ({ ...p, [activeDateStr + "-" + exId]: !p[activeDateStr + "-" + exId] }));
+
+      const dataError = checkedErr || shiftsErr || dayTypesErr || exCheckedErr;
+      if (dataError) return <DataError message={dataError} />;
 
       return (
         <div style={{ padding: "14px 14px 0" }}>
@@ -1855,6 +1879,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
     // ─── User Select ──────────────────────────────────────────────────────────────
     function UserSelect({ onSelect, onAdmin }) {
       const [users, setUsers] = useState(null);
+      const [error, setError] = useState(null);
 
       useEffect(() => {
         db.ref(`${DB_ROOT}/_admin/users`).once("value", snap => {
@@ -1864,10 +1889,15 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           } else {
             setUsers([{ username: "matan" }, { username: "guest" }]);
           }
+        }, err => {
+          console.error("[Firebase] read failed for _admin/users:", err);
+          setError(err.message);
         });
       }, []);
 
       const ICONS = ["👤","🙂","🌟","🎯","🦊","🐙","🧩","🚀"];
+
+      if (error) return <DataError message={error} />;
 
       return (
         <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#060d07 0%,#09151f 55%,#060d07 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", fontFamily: "'Segoe UI',Tahoma,sans-serif", padding: "40px 32px", direction: "rtl" }}>
@@ -1901,7 +1931,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
 
       useEffect(() => {
         ref.current?.focus();
-        db.ref(`${DB_ROOT}/_admin/adminPin`).once("value", snap => setAdminPin(snap.exists() ? snap.val() : "0000"));
+        db.ref(`${DB_ROOT}/_admin/adminPin`).once("value", snap => setAdminPin(snap.exists() ? snap.val() : "0000"), err => console.error("[Firebase] read failed for _admin/adminPin:", err));
       }, []);
 
       const check = p => {
@@ -1946,7 +1976,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
 
       useEffect(() => {
         ref.current?.focus();
-        db.ref(`${DB_ROOT}/_admin/adminPin`).once("value", snap => setAdminPin(snap.exists() ? snap.val() : "0000"));
+        db.ref(`${DB_ROOT}/_admin/adminPin`).once("value", snap => setAdminPin(snap.exists() ? snap.val() : "0000"), err => console.error("[Firebase] read failed for _admin/adminPin:", err));
       }, []);
 
       const check = p => {
@@ -1982,52 +2012,40 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       );
     }
 
-    function PinScreen({ onSuccess, onBack }) {
-      const [pin, setPin] = useState("");
-      const [error, setError] = useState(false);
-      const [correctPin, setCorrectPin] = useState(null);
-      const inputRef = React.useRef(null);
+    function LoginScreen() {
+      const [email, setEmail] = useState("");
+      const [password, setPassword] = useState("");
+      const [error, setError] = useState("");
+      const [loading, setLoading] = useState(false);
 
-      useEffect(() => {
-        inputRef.current?.focus();
-        db.ref(`${DB_ROOT}/_admin/matanPin`).once("value", snap => setCorrectPin(snap.exists() ? snap.val() : "1359"));
-      }, []);
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!email || !password || loading) return;
+        setError("");
+        setLoading(true);
+        firebase.auth().signInWithEmailAndPassword(email, password)
+          .catch(() => setError("אימייל או סיסמה שגויים"))
+          .finally(() => setLoading(false));
+      };
 
-      const check = (p) => {
-        if (correctPin === null) return;
-        if (p === correctPin) { localStorage.setItem("matan_pin_ok", "1"); onSuccess(); }
-        else if (p.length === 4) { setError(true); setTimeout(() => { setError(false); setPin(""); }, 800); }
-      };
-      const press = (d) => { const next = pin + d; setPin(next); if (next.length === 4 && correctPin !== null) check(next); };
-      const handleKey = (e) => {
-        if (e.key >= "0" && e.key <= "9") press(e.key);
-        else if (e.key === "Backspace") setPin(p => p.slice(0, -1));
-        else if (e.key === "Escape") onBack();
-      };
+      const inputStyle = { background: "#0b1a0d", border: "1px solid #1a3a1f", borderRadius: 10, padding: "13px 14px", color: "#e0f0e0", fontSize: 14, outline: "none", fontFamily: "inherit", direction: "ltr", textAlign: "right" };
 
       return (
-        <div onKeyDown={handleKey} tabIndex={0} ref={inputRef} style={{ minHeight: "100vh", background: "linear-gradient(160deg,#060d07 0%,#09151f 55%,#060d07 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 32, fontFamily: "'Segoe UI',Tahoma,sans-serif", outline: "none", direction: "rtl" }}>
-          <div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#f0fdf4", textAlign: "center", letterSpacing: -0.5 }}>👤 Matan</div>
-            <div style={{ fontSize: 13, color: "#4ade80", textAlign: "center", marginTop: 4, opacity: 0.6 }}>הכנס קוד כניסה</div>
+        <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#060d07 0%,#09151f 55%,#060d07 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28, fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", padding: "40px 32px" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 10 }}>🥗</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#f0fdf4", letterSpacing: -0.5 }}>תכנית תזונה</div>
+            <div style={{ fontSize: 13, color: "#4ade80", marginTop: 6, opacity: 0.6 }}>התחבר כדי להמשיך</div>
           </div>
-          <div style={{ display: "flex", gap: 14 }}>
-            {[0,1,2,3].map(i => (
-              <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", background: pin.length > i ? (error ? "#f87171" : "#22c55e") : "transparent", border: `2px solid ${error ? "#f87171" : pin.length > i ? "#22c55e" : "#2d5a3a"}`, transition: "all 0.15s" }} />
-            ))}
-          </div>
-          {error && <div style={{ color: "#f87171", fontSize: 13, marginTop: -20, fontWeight: 600 }}>קוד שגוי</div>}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 76px)", gap: 10, direction: "ltr" }}>
-            {[7,8,9,4,5,6,1,2,3,"",0,"⌫"].map((d, i) => (
-              <button key={i} onClick={() => { if (d === "⌫") setPin(p => p.slice(0,-1)); else if (d !== "") press(String(d)); }}
-                style={{ height: 76, borderRadius: 16, border: `1px solid ${d === "" ? "transparent" : "rgba(34,197,94,0.12)"}`, background: d === "" ? "transparent" : "rgba(255,255,255,0.04)", color: d === "⌫" ? "#f87171" : "#f0fdf4", fontSize: d === "⌫" ? 20 : 26, fontWeight: 500, cursor: d === "" ? "default" : "pointer", fontFamily: "inherit", transition: "all 0.1s" }}
-                onTouchStart={e => { if (d !== "") e.currentTarget.style.background = "rgba(34,197,94,0.12)"; }}
-                onTouchEnd={e => { if (d !== "") e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}>
-                {d}
-              </button>
-            ))}
-          </div>
-          <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#3a6a3a", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>← חזור</button>
+          <form onSubmit={handleSubmit} style={{ width: "100%", maxWidth: 300, display: "flex", flexDirection: "column", gap: 10 }}>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="אימייל" autoComplete="username" style={inputStyle} />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="סיסמה" autoComplete="current-password" style={inputStyle} />
+            {error && <div style={{ color: "#f87171", fontSize: 13, fontWeight: 600, textAlign: "center" }}>{error}</div>}
+            <button type="submit" disabled={loading || !email || !password}
+              style={{ background: (loading || !email || !password) ? "#1a3a1f" : "#166534", border: "none", borderRadius: 10, padding: "13px 16px", color: "#fff", fontWeight: 700, fontSize: 14, cursor: (loading || !email || !password) ? "default" : "pointer", fontFamily: "inherit", marginTop: 4 }}>
+              {loading ? "מתחבר..." : "התחבר"}
+            </button>
+          </form>
         </div>
       );
     }
@@ -2048,11 +2066,15 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const [copyTo, setCopyTo] = useState("");
       const [exportUser, setExportUser] = useState("");
       const [importUser, setImportUser] = useState("");
+      const [error, setError] = useState(null);
       const importFileRef = React.useRef(null);
 
       useEffect(() => {
         db.ref(`${DB_ROOT}/_admin/users`).once("value", snap => {
           setManagedUsers(snap.exists() ? snap.val() : { matan: { pin: null }, guest: { pin: null } });
+        }, err => {
+          console.error("[Firebase] read failed for _admin/users:", err);
+          setError(err.message);
         });
       }, []);
 
@@ -2068,16 +2090,24 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           });
           setUsers(userList);
           setLoading(false);
+        }, err => {
+          console.error(`[Firebase] read failed for ${DB_ROOT}:`, err);
+          setError(err.message);
         });
       }, [managedUsers]);
 
       const savePin = async (type) => {
         const val = type === "matan" ? newMatanPin : newAdminPin;
         if (val.length !== 4 || isNaN(val)) return;
-        await db.ref(type === "matan" ? `${DB_ROOT}/_admin/matanPin` : `${DB_ROOT}/_admin/adminPin`).set(val);
-        setSaved(type === "matan" ? "PIN של מתן עודכן ✓" : "PIN מנהל עודכן ✓");
-        setTimeout(() => setSaved(""), 2500);
-        if (type === "matan") setNewMatanPin(""); else setNewAdminPin("");
+        try {
+          await db.ref(type === "matan" ? `${DB_ROOT}/_admin/matanPin` : `${DB_ROOT}/_admin/adminPin`).set(val);
+          setSaved(type === "matan" ? "PIN של מתן עודכן ✓" : "PIN מנהל עודכן ✓");
+          setTimeout(() => setSaved(""), 2500);
+          if (type === "matan") setNewMatanPin(""); else setNewAdminPin("");
+        } catch (err) {
+          console.error("[Firebase] savePin failed:", err);
+          alert("שמירת ה-PIN נכשלה: " + err.message);
+        }
       };
 
       const requireAdminPin = (label, action) => setConfirmAction({ label, onConfirm: () => { setConfirmAction(null); action(); } });
@@ -2088,32 +2118,47 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
         const entry = { createdAt: Date.now() };
         if (newUserPin.length === 4) entry.pin = newUserPin;
         const updated = { ...(managedUsers || {}), [uname]: entry };
-        await db.ref(`${DB_ROOT}/_admin/users`).set(updated);
-        setManagedUsers(updated);
-        setNewUsername(""); setNewUserPin("");
-        setSaved(`משתמש "${uname}" נוסף ✓`);
-        setTimeout(() => setSaved(""), 2500);
+        try {
+          await db.ref(`${DB_ROOT}/_admin/users`).set(updated);
+          setManagedUsers(updated);
+          setNewUsername(""); setNewUserPin("");
+          setSaved(`משתמש "${uname}" נוסף ✓`);
+          setTimeout(() => setSaved(""), 2500);
+        } catch (err) {
+          console.error("[Firebase] addUser failed:", err);
+          alert("הוספת המשתמש נכשלה: " + err.message);
+        }
       };
 
       const deleteUser = async (uname) => {
         const updated = { ...(managedUsers || {}) };
         delete updated[uname];
-        await db.ref(`${DB_ROOT}/_admin/users`).set(updated);
-        setManagedUsers(updated);
-        setSaved(`משתמש "${uname}" נמחק ✓`);
-        setTimeout(() => setSaved(""), 2500);
+        try {
+          await db.ref(`${DB_ROOT}/_admin/users`).set(updated);
+          setManagedUsers(updated);
+          setSaved(`משתמש "${uname}" נמחק ✓`);
+          setTimeout(() => setSaved(""), 2500);
+        } catch (err) {
+          console.error("[Firebase] deleteUser failed:", err);
+          alert("מחיקת המשתמש נכשלה: " + err.message);
+        }
       };
 
       const exportBackup = async () => {
         const path = exportUser ? DB_ROOT + "/" + exportUser : DB_ROOT;
-        const snap = await db.ref(path).once("value");
-        const blob = new Blob([JSON.stringify(snap.val() || {}, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `nutrition-backup-${exportUser || "all"}-${toDateStr(new Date())}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        try {
+          const snap = await db.ref(path).once("value");
+          const blob = new Blob([JSON.stringify(snap.val() || {}, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `nutrition-backup-${exportUser || "all"}-${toDateStr(new Date())}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error("[Firebase] exportBackup failed:", err);
+          alert("ייצוא הגיבוי נכשל: " + err.message);
+        }
       };
 
       const handleImportFile = (e) => {
@@ -2128,9 +2173,14 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
           const path = importUser ? DB_ROOT + "/" + importUser : DB_ROOT;
           const whoLabel = importUser ? `של "${importUser}"` : "של כל המשתמשים";
           requireAdminPin(`לשחזר גיבוי ${whoLabel}? זה ידרוס את הנתונים הקיימים ${whoLabel}!`, async () => {
-            await db.ref(path).set(parsed);
-            setSaved("הגיבוי שוחזר ✓");
-            setTimeout(() => setSaved(""), 2500);
+            try {
+              await db.ref(path).set(parsed);
+              setSaved("הגיבוי שוחזר ✓");
+              setTimeout(() => setSaved(""), 2500);
+            } catch (err) {
+              console.error("[Firebase] restore backup failed:", err);
+              alert("שחזור הגיבוי נכשל: " + err.message);
+            }
           });
         };
         reader.readAsText(file);
@@ -2139,11 +2189,16 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const copyUserData = () => {
         if (!copyFrom || !copyTo || copyFrom === copyTo) return;
         requireAdminPin(`להעתיק את נתוני "${copyFrom}" אל "${copyTo}"? זה ידרוס את הנתונים הקיימים של "${copyTo}"!`, async () => {
-          const snap = await db.ref(DB_ROOT + "/" + copyFrom).once("value");
-          await db.ref(DB_ROOT + "/" + copyTo).set(snap.val() || {});
-          setSaved(`נתוני "${copyFrom}" הועתקו אל "${copyTo}" ✓`);
-          setTimeout(() => setSaved(""), 2500);
-          setCopyFrom(""); setCopyTo("");
+          try {
+            const snap = await db.ref(DB_ROOT + "/" + copyFrom).once("value");
+            await db.ref(DB_ROOT + "/" + copyTo).set(snap.val() || {});
+            setSaved(`נתוני "${copyFrom}" הועתקו אל "${copyTo}" ✓`);
+            setTimeout(() => setSaved(""), 2500);
+            setCopyFrom(""); setCopyTo("");
+          } catch (err) {
+            console.error("[Firebase] copyUserData failed:", err);
+            alert("העתקת הנתונים נכשלה: " + err.message);
+          }
         });
       };
 
@@ -2151,30 +2206,37 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       // ורשומות checklist עם מפתח מספרי במקום תאריך.
       const cleanLegacy = () => {
         requireAdminPin("למחוק נתוני שאריות מגרסאות ישנות? (plan_checked, workout_type_v1, מפתחות ישנים בצ׳קליסט)", async () => {
-          const targets = users.map(u => u.username);
-          let removed = 0;
-          for (const u of targets) {
-            const base = DB_ROOT + "/" + u;
-            for (const k of ["plan_checked", "workout_type_v1"]) {
-              const s = await db.ref(base + "/" + k).once("value");
-              if (s.exists()) { await db.ref(base + "/" + k).remove(); removed++; }
-            }
-            const cs = await db.ref(base + "/checklist_checked").once("value");
-            if (cs.exists()) {
-              const obj = cs.val() || {};
-              const cleaned = {};
-              for (const [k, v] of Object.entries(obj)) {
-                if (/^\d{4}-\d{2}-\d{2}-/.test(k)) cleaned[k] = v; else removed++;
+          try {
+            const targets = users.map(u => u.username);
+            let removed = 0;
+            for (const u of targets) {
+              const base = DB_ROOT + "/" + u;
+              for (const k of ["plan_checked", "workout_type_v1"]) {
+                const s = await db.ref(base + "/" + k).once("value");
+                if (s.exists()) { await db.ref(base + "/" + k).remove(); removed++; }
               }
-              await db.ref(base + "/checklist_checked").set(cleaned);
+              const cs = await db.ref(base + "/checklist_checked").once("value");
+              if (cs.exists()) {
+                const obj = cs.val() || {};
+                const cleaned = {};
+                for (const [k, v] of Object.entries(obj)) {
+                  if (/^\d{4}-\d{2}-\d{2}-/.test(k)) cleaned[k] = v; else removed++;
+                }
+                await db.ref(base + "/checklist_checked").set(cleaned);
+              }
             }
+            setSaved(`ניקוי הושלם — ${removed} רשומות הוסרו ✓`);
+            setTimeout(() => setSaved(""), 3000);
+          } catch (err) {
+            console.error("[Firebase] cleanLegacy failed:", err);
+            alert("ניקוי הנתונים נכשל: " + err.message);
           }
-          setSaved(`ניקוי הושלם — ${removed} רשומות הוסרו ✓`);
-          setTimeout(() => setSaved(""), 3000);
         });
       };
 
       const G = { bg: "#080f0a", card: "#0b1a0d", border: "#1a3a1f", text: "#e0f0e0", mid: "#4a7a54", green: "#4ade80", red: "#f87171" };
+
+      if (error) return <DataError message={error} />;
 
       return (
         <div style={{ minHeight: "100vh", background: G.bg, fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: G.text, paddingBottom: 40 }}>
@@ -2325,10 +2387,27 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
     function NutritionApp() {
       const [tab, setTab] = useState("plan");
       const [activeUser, setActiveUser] = useState(localStorage.getItem("active_user") || null);
-      const [pinOk, setPinOk] = useState(localStorage.getItem("matan_pin_ok") === "1");
       const [adminMode, setAdminMode] = useState(false);
       const [adminAuthed, setAdminAuthed] = useState(false);
       const [liveVersion, setLiveVersion] = useState(null);
+      const [authUser, setAuthUser] = useState(undefined);
+      const [geminiReady, setGeminiReady] = useState(false);
+
+      useEffect(() => {
+        const unsubscribe = firebase.auth().onAuthStateChanged(u => setAuthUser(u));
+        return unsubscribe;
+      }, []);
+
+      useEffect(() => {
+        if (!authUser) return;
+        db.ref(`${DB_ROOT}/_admin/geminiKey`).once("value", snap => {
+          if (snap.val()) GEMINI_API_KEY = snap.val();
+          setGeminiReady(true);
+        }, err => {
+          console.error("[Firebase] read failed for _admin/geminiKey:", err);
+          setGeminiReady(true);
+        });
+      }, [authUser]);
 
       useEffect(() => {
         const REPO = "https://api.github.com/repos/Matankashi/nutrition-plan-";
@@ -2351,18 +2430,18 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const selectUser = (u) => { localStorage.setItem("active_user", u); setActiveUser(u); };
       const logout = () => {
         localStorage.removeItem("active_user");
-        localStorage.removeItem("matan_pin_ok");
-        setActiveUser(null); setPinOk(false);
+        setActiveUser(null);
       };
 
       const versionLabel = (
         <div style={{ position: "fixed", bottom: 8, left: 10, zIndex: 9999, fontSize: 14, fontWeight: 700, color: "#4a7a54", fontFamily: "monospace", direction: "ltr", pointerEvents: "none" }}>{liveVersion || APP_VERSION}</div>
       );
 
+      if (authUser === undefined) return null;
+      if (!authUser) return <LoginScreen />;
       if (adminMode && !adminAuthed) return <>{versionLabel}<AdminPinScreen onSuccess={() => setAdminAuthed(true)} onBack={() => setAdminMode(false)} /></>;
       if (adminMode && adminAuthed) return <>{versionLabel}<AdminPanel onBack={() => { setAdminMode(false); setAdminAuthed(false); }} /></>;
       if (!activeUser) return <>{versionLabel}<UserSelect onSelect={selectUser} onAdmin={() => setAdminMode(true)} /></>;
-      if (activeUser === "matan" && !pinOk) return <>{versionLabel}<PinScreen onSuccess={() => setPinOk(true)} onBack={() => { localStorage.removeItem("active_user"); setActiveUser(null); }} /></>;
       CURRENT_USER = activeUser;
       const todayStr = new Date().toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
       return (
@@ -2381,12 +2460,15 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
                 </div>
                 <div style={{ fontSize: 11, color: "#4ade80", marginTop: 2, opacity: 0.75 }}>{todayStr}</div>
               </div>
-              <button onClick={logout} style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.18)", borderRadius: 10, color: "#f87171", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: "7px 13px" }}>יציאה</button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={logout} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, color: "#4a7a54", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: "7px 13px" }}>החלף משתמש</button>
+                <button onClick={() => firebase.auth().signOut()} style={{ background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.18)", borderRadius: 10, color: "#f87171", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: "7px 13px" }}>יציאה</button>
+              </div>
             </div>
           </div>
 
           <div style={{ maxWidth: 520, margin: "0 auto" }}>
-            {tab === "plan" ? <PlanTab /> : tab === "routine" ? <RoutineTab /> : <WeightTab />}
+            {tab === "plan" ? <PlanTab geminiReady={geminiReady} /> : tab === "routine" ? <RoutineTab geminiReady={geminiReady} /> : <WeightTab />}
             <div style={{ textAlign: "center", padding: "6px 14px 10px", fontSize: 10, color: "#1a3320" }}>⚠️ יש להתייעץ עם דיאטנית/רופא לפני שינויים תזונתיים משמעותיים</div>
           </div>
 
