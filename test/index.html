@@ -417,7 +417,7 @@
 
       return (
         <>
-          <svg width={GW} height={GH} style={{ display: "block", maxWidth: "100%" }}>
+          <svg viewBox={`0 0 ${GW} ${GH}`} width={GW} height={GH} style={{ display: "block", width: "100%", height: "auto", maxWidth: GW }}>
             {[0, 0.33, 0.67, 1].map(f => {
               const y = PT + f * iH;
               const v = (mx - f * (mx - mn)).toFixed(1);

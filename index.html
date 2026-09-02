@@ -109,7 +109,7 @@
     const START_W = 86, GOAL_W = 75;
     const HEIGHT_CM = 175;
     const BIRTHDAY = new Date(1991, 5, 5);
-    const APP_VERSION = "Version 1";
+    const APP_VERSION = "Version 2";
 
     // תיוג יום: מה נכנס (אכילה) ומה יצא (פעילות).
     // משמש לימים שלא נרשמו בהם ארוחות — רישום בפועל תמיד גובר על התג.
@@ -431,7 +431,7 @@
 
       return (
         <>
-          <svg width={GW} height={GH} style={{ display: "block", maxWidth: "100%" }}>
+          <svg viewBox={`0 0 ${GW} ${GH}`} width={GW} height={GH} style={{ display: "block", width: "100%", height: "auto", maxWidth: GW }}>
             {[0, 0.33, 0.67, 1].map(f => {
               const y = PT + f * iH;
               const v = (mx - f * (mx - mn)).toFixed(1);
