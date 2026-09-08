@@ -636,25 +636,6 @@
       if (nextBday <= today) nextBday.setFullYear(curYear + 1);
       const daysToNextBday = Math.ceil((nextBday - today) / 86400000);
 
-      // כמה מהירידה הייתה שומן וכמה מסה רזה — רק אם יש שתי מדידות היקף
-      let compTrend = null;
-      if (waistEntries.length > 1 && neckEntries.length > 0) {
-        const firstWaist = waistEntries[0].cm;
-        const firstNeckE = neckEntries[0].cm;
-        const firstBF = calcBodyFat(firstWaist, firstNeckE);
-        const wDate = parseDMYDate(waistEntries[0]);
-        const nearest = entries.reduce((best, e) => {
-          const d = parseDMYDate(e);
-          if (!d || !wDate) return best;
-          const diff = Math.abs(d - wDate);
-          return (!best || diff < best.diff) ? { kg: e.kg, diff } : best;
-        }, null);
-        if (firstBF !== null && nearest) {
-          const f0 = nearest.kg * firstBF / 100, l0 = nearest.kg - f0;
-          compTrend = { fatDelta: +(fatMass - f0).toFixed(1), leanDelta: +(leanMass - l0).toFixed(1) };
-        }
-      }
-
       // ── ממוצע 7 ימים ──
       const dayCalories = (dateStr) => {
         const logged = MEALS.filter(m => checked[dateStr + "-" + m.id] || customMeals[dateStr]?.[m.id]);
@@ -819,12 +800,10 @@
                   <div style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
                     <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>🔥 מסת שומן</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: "#f87171", fontFamily: "monospace" }}>{fatMass} ק״ג</div>
-                    {compTrend && <div style={{ fontSize: 9, color: compTrend.fatDelta < 0 ? "#4ade80" : "#f87171", marginTop: 2 }}>{compTrend.fatDelta < 0 ? "▼" : "▲"} {Math.abs(compTrend.fatDelta)} מאז המדידה הראשונה</div>}
                   </div>
                   <div style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
                     <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>💪 מסה רזה</div>
                     <div style={{ fontSize: 16, fontWeight: 700, color: "#4ade80", fontFamily: "monospace" }}>{leanMass} ק״ג</div>
-                    {compTrend && <div style={{ fontSize: 9, color: compTrend.leanDelta >= 0 ? "#4ade80" : "#fbbf24", marginTop: 2 }}>{compTrend.leanDelta >= 0 ? "▲" : "▼"} {Math.abs(compTrend.leanDelta)} {compTrend.leanDelta >= 0 ? "— שריר נשמר ✓" : "— שים לב"}</div>}
                   </div>
                 </div>
               </>
