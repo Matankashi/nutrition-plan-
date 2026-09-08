@@ -907,15 +907,27 @@
             const latest = compositionSeries[compositionSeries.length - 1];
             const fatDelta = +(latest.fatMass - first.fatMass).toFixed(1);
             const leanDelta = +(latest.leanMass - first.leanMass).toFixed(1);
+            const waistDelta = +(latest.waist - first.waist).toFixed(1);
+            // Waist unchanged but the derived trend still moved means the whole
+            // delta comes from the neck term — the Navy formula is very
+            // sensitive to it. Don't flag that as a real lean-mass change.
+            const waistUnchanged = latest.waist === first.waist;
             const firstShort = (() => { const p = first.date.split("."); return p[0] + "/" + p[1]; })();
             const fatColor = fatDelta < 0 ? "#4ade80" : fatDelta > 0 ? "#f87171" : "#4a7a54";
             const fatArrow = fatDelta < 0 ? "▼" : fatDelta > 0 ? "▲" : "–";
             const leanOk = leanDelta >= 0;
-            const leanColor = leanOk ? "#4ade80" : "#fbbf24";
+            const leanColor = waistUnchanged ? "#4a7a54" : (leanOk ? "#4ade80" : "#fbbf24");
             const leanArrow = leanDelta > 0 ? "▲" : leanDelta < 0 ? "▼" : "–";
+            const waistColor = waistDelta < 0 ? "#4ade80" : waistDelta > 0 ? "#f87171" : "#4a7a54";
+            const waistArrow = waistDelta < 0 ? "▼" : waistDelta > 0 ? "▲" : "–";
             return (
               <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
                 <div style={{ fontSize: 12, color: "#e0f0e0", fontWeight: 700, marginBottom: 10 }}>📊 מגמת הרכב גוף</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
+                  <span style={{ fontSize: 13 }}>📏 היקף בטן</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0" }}>{latest.waist} ס״מ</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: waistColor }}>{waistArrow} {Math.abs(waistDelta)} מאז {firstShort}</span>
+                </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
                   <span style={{ fontSize: 13 }}>🔥 מסת שומן</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0" }}>{latest.fatMass} ק״ג</span>
@@ -925,9 +937,14 @@
                   <span style={{ fontSize: 13 }}>💪 מסה רזה</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0" }}>{latest.leanMass} ק״ג</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: leanColor }}>
-                    {leanArrow} {Math.abs(leanDelta)} {leanOk ? "— שריר נשמר ✓" : "— שים לב"}
+                    {leanArrow} {Math.abs(leanDelta)} {waistUnchanged ? "" : (leanOk ? "— שריר נשמר ✓" : "— שים לב")}
                   </span>
                 </div>
+                {waistUnchanged && (fatDelta !== 0 || leanDelta !== 0) && (
+                  <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 10, lineHeight: 1.5 }}>
+                    היקף הבטן לא השתנה — כל השינוי נובע ממדידת הצוואר, שרגישה לשגיאת מדידה. עקוב אחרי מגמת היקף הבטן.
+                  </div>
+                )}
               </div>
             );
           })()}
