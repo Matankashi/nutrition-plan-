@@ -185,6 +185,41 @@
       return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
     };
 
+    // Waist changes weekly, neck barely moves — so waist is measured often
+    // and neck rarely. For each waist entry we pair it with the most
+    // recent neck measurement on or before that date, and with the
+    // nearest weight entry, so a full history exists without needing
+    // all three logged on the same day.
+    const buildCompositionSeries = (waistEntries, neckEntries, weightEntries) => {
+      const withDate = arr => arr
+        .map(e => ({ ...e, _d: parseDMYDate(e) }))
+        .filter(e => e._d)
+        .sort((a, b) => a._d - b._d);
+
+      const W = withDate(waistEntries);
+      const N = withDate(neckEntries);
+      const KG = withDate(weightEntries);
+      if (W.length === 0 || N.length === 0) return [];
+
+      return W.map(w => {
+        const neck = [...N].reverse().find(n => n._d <= w._d) || N[0];
+        const kgEntry = KG.reduce((best, k) =>
+          (!best || Math.abs(k._d - w._d) < Math.abs(best._d - w._d)) ? k : best, null);
+        const kg = kgEntry ? kgEntry.kg : null;
+        const bf = calcBodyFat(w.cm, neck.cm);
+        if (bf === null || kg === null) return null;
+        return {
+          date: w.date,
+          bodyFat: bf,
+          fatMass:  +(kg * bf / 100).toFixed(1),
+          leanMass: +(kg - kg * bf / 100).toFixed(1),
+          waist: w.cm,
+          neck: neck.cm,
+          kg,
+        };
+      }).filter(Boolean);
+    };
+
     // Reusable add-entry + grouped-history widget (year → month → week → entry),
     // shared by weight, waist and neck tracking.
     function MeasurementCard({ entries, onAdd, valueField, unit, min, max, addLabel, addPlaceholder, addHint, historyLabel, sectionTitle }) {
@@ -484,6 +519,75 @@
       );
     }
 
+    // Two-line graph (fat mass vs lean mass) — same visual language as
+    // TrendGraph (padding, gridlines, fonts) but plots two series, which
+    // TrendGraph doesn't support.
+    function CompositionMassGraph({ entries }) {
+      if (entries.length === 0) return <div style={{ fontSize: 12, color: "#4a7a54", textAlign: "center", padding: "20px 0" }}>אין עדיין מדידות</div>;
+
+      const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
+      const iW = GW - PL - PR, iH = GH - PT - PB;
+      const fatVals = entries.map(e => e.fatMass);
+      const leanVals = entries.map(e => e.leanMass);
+      const mn = Math.min(...fatVals, ...leanVals) - 1.5;
+      const mx = Math.max(...fatVals, ...leanVals) + 1.5;
+
+      const dates = entries.map(e => parseDMYDate(e));
+      const t0 = dates.find(Boolean);
+      const tN = [...dates].reverse().find(Boolean);
+      const spanMs = (t0 && tN && tN > t0) ? (tN - t0) : null;
+      const toX = i => {
+        if (!spanMs || !dates[i]) {
+          return PL + (entries.length > 1 ? (i / (entries.length - 1)) * iW : iW / 2);
+        }
+        return PL + ((dates[i] - t0) / spanMs) * iW;
+      };
+      const toY = v => PT + iH - ((v - mn) / (mx - mn)) * iH;
+      const fatPts  = entries.map((e, i) => toX(i).toFixed(1) + "," + toY(e.fatMass).toFixed(1)).join(" ");
+      const leanPts = entries.map((e, i) => toX(i).toFixed(1) + "," + toY(e.leanMass).toFixed(1)).join(" ");
+
+      const shortDate = (e) => {
+        if (e.date) { const p = e.date.split("."); if (p.length >= 2) return p[0] + "/" + p[1]; }
+        return e.label || "";
+      };
+
+      const maxLabels = 6;
+      const labelStep = Math.max(1, Math.ceil(entries.length / maxLabels));
+
+      return (
+        <>
+          <svg viewBox={`0 0 ${GW} ${GH}`} width={GW} height={GH} style={{ display: "block", width: "100%", height: "auto", maxWidth: GW }}>
+            {[0, 0.33, 0.67, 1].map(f => {
+              const y = PT + f * iH;
+              const v = (mx - f * (mx - mn)).toFixed(1);
+              return (
+                <g key={f}>
+                  <line x1={PL} y1={y} x2={GW - PR} y2={y} stroke="#1a3a1f" strokeWidth={1} />
+                  <text x={PL - 3} y={y + 4} textAnchor="end" fontSize={8} fill="#4a7a54">{v}</text>
+                </g>
+              );
+            })}
+            {entries.length > 1 && <polyline points={fatPts} fill="none" stroke="#f87171" strokeWidth={2} strokeLinejoin="round" />}
+            {entries.length > 1 && <polyline points={leanPts} fill="none" stroke="#4ade80" strokeWidth={2} strokeLinejoin="round" />}
+            {entries.map((e, i) => {
+              const showLabel = i % labelStep === 0 || i === entries.length - 1;
+              return (
+                <g key={i}>
+                  <circle cx={toX(i).toFixed(1)} cy={toY(e.fatMass).toFixed(1)} r={4} fill="#f87171" stroke="#0d1f10" strokeWidth={1.5} />
+                  <circle cx={toX(i).toFixed(1)} cy={toY(e.leanMass).toFixed(1)} r={4} fill="#4ade80" stroke="#0d1f10" strokeWidth={1.5} />
+                  {showLabel && <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={9} fill="#4a7a54">{shortDate(e)}</text>}
+                </g>
+              );
+            })}
+          </svg>
+          <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 4 }}>
+            <span style={{ color: "#f87171" }}>── </span>מסת שומן &nbsp;
+            <span style={{ color: "#4ade80" }}>── </span>מסה רזה
+          </div>
+        </>
+      );
+    }
+
     function WeightTab() {
       const [entriesRaw, setEntries, entriesErr] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
       const entries = asArray(entriesRaw);
@@ -526,6 +630,7 @@
       const leanMass = bodyFat !== null ? +(last - fatMass).toFixed(1) : null;
       const bmr = calcBMR(last, bodyFat, today);
       const bmi = +(last / Math.pow(HEIGHT_CM / 100, 2)).toFixed(1);
+      const compositionSeries = buildCompositionSeries(waistEntries, neckEntries, entries);
       const age = calcAge(today);
       const nextBday = new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate());
       if (nextBday <= today) nextBday.setFullYear(curYear + 1);
@@ -785,6 +890,50 @@
             <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 6, lineHeight: 1.6 }}>
               היקף הבטן מודד שומן ויסרלי ישירות — הוא ממשיך לרדת גם כשהמשקל עומד במקום בגלל שריר או מים.
             </div>
+          </div>
+
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
+            <div style={{ fontSize: 12, color: "#fb923c", fontWeight: 700, marginBottom: 8 }}>🔥 גרף אחוז שומן</div>
+            <TrendGraph entries={compositionSeries} valueField="bodyFat" unit="%" goal={null} color="#fb923c" idealFn={null} showIdeal={false} />
+          </div>
+
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
+            <div style={{ fontSize: 12, color: "#e0f0e0", fontWeight: 700, marginBottom: 8 }}>⚖️ שומן מול מסה רזה</div>
+            <CompositionMassGraph entries={compositionSeries} />
+          </div>
+
+          {compositionSeries.length > 0 && (() => {
+            const first = compositionSeries[0];
+            const latest = compositionSeries[compositionSeries.length - 1];
+            const fatDelta = +(latest.fatMass - first.fatMass).toFixed(1);
+            const leanDelta = +(latest.leanMass - first.leanMass).toFixed(1);
+            const firstShort = (() => { const p = first.date.split("."); return p[0] + "/" + p[1]; })();
+            const fatColor = fatDelta < 0 ? "#4ade80" : fatDelta > 0 ? "#f87171" : "#4a7a54";
+            const fatArrow = fatDelta < 0 ? "▼" : fatDelta > 0 ? "▲" : "–";
+            const leanOk = leanDelta >= 0;
+            const leanColor = leanOk ? "#4ade80" : "#fbbf24";
+            const leanArrow = leanDelta > 0 ? "▲" : leanDelta < 0 ? "▼" : "–";
+            return (
+              <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, color: "#e0f0e0", fontWeight: 700, marginBottom: 10 }}>📊 מגמת הרכב גוף</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
+                  <span style={{ fontSize: 13 }}>🔥 מסת שומן</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0" }}>{latest.fatMass} ק״ג</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: fatColor }}>{fatArrow} {Math.abs(fatDelta)} מאז {firstShort}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13 }}>💪 מסה רזה</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0" }}>{latest.leanMass} ק״ג</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: leanColor }}>
+                    {leanArrow} {Math.abs(leanDelta)} {leanOk ? "— שריר נשמר ✓" : "— שים לב"}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
+          <div style={{ fontSize: 10, color: "#4a7a54", lineHeight: 1.6, padding: "0 2px", marginBottom: 12 }}>
+            אחוז השומן מחושב מהיקף בטן פחות היקף צוואר. הצוואר כמעט לא משתנה — מספיק למדוד אותו פעם בחודש. הבטן היא המדד שזז, כדאי שבועית.
           </div>
 
           <MeasurementCard
