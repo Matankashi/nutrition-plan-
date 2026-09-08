@@ -2389,6 +2389,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const [activeUser, setActiveUser] = useState(localStorage.getItem("active_user") || null);
       const [adminMode, setAdminMode] = useState(false);
       const [adminAuthed, setAdminAuthed] = useState(false);
+      const [liveVersion, setLiveVersion] = useState(null);
       const [authUser, setAuthUser] = useState(undefined);
       const [geminiReady, setGeminiReady] = useState(false);
 
@@ -2408,6 +2409,25 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
         });
       }, [authUser]);
 
+      // Confirms a deploy actually landed: shows APP_VERSION alone only when
+      // the latest commit touching THIS file is tagged (a blessed release);
+      // otherwise appends the short SHA + date. Tracks test/index.html, not
+      // index.html, so the test label reflects test commits, not prod ones.
+      useEffect(() => {
+        const REPO = "https://api.github.com/repos/Matankashi/nutrition-plan-";
+        Promise.all([
+          fetch(`${REPO}/commits?path=test/index.html&sha=main&per_page=1`).then(r => r.ok ? r.json() : null),
+          fetch(`${REPO}/tags?per_page=30`).then(r => r.ok ? r.json() : null),
+        ]).then(([commits, tags]) => {
+          const commit = Array.isArray(commits) && commits[0];
+          if (!commit) return;
+          const sha = commit.sha;
+          const date = new Date(commit.commit.author.date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
+          const tagged = (Array.isArray(tags) ? tags : []).some(t => t.commit && t.commit.sha === sha);
+          setLiveVersion(tagged ? APP_VERSION : `${APP_VERSION} · ${sha.slice(0, 7)} · ${date}`);
+        }).catch(() => {});
+      }, []);
+
       const selectUser = (u) => { localStorage.setItem("active_user", u); setActiveUser(u); };
       const logout = () => {
         localStorage.removeItem("active_user");
@@ -2415,7 +2435,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       };
 
       const versionLabel = (
-        <div style={{ position: "fixed", bottom: 8, left: 10, zIndex: 9999, fontSize: 14, fontWeight: 700, color: "#4a7a54", fontFamily: "monospace", direction: "ltr", pointerEvents: "none" }}>{APP_VERSION}</div>
+        <div style={{ position: "fixed", bottom: 8, left: 10, zIndex: 9999, fontSize: 14, fontWeight: 700, color: "#4a7a54", fontFamily: "monospace", direction: "ltr", pointerEvents: "none" }}>{liveVersion || APP_VERSION}</div>
       );
 
       if (authUser === undefined) return null;
