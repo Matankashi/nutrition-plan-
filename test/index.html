@@ -106,7 +106,7 @@
     ];
 
     const EC = { "⚡":"#fbbf24","🌅":"#fb923c","🥗":"#4ade80","🍽️":"#60a5fa","🥤":"#a78bfa","🍫":"#d4a857","🌙":"#818cf8","🍌":"#facc15","🌃":"#c084fc" };
-    const START_W = 86, GOAL_W = 75;
+    const START_W = 86;
     const HEIGHT_CM = 175;
     const BIRTHDAY = new Date(1991, 5, 5);
     const APP_VERSION = "Version 1 TEST";
@@ -154,6 +154,75 @@
       return startKg
         * Math.pow(PHASE1_RATE, PHASE1_WEEKS)
         * Math.pow(PHASE2_RATE, w - PHASE1_WEEKS);
+    };
+
+    // יעד הרכב גוף. החליף את יעד המשקל (75 ק״ג) ב-07.10.2026: מספר משקל
+    // יחיד מעניש על בניית שריר, לכן היעד הוא אחוז שומן, והמשקל הצפוי נגזר
+    // מהמסה הרזה הנוכחית ומתעדכן מעצמו.
+    const GOAL_START = { date: "07.10.2026", kg: 77.8 };
+    const BF_MILESTONES = [17, 16.5, 15];   // 15 = יעד מתיחה
+    const BF_BAND = 0.5;                     // טווח משקל צפוי: יעד ± 0.5%
+    const WAIST_GOAL = [85, 87];
+    const DAY_MS = 86400000;
+
+    // Weekly multipliers per period mode. Dates outside every period are cut.
+    const PERIOD_MODES = [
+      { key: "cut",      label: "✂️ חיטוב", rate: PHASE2_RATE, desc: "−0.45%/שבוע" },
+      { key: "maintain", label: "⚖️ שמירה", rate: 1,           desc: "0%/שבוע" },
+      { key: "build",    label: "💪 בנייה", rate: 1.001,       desc: "+0.1%/שבוע" },
+    ];
+    const modeAt = (periods, d) => {
+      const ds = toDateStr(d);
+      const p = periods.find(p => ds >= p.from && ds <= p.to);
+      return p ? p.mode : "cut";
+    };
+    const dailyRate = (mode) => Math.pow((PERIOD_MODES.find(m => m.key === mode) || PERIOD_MODES[0]).rate, 1 / 7);
+    // Calendar arithmetic, not ms: a 24h step drifts across the DST change.
+    const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+    const nextDay = (d) => addDays(d, 1);
+
+    const expectedWeight = (leanKg, bf) => leanKg / (1 - bf / 100);
+    // Navy formula solved for waist: the waist that gives `bf` at this neck.
+    const waistForBodyFat = (bf, neck) =>
+      neck + Math.pow(10, (bf - 30.30 + 70.041 * Math.log10(HEIGHT_CM)) / 86.010);
+
+    // Daily target weight from GOAL_START to `end`. Each day steps at its own
+    // period's rate, so after a maintain stretch the line resumes from the
+    // value it paused at. Cut stops at the floor and never rises; only a
+    // declared build period moves the line up.
+    const buildTargetSeries = (periods, floorKg, end) => {
+      const out = [];
+      let kg = GOAL_START.kg;
+      for (let d = parseDMYDate(GOAL_START); d <= end; d = nextDay(d)) {
+        out.push({ d, kg });
+        const mode = modeAt(periods, d);
+        const next = kg * dailyRate(mode);
+        kg = mode === "build" ? next : Math.max(next, Math.min(kg, floorKg));
+      }
+      return out;
+    };
+
+    // Whole weeks (rounded up) from `fromKg` on `fromDate` until the pace,
+    // following period modes, reaches `goalKg`. null if not within ~200 weeks.
+    const weeksToTarget = (periods, fromKg, fromDate, goalKg) => {
+      let kg = fromKg, d = new Date(fromDate);
+      for (let n = 0; n < 1400; n++) {
+        if (kg <= goalKg) return Math.ceil(n / 7);
+        kg *= dailyRate(modeAt(periods, d));
+        d = nextDay(d);
+      }
+      return null;
+    };
+
+    // Mean of composition readings in the `days` up to and including `end`.
+    // Averages, not single readings: one neck centimetre swings body fat
+    // ~0.8%, so a single reading is too noisy to set a floor or fire an alert.
+    const windowAvg = (series, end, days = 21) => {
+      const lo = addDays(end, -days);
+      const inWin = series.filter(e => { const d = parseDMYDate(e); return d && d > lo && d <= end; });
+      if (inWin.length === 0) return null;
+      const mean = f => inWin.reduce((s, e) => s + e[f], 0) / inWin.length;
+      return { bodyFat: mean("bodyFat"), waist: mean("waist"), kg: mean("kg"), leanMass: mean("leanMass"), end };
     };
 
     const MEAL_WINDOWS = { 1: [8*60, 11*60+59], 2: [12*60, 13*60+59], 3: [14*60, 16*60+59], 4: [17*60, 19*60+59], 5: [20*60, 23*60+59] };
@@ -417,49 +486,61 @@
     }
 
     // גרף קו כללי לכל מדד — משמש למשקל ולהיקף בטן.
-    function TrendGraph({ entries, valueField, unit, goal, color, idealFn, showIdeal }) {
+    // `target` (weight graph only): { series: daily [{d, kg}] from GOAL_START,
+    // historyFn: weeks since first entry → old pace, band: [lo, hi],
+    // markerDate, markerLabel, forwardDays }. Other graphs pass nothing.
+    function TrendGraph({ entries, valueField, unit, color, target }) {
       const [selectedIdx, setSelectedIdx] = useState(null);
       if (entries.length === 0) return <div style={{ fontSize: 12, color: "#4a7a54", textAlign: "center", padding: "20px 0" }}>אין עדיין מדידות</div>;
 
       const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
       const iW = GW - PL - PR, iH = GH - PT - PB;
       const vals = entries.map(e => e[valueField]);
-      const mn = Math.min(...vals, goal !== null ? goal : Infinity) - 1.5;
-      const mx = Math.max(...vals) + 1;
 
       // X is proportional to elapsed time (entries aren't evenly spaced —
       // e.g. 11-day gaps next to same-day entries), falling back to even
-      // index spacing when dates are missing/unusable.
+      // index spacing when dates are missing/unusable. With a target, the
+      // axis runs forwardDays past the latest entry so the pace ahead shows.
       const dates = entries.map(e => parseDMYDate(e));
       const t0 = dates.find(Boolean);
-      const tN = [...dates].reverse().find(Boolean);
+      const tLast = [...dates].reverse().find(Boolean);
+      const tN = (tLast && target && target.forwardDays) ? addDays(tLast, target.forwardDays) : tLast;
       const spanMs = (t0 && tN && tN > t0) ? (tN - t0) : null;
+      const xAt = d => PL + ((d - t0) / spanMs) * iW;
       const toX = i => {
         if (!spanMs || !dates[i]) {
           return PL + (entries.length > 1 ? (i / (entries.length - 1)) * iW : iW / 2);
         }
-        return PL + ((dates[i] - t0) / spanMs) * iW;
+        return xAt(dates[i]);
       };
+
+      // Old pace (from the first entry) is drawn faded up to the goal change;
+      // the current target runs from there. Sampled densely so the old curve
+      // is smooth; the current one is daily so maintain plateaus stay crisp.
+      const markerD = target && target.markerDate ? parseDMYDate({ date: target.markerDate }) : null;
+      const historyVals = (target && target.historyFn && spanMs && markerD && markerD > t0)
+        ? Array.from({ length: 60 }, (_, k) => {
+            const d = new Date(t0.getTime() + (Math.min(markerD, tN) - t0) * k / 59);
+            return { d, kg: target.historyFn((d - t0) / (7 * DAY_MS)) };
+          })
+        : [];
+      const targetVals = (target && target.series && spanMs)
+        ? target.series.filter(p => p.d >= t0 && p.d <= tN)
+        : [];
+      const band = target && target.band ? target.band : null;
+
+      const extra = [...historyVals, ...targetVals].map(p => p.kg).concat(band || []);
+      const mn = Math.min(...vals, ...extra) - 1.5;
+      const mx = Math.max(...vals, ...extra) + 1;
       const toY = v => PT + iH - ((v - mn) / (mx - mn)) * iH;
       const pts = entries.map((e, i) => toX(i).toFixed(1) + "," + toY(e[valueField]).toFixed(1)).join(" ");
-      const goalY = goal !== null ? toY(goal) : null;
+      const linePts = arr => arr.map(p => xAt(p.d).toFixed(1) + "," + toY(p.kg).toFixed(1)).join(" ");
+      const markerX = (markerD && spanMs && markerD >= t0 && markerD <= tN) ? xAt(markerD) : null;
 
       const shortDate = (e) => {
         if (e.date) { const p = e.date.split("."); if (p.length >= 2) return p[0] + "/" + p[1]; }
         return e.label || "";
       };
-
-      // Sampled densely (not just at entry positions) so the target
-      // line renders as a smooth curve instead of following the same
-      // (possibly sparse/irregular) x-positions as the actual entries.
-      const idealPts = (showIdeal && t0 && spanMs && idealFn)
-        ? Array.from({ length: 60 }, (_, k) => {
-            const frac = k / 59;
-            const wk = (spanMs * frac) / (7 * 86400000);
-            const v = Math.max(idealFn(entries[0][valueField], wk), goal !== null ? goal : -Infinity);
-            return (PL + frac * iW).toFixed(1) + "," + toY(v).toFixed(1);
-          }).join(" ")
-        : null;
 
       const maxLabels = 6;
       const labelStep = Math.max(1, Math.ceil(entries.length / maxLabels));
@@ -477,11 +558,18 @@
                 </g>
               );
             })}
-            {goalY !== null && <>
-              <line x1={PL} y1={goalY} x2={GW - PR} y2={goalY} stroke={color + "55"} strokeWidth={1.5} strokeDasharray="4,3" />
-              <text x={GW - PR - 2} y={goalY - 4} textAnchor="end" fontSize={8} fill={color}>יעד {goal}</text>
+            {band && (
+              <rect x={PL} y={toY(band[1]).toFixed(1)} width={iW} height={Math.max(toY(band[0]) - toY(band[1]), 1).toFixed(1)} fill={color + "1f"} />
+            )}
+            {historyVals.length > 1 && <polyline points={linePts(historyVals)} fill="none" stroke="#fbbf2440" strokeWidth={1.5} strokeDasharray="3,3" />}
+            {targetVals.length > 1 && <polyline points={linePts(targetVals)} fill="none" stroke="#fbbf24b0" strokeWidth={1.5} strokeDasharray="3,3" />}
+            {markerX !== null && <>
+              <line x1={markerX.toFixed(1)} y1={PT} x2={markerX.toFixed(1)} y2={GH - PB} stroke="#a78bfa" strokeWidth={1} strokeDasharray="2,3" />
+              <text x={(markerX - 3).toFixed(1)} y={PT + 8} direction="rtl" textAnchor="start" fontSize={8} fill="#a78bfa">{target.markerLabel}</text>
             </>}
-            {idealPts && <polyline points={idealPts} fill="none" stroke="#fbbf2470" strokeWidth={1.5} strokeDasharray="3,3" />}
+            {target && target.forwardDays > 0 && tN > tLast && (
+              <text x={GW - PR} y={GH - PB + 14} direction="ltr" textAnchor="end" fontSize={9} fill="#2d5a3a">{String(tN.getDate()).padStart(2, "0")}/{String(tN.getMonth() + 1).padStart(2, "0")}</text>
+            )}
             {entries.length > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />}
             {entries.map((e, i) => {
               const showLabel = i % labelStep === 0 || i === entries.length - 1;
@@ -511,9 +599,10 @@
             })()}
           </svg>
           <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 4 }}>
-            {showIdeal && <><span style={{ color: "#fbbf24" }}>── </span>קצב יעד &nbsp;</>}
+            {target && <><span style={{ color: "#fbbf24" }}>── </span>קצב יעד &nbsp;</>}
             <span style={{ color }}>── </span>בפועל &nbsp;
-            {goal !== null && <><span style={{ color: color + "55" }}>- - </span>יעד</>}
+            {band && <><span style={{ color: color + "77" }}>▬ </span>משקל צפוי ביעד &nbsp;</>}
+            {historyVals.length > 1 && <><span style={{ color: "#fbbf2460" }}>- - </span>קצב קודם</>}
           </div>
         </>
       );
@@ -588,6 +677,59 @@
       );
     }
 
+    // Date ranges with a pace mode. The weight target line, weeks-to-goal
+    // and the monthly target all follow them; dates outside a range are cut.
+    function PeriodModesCard({ periods, setPeriods }) {
+      const [from, setFrom] = useState("");
+      const [to, setTo] = useState("");
+      const [mode, setMode] = useState("maintain");
+      const [error, setError] = useState("");
+      const sorted = [...periods].sort((a, b) => a.from.localeCompare(b.from));
+      const ddmm = s => s.split("-").reverse().slice(0, 2).join(".");
+      const modeOf = k => PERIOD_MODES.find(m => m.key === k) || PERIOD_MODES[0];
+
+      const add = () => {
+        if (!from || !to) { setError("בחר תאריך התחלה וסיום"); return; }
+        if (to < from) { setError("תאריך הסיום לפני ההתחלה"); return; }
+        if (periods.some(p => from <= p.to && to >= p.from)) { setError("חופף לתקופה קיימת"); return; }
+        setPeriods(p => [...asArray(p), { from, to, mode }]);
+        setFrom(""); setTo(""); setError("");
+      };
+      const remove = (p) => setPeriods(prev => asArray(prev).filter(x => !(x.from === p.from && x.to === p.to)));
+
+      const dateStyle = { flex: 1, minWidth: 0, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 8px", color: "#e0f0e0", fontSize: 13, fontFamily: "inherit", direction: "ltr", outline: "none", colorScheme: "dark" };
+
+      return (
+        <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 12, color: "#a78bfa", fontWeight: 700, marginBottom: 4 }}>🗓️ תקופות</div>
+          <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 10 }}>מחוץ לתקופות: {PERIOD_MODES[0].label} ({PERIOD_MODES[0].desc})</div>
+
+          {sorted.map(p => (
+            <div key={p.from + p.to} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0b1a0d", borderRadius: 8, padding: "8px 12px", marginBottom: 6 }}>
+              <span style={{ fontSize: 12, color: "#e0f0e0" }}>
+                <span style={{ fontFamily: "monospace" }}>{ddmm(p.from)}–{ddmm(p.to)}</span> · {modeOf(p.mode).label}
+                <span style={{ color: "#4a7a54", fontSize: 10 }}> {modeOf(p.mode).desc}</span>
+              </span>
+              <button onClick={() => remove(p)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 14, padding: "0 4px" }}>🗑</button>
+            </div>
+          ))}
+
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 8 }}>
+            <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={dateStyle} />
+            <span style={{ color: "#4a7a54", fontSize: 12 }}>עד</span>
+            <input type="date" value={to} onChange={e => setTo(e.target.value)} style={dateStyle} />
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+            {PERIOD_MODES.map(m => (
+              <button key={m.key} onClick={() => setMode(m.key)} style={{ flex: 1, background: mode === m.key ? "#1e3a2a" : "#0b1a0d", border: `1px solid ${mode === m.key ? "#4ade80" : "#2d5a3a"}`, borderRadius: 8, padding: "8px 4px", color: mode === m.key ? "#4ade80" : "#4a7a54", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>{m.label}</button>
+            ))}
+          </div>
+          <button onClick={add} style={{ marginTop: 8, width: "100%", background: "#166534", border: "none", borderRadius: 8, padding: "9px 18px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>הוסף תקופה</button>
+          {error && <div style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}>{error}</div>}
+        </div>
+      );
+    }
+
     function WeightTab() {
       const [entriesRaw, setEntries, entriesErr] = usePersist("weight_entries", [{ week: 0, kg: START_W, label: "התחלה" }]);
       const entries = asArray(entriesRaw);
@@ -600,6 +742,8 @@
       const [eatTypes, , eatTypesErr] = usePersist("day_eat_type_v1", {});
       const [actTypes, , actTypesErr] = usePersist("day_act_type_v1", {});
       const [menuOverrides, , menuOverridesErr] = usePersist("menu_override_v1", {});
+      const [periodsRaw, setPeriods, periodsErr] = usePersist("period_modes_v1", []);
+      const periods = asArray(periodsRaw);
       const MEALS = DEFAULT_MEALS.map(m => ({ ...m, ...(menuOverrides[m.id] || {}) }));
       const PLAN_CAL = MEALS.reduce((s, m) => s + m.cal, 0);
       const PLAN_PRO = MEALS.reduce((s, m) => s + m.pro, 0);
@@ -611,8 +755,6 @@
       const last = entries[entries.length - 1].kg;
       const startKg = entries[0].kg;
       const lost = +(startKg - last).toFixed(1);
-      const remaining = +(last - GOAL_W).toFixed(1);
-      const pct = Math.min((lost / (startKg - GOAL_W)) * 100, 100);
 
       const addWeightEntry = (kg, date) => {
         const w = entries[entries.length - 1].week + 1;
@@ -635,6 +777,54 @@
       const nextBday = new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate());
       if (nextBday <= today) nextBday.setFullYear(curYear + 1);
       const daysToNextBday = Math.ceil((nextBday - today) / 86400000);
+
+      // ── יעד הרכב גוף ──
+      // "Best achieved" is the lowest 3-week rolling average, so one noisy
+      // tape reading can't set a floor. The milestone is the first one still
+      // above it: hitting 17% moves to 16.5%, then 15%, then holding 15%.
+      // The ratchet protects the target only — current values stay raw.
+      const rollingBF = compositionSeries
+        .map(e => windowAvg(compositionSeries, parseDMYDate(e)))
+        .filter(Boolean).map(a => a.bodyFat);
+      const bestAvgBF = rollingBF.length ? Math.min(...rollingBF) : null;
+      const milestone = bestAvgBF === null ? BF_MILESTONES[0] : BF_MILESTONES.find(m => bestAvgBF > m);
+      const holding = milestone === undefined;
+      const targetBF = holding ? BF_MILESTONES[BF_MILESTONES.length - 1] : milestone;
+      const reachedBF = BF_MILESTONES.filter(m => bestAvgBF !== null && bestAvgBF <= m);
+      const stretchBF = BF_MILESTONES[BF_MILESTONES.length - 1];
+      const hasComp = leanMass !== null;
+      const goalKg   = hasComp ? expectedWeight(leanMass, targetBF) : null;
+      const bandKg   = hasComp ? [expectedWeight(leanMass, targetBF - BF_BAND), expectedWeight(leanMass, targetBF + BF_BAND)] : null;
+      const goalWaist = lastNeck !== null ? waistForBodyFat(targetBF, lastNeck) : null;
+      const gapKg = hasComp ? +(last - goalKg).toFixed(1) : null;
+      const lastDate = parseDMYDate(entries[entries.length - 1]) || today;
+      const weeksToGoal = hasComp ? weeksToTarget(periods, last, lastDate, goalKg) : null;
+      const firstBF = compositionSeries.length ? compositionSeries[0].bodyFat : null;
+      const pct = (bodyFat !== null && firstBF !== null)
+        ? (firstBF > targetBF ? Math.min(Math.max((firstBF - bodyFat) / (firstBF - targetBF) * 100, 0), 100) : 100)
+        : 0;
+      const waistInGoal = lastWaist !== null && lastWaist >= WAIST_GOAL[0] && lastWaist <= WAIST_GOAL[1];
+
+      const GRAPH_FORWARD_DAYS = 28;
+      const targetSeries = buildTargetSeries(periods, hasComp ? goalKg : -Infinity,
+        addDays(lastDate, GRAPH_FORWARD_DAYS));
+
+      // ── זיהוי היפוך מגמה ──
+      // Fires only when the 3-week body-fat average rose ≥ 0.5 AND the waist
+      // average didn't drop over the same window — body fat alone moves with
+      // neck-measurement noise. Flags only; nothing is changed automatically.
+      const nowAvg  = windowAvg(compositionSeries, today);
+      const prevAvg = windowAvg(compositionSeries, addDays(today, -21));
+      const regression = (nowAvg && prevAvg
+          && nowAvg.bodyFat - prevAvg.bodyFat >= 0.5 - 1e-9
+          && nowAvg.waist >= prevAvg.waist)
+        ? {
+            bf: +(nowAvg.bodyFat - prevAvg.bodyFat).toFixed(1),
+            waist: +(nowAvg.waist - prevAvg.waist).toFixed(1),
+            weeksBefore: weeksToTarget(periods, prevAvg.kg, prevAvg.end, expectedWeight(prevAvg.leanMass, targetBF)),
+            weeksNow: weeksToGoal,
+          }
+        : null;
 
       // ── ממוצע 7 ימים ──
       const dayCalories = (dateStr) => {
@@ -675,34 +865,29 @@
       const prevEntries  = entries.filter(e => { const d = parseDMYDate(e); return d && (d.getFullYear() < curYear || (d.getFullYear() === curYear && d.getMonth() < curMonth)); });
       const monthStart = monthEntries.length > 0 ? monthEntries[0] : (prevEntries.length > 0 ? prevEntries[prevEntries.length - 1] : null);
       const monthEnd = entries[entries.length - 1];
-      // יעד חודשי נגזר מקו 0.45%/שבוע: ~1.9% בחודש
-      const monthTargetMin = +(last * 0.014).toFixed(1);
-      const monthTargetMax = +(last * 0.026).toFixed(1);
+      // יעד חודשי נגזר מקו 0.45%/שבוע: ~1.9% בחודש, מוקטן לפי ימי החיטוב
+      // בחודש — ימי שמירה/בנייה לא דורשים ירידה, אז חודש כמו מדריד לא "מאחור".
+      const monthCutDays = Array.from({ length: daysInMonth }, (_, i) => new Date(curYear, curMonth, i + 1))
+        .filter(d => modeAt(periods, d) === "cut").length;
+      const cutFrac = monthCutDays / daysInMonth;
+      const monthTargetMin = +(last * 0.014 * cutFrac).toFixed(1);
+      const monthTargetMax = +(last * 0.026 * cutFrac).toFixed(1);
       let monthStat = null;
       if (monthStart && monthEnd && monthStart !== monthEnd) {
         const startDate = parseDMYDate(monthStart) || today;
         const daysElapsed = Math.max(1, Math.round((today - startDate) / 86400000));
         const monthLost = +(monthStart.kg - monthEnd.kg).toFixed(2);
         const projected = +((monthLost / daysElapsed) * daysInMonth).toFixed(1);
-        const pctOfMax = Math.min((monthLost / monthTargetMax) * 100, 105);
+        const pctOfMax = monthTargetMax > 0 ? Math.min((monthLost / monthTargetMax) * 100, 105) : 0;
         let status, statusColor;
-        if (daysElapsed < 5) { status = "🔍 מוקדם להעריך"; statusColor = "#4a7a54"; }
+        if (monthTargetMax <= 0) { status = "⚖️ חודש שמירה"; statusColor = "#4a7a54"; }
+        else if (daysElapsed < 5) { status = "🔍 מוקדם להעריך"; statusColor = "#4a7a54"; }
         else if (projected > monthTargetMax) { status = "⚡ קצב גבוה — שים לב"; statusColor = "#fb923c"; }
         else if (projected >= monthTargetMin) { status = "✅ בקצב טוב"; statusColor = "#4ade80"; }
         else if (projected >= monthTargetMin * 0.5) { status = "⚠️ קצת מאחור"; statusColor = "#fbbf24"; }
         else { status = "🔴 מאחור מהיעד"; statusColor = "#f87171"; }
         monthStat = { monthLost, projected, daysRemaining, pctOfMax, status, statusColor };
       }
-
-      // ── צפי הגעה ליעד לפי קו היעד ──
-      const weeksToGoal = (() => {
-        let w = last, n = 0;
-        const firstDate = parseDMYDate(entries[0]);
-        const lastDate  = parseDMYDate(entries[entries.length - 1]) || today;
-        let elapsed = firstDate ? (lastDate - firstDate) / (7 * 86400000) : 0;
-        while (w > GOAL_W && n < 200) { w *= (elapsed + n < 4 ? 0.992 : 0.9955); n++; }
-        return n;
-      })();
 
       const Stat = ({ label, value, color, sub }) => (
         <div style={{ flex: 1, background: "#0d1f10", borderRadius: 10, border: "1px solid #1a3a1f", padding: "10px 6px", textAlign: "center" }}>
@@ -712,26 +897,57 @@
         </div>
       );
 
-      const dataError = entriesErr || waistErr || neckErr || customMealsErr || checkedErr || eatTypesErr || actTypesErr || menuOverridesErr;
+      const dataError = entriesErr || waistErr || neckErr || customMealsErr || checkedErr || eatTypesErr || actTypesErr || menuOverridesErr || periodsErr;
       if (dataError) return <DataError message={dataError} />;
 
       return (
         <div style={{ padding: "14px 14px 0" }}>
+          {regression && (
+            <div style={{ background: "#2e1f0a", border: "1px solid #5a4a1a", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontSize: 12, color: "#fbbf24", lineHeight: 1.8 }}>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>⚠️ המגמה התהפכה — 3 שבועות</div>
+              <div style={{ color: "#e0f0e0" }}>
+                שומן ▲ {regression.bf}% &nbsp;·&nbsp; בטן {regression.waist > 0 ? "▲" : "–"} {regression.waist} ס״מ
+              </div>
+              <div style={{ color: "#e0f0e0" }}>הזמן ליעד: {regression.weeksBefore ?? "—"} → {regression.weeksNow ?? "—"} שבועות</div>
+              <div style={{ color: "#c8a060", fontSize: 11 }}>בדוק: ממוצע 7 ימים · רישום ארוחות · אלכוהול</div>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
             <Stat label="משקל נוכחי" value={last + " ק״ג"} color="#4ade80" />
             <Stat label="ירדת" value={lost + " ק״ג"} color="#60a5fa" />
-            <Stat label="נותר" value={remaining + " ק״ג"} color="#f87171" />
+            <Stat label="נותר" value={gapKg === null ? "—" : gapKg > 0 ? gapKg + " ק״ג" : "✓"} color="#f87171" sub={hasComp ? `ל-${targetBF}% שומן` : null} />
           </div>
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
-              <span style={{ color: "#4ade80", fontWeight: 700 }}>🎯 יעד: {GOAL_W} ק״ג</span>
-              <span style={{ color: "#4a7a54" }}>~{weeksToGoal} שבועות בקצב היעד</span>
+              <span style={{ color: "#4ade80", fontWeight: 700 }}>🎯 {holding ? "שמירה על" : "יעד:"} {targetBF}% שומן</span>
+              {hasComp && !holding && <span style={{ color: "#4a7a54" }}>{weeksToGoal === null ? "—" : weeksToGoal === 0 ? "בטווח ✓" : `~${weeksToGoal} שבועות בקצב היעד`}</span>}
             </div>
-            <div style={{ height: 10, background: "#1a3a1f", borderRadius: 5, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: pct + "%", borderRadius: 5, background: "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.5s" }} />
+            {hasComp ? <>
+              <div style={{ height: 10, background: "#1a3a1f", borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: pct + "%", borderRadius: 5, background: "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.5s" }} />
+              </div>
+              <div style={{ textAlign: "center", fontSize: 11, color: "#4a7a54", marginTop: 5 }}>{pct.toFixed(1)}% מהדרך · נוכחי {bodyFat}%</div>
+              <div style={{ fontSize: 11, color: "#c8e8c8", marginTop: 8, lineHeight: 1.8 }}>
+                משקל צפוי ביעד: <span style={{ color: "#4ade80", fontWeight: 700, fontFamily: "monospace" }}>{bandKg[0].toFixed(1)}–{bandKg[1].toFixed(1)} ק״ג</span>
+                <span style={{ color: "#4a7a54" }}> ({targetBF - BF_BAND}%–{targetBF + BF_BAND}%, לפי מסה רזה {leanMass} ק״ג)</span>
+                {goalWaist !== null && <><br/>בטן ביעד: <span style={{ color: "#60a5fa", fontWeight: 700, fontFamily: "monospace" }}>~{goalWaist.toFixed(1)} ס״מ</span></>}
+                {reachedBF.length > 0 && <><br/><span style={{ color: "#4ade80" }}>✓ הושג (ממוצע 3 שבועות): {reachedBF.map(m => m + "%").join(", ")}</span></>}
+              </div>
+            </> : (
+              <div style={{ fontSize: 11, color: "#4a7a54" }}>הוסף מדידות היקף בטן וצוואר כדי לחשב את היעד</div>
+            )}
+            <div style={{ borderTop: "1px solid #1a3a1f", marginTop: 10, paddingTop: 8, fontSize: 11, color: "#c8e8c8", lineHeight: 1.9 }}>
+              📏 יעד משני: בטן {WAIST_GOAL[0]}–{WAIST_GOAL[1]} ס״מ
+              <span style={{ color: waistInGoal ? "#4ade80" : "#4a7a54" }}> · נוכחי {lastWaist ?? "—"}{waistInGoal ? " ✓" : ""}</span>
+              {!holding && targetBF !== stretchBF && hasComp && (
+                <div style={{ color: "#4a7a54" }}>
+                  ⭐ יעד מתיחה: {stretchBF}% — {expectedWeight(leanMass, stretchBF).toFixed(1)} ק״ג
+                  {lastNeck !== null && ` · בטן ~${waistForBodyFat(stretchBF, lastNeck).toFixed(1)} ס״מ`}
+                </div>
+              )}
             </div>
-            <div style={{ textAlign: "center", fontSize: 11, color: "#4a7a54", marginTop: 5 }}>{pct.toFixed(1)}% מהדרך</div>
           </div>
 
           {/* ── ממוצע 7 ימים ── */}
@@ -833,15 +1049,18 @@
           {monthStat && (
             <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, marginBottom: 10 }}>
-                <span style={{ color: "#4ade80", fontWeight: 700 }}>📅 יעד חודשי: {monthTargetMin}–{monthTargetMax} ק״ג</span>
+                <span style={{ color: "#4ade80", fontWeight: 700 }}>📅 יעד חודשי: {monthTargetMax > 0 ? `${monthTargetMin}–${monthTargetMax} ק״ג` : "ללא ירידה"}</span>
                 <span style={{ color: monthStat.statusColor, fontWeight: 700, fontSize: 11 }}>{monthStat.status}</span>
               </div>
               <div style={{ position: "relative", height: 10, background: "#1a3a1f", borderRadius: 5, marginBottom: 8 }}>
                 <div style={{ position: "absolute", top: 0, right: 0, height: "100%", width: monthStat.pctOfMax + "%", borderRadius: 5, background: "linear-gradient(90deg,#fbbf24,#4ade80)", transition: "width 0.5s" }} />
-                {[monthTargetMin, monthTargetMax].map(t => (
+                {monthTargetMax > 0 && [monthTargetMin, monthTargetMax].map(t => (
                   <div key={t} style={{ position: "absolute", top: -3, right: (t/monthTargetMax*100) + "%", width: 2, height: 16, background: "#4a7a54", borderRadius: 1 }} />
                 ))}
               </div>
+              {cutFrac < 1 && (
+                <div style={{ fontSize: 10, color: "#a78bfa", marginBottom: 6 }}>מותאם לתקופות: {monthCutDays} ימי חיטוב מתוך {daysInMonth}</div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#4a7a54" }}>
                 <span>ירדת החודש: <span style={{ color: "#e0f0e0", fontWeight: 700 }}>{monthStat.monthLost} ק״ג</span></span>
                 <span>תחזית: <span style={{ color: "#60a5fa", fontWeight: 700 }}>{monthStat.projected} ק״ג</span></span>
@@ -852,11 +1071,21 @@
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
             <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 8 }}>📈 גרף משקל</div>
-            <TrendGraph entries={entries} valueField="kg" unit="ק״ג" goal={GOAL_W} color="#4ade80" idealFn={idealWeightAt} showIdeal={true} />
+            <TrendGraph entries={entries} valueField="kg" unit="ק״ג" color="#4ade80" target={{
+              series: targetSeries,
+              historyFn: w => idealWeightAt(entries[0].kg, w),
+              band: bandKg,
+              markerDate: GOAL_START.date,
+              markerLabel: "יעד חדש: 17% שומן",
+              forwardDays: GRAPH_FORWARD_DAYS,
+            }} />
             <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 6, lineHeight: 1.6 }}>
               קו היעד: 0.8% ממשקל הגוף בשבוע בחודש הראשון, 0.45% אחריו — מבוסס על מחקרים שמצאו שקצב זה משמר מסת שריר.
+              מ-{GOAL_START.date} הקו עוקב אחרי התקופות: חיטוב יורד, שמירה שטוחה, בנייה עולה, והוא נעצר במשקל הצפוי ביעד.
             </div>
           </div>
+
+          <PeriodModesCard periods={periods} setPeriods={setPeriods} />
 
           <MeasurementCard
             entries={entries} onAdd={addWeightEntry} valueField="kg" unit="ק״ג" min={50} max={130}
@@ -865,7 +1094,7 @@
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
             <div style={{ fontSize: 12, color: "#60a5fa", fontWeight: 700, marginBottom: 8 }}>📏 גרף היקף בטן</div>
-            <TrendGraph entries={waistEntries} valueField="cm" unit="ס״מ" goal={null} color="#60a5fa" idealFn={null} showIdeal={false} />
+            <TrendGraph entries={waistEntries} valueField="cm" unit="ס״מ" color="#60a5fa" />
             <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 6, lineHeight: 1.6 }}>
               היקף הבטן מודד שומן ויסרלי ישירות — הוא ממשיך לרדת גם כשהמשקל עומד במקום בגלל שריר או מים.
             </div>
@@ -873,7 +1102,7 @@
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
             <div style={{ fontSize: 12, color: "#fb923c", fontWeight: 700, marginBottom: 8 }}>🔥 גרף אחוז שומן</div>
-            <TrendGraph entries={compositionSeries} valueField="bodyFat" unit="%" goal={null} color="#fb923c" idealFn={null} showIdeal={false} />
+            <TrendGraph entries={compositionSeries} valueField="bodyFat" unit="%" color="#fb923c" />
           </div>
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
@@ -2537,11 +2766,37 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const [liveVersion, setLiveVersion] = useState(null);
       const [authUser, setAuthUser] = useState(undefined);
       const [geminiReady, setGeminiReady] = useState(false);
+      const [userChecked, setUserChecked] = useState(false);
 
       useEffect(() => {
         const unsubscribe = firebase.auth().onAuthStateChanged(u => setAuthUser(u));
         return unsubscribe;
       }, []);
+
+      // The saved profile lives in localStorage with no link to the signed-in
+      // account, so it can go stale (a leftover "guest" once loaded an empty
+      // profile after sign-in and looked like data loss). Check it against
+      // _admin/users before rendering; fall back to the first valid user.
+      useEffect(() => {
+        if (!authUser) { setUserChecked(false); return; }
+        const stored = localStorage.getItem("active_user");
+        if (!stored) { setUserChecked(true); return; }
+        db.ref(`${DB_ROOT}/_admin/users`).once("value", snap => {
+          // Same fallback list UserSelect shows when _admin/users is missing.
+          const valid = snap.exists() ? Object.keys(snap.val()) : ["matan", "guest"];
+          if (!valid.includes(stored)) {
+            console.warn(`[Profile] saved active_user "${stored}" is not in _admin/users; switching to "${valid[0]}"`);
+            localStorage.setItem("active_user", valid[0]);
+            setActiveUser(valid[0]);
+          }
+          setUserChecked(true);
+        }, err => {
+          console.error("[Firebase] read failed for _admin/users:", err);
+          localStorage.removeItem("active_user");
+          setActiveUser(null);
+          setUserChecked(true);
+        });
+      }, [authUser]);
 
       useEffect(() => {
         if (!authUser) return;
@@ -2585,6 +2840,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
 
       if (authUser === undefined) return null;
       if (!authUser) return <LoginScreen />;
+      if (!userChecked) return null;
       if (adminMode && !adminAuthed) return <>{versionLabel}<AdminPinScreen onSuccess={() => setAdminAuthed(true)} onBack={() => setAdminMode(false)} /></>;
       if (adminMode && adminAuthed) return <>{versionLabel}<AdminPanel onBack={() => { setAdminMode(false); setAdminAuthed(false); }} /></>;
       if (!activeUser) return <>{versionLabel}<UserSelect onSelect={selectUser} onAdmin={() => setAdminMode(true)} /></>;
