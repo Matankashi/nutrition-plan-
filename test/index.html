@@ -163,6 +163,11 @@
     const BF_MILESTONES = [17, 16.5, 15];   // 15 = יעד מתיחה
     const BF_BAND = 0.5;                     // טווח משקל צפוי: יעד ± 0.5%
     const WAIST_GOAL = [85, 87];
+    // Without a waist and a neck reading there is no lean mass, so no milestone
+    // weight to stop at. The line then cuts for one month from GOAL_START and
+    // holds flat instead of descending open-ended: 4 weeks of cut is −1.8%,
+    // inside the 1.4–2.6% the monthly target already plans for one month.
+    const NO_COMP_CUT_WEEKS = 4;
     const DAY_MS = 86400000;
 
     // Weekly multipliers per period mode. Dates outside every period are cut.
@@ -488,7 +493,7 @@
     // גרף קו כללי לכל מדד — משמש למשקל ולהיקף בטן.
     // `target` (weight graph only): { series: daily [{d, kg}] from GOAL_START,
     // historyFn: weeks since first entry → old pace, band: [lo, hi],
-    // markerDate, markerLabel, forwardDays }. Other graphs pass nothing.
+    // markerDate, markerLabel, endDate }. Other graphs pass nothing.
     function TrendGraph({ entries, valueField, unit, color, target }) {
       const [selectedIdx, setSelectedIdx] = useState(null);
       if (entries.length === 0) return <div style={{ fontSize: 12, color: "#4a7a54", textAlign: "center", padding: "20px 0" }}>אין עדיין מדידות</div>;
@@ -500,11 +505,11 @@
       // X is proportional to elapsed time (entries aren't evenly spaced —
       // e.g. 11-day gaps next to same-day entries), falling back to even
       // index spacing when dates are missing/unusable. With a target, the
-      // axis runs forwardDays past the latest entry so the pace ahead shows.
+      // axis runs on to endDate so the pace ahead shows.
       const dates = entries.map(e => parseDMYDate(e));
       const t0 = dates.find(Boolean);
       const tLast = [...dates].reverse().find(Boolean);
-      const tN = (tLast && target && target.forwardDays) ? addDays(tLast, target.forwardDays) : tLast;
+      const tN = (tLast && target && target.endDate > tLast) ? target.endDate : tLast;
       const spanMs = (t0 && tN && tN > t0) ? (tN - t0) : null;
       const xAt = d => PL + ((d - t0) / spanMs) * iW;
       const toX = i => {
@@ -567,7 +572,7 @@
               <line x1={markerX.toFixed(1)} y1={PT} x2={markerX.toFixed(1)} y2={GH - PB} stroke="#a78bfa" strokeWidth={1} strokeDasharray="2,3" />
               <text x={(markerX - 3).toFixed(1)} y={PT + 8} direction="rtl" textAnchor="start" fontSize={8} fill="#a78bfa">{target.markerLabel}</text>
             </>}
-            {target && target.forwardDays > 0 && tN > tLast && (
+            {target && tN > tLast && (
               <text x={GW - PR} y={GH - PB + 14} direction="ltr" textAnchor="end" fontSize={9} fill="#2d5a3a">{String(tN.getDate()).padStart(2, "0")}/{String(tN.getMonth() + 1).padStart(2, "0")}</text>
             )}
             {entries.length > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />}
@@ -805,9 +810,12 @@
         : 0;
       const waistInGoal = lastWaist !== null && lastWaist >= WAIST_GOAL[0] && lastWaist <= WAIST_GOAL[1];
 
+      // Runway counts from today or the latest entry, whichever is later, so it
+      // never shrinks when weigh-ins lapse and logging one never shortens it.
       const GRAPH_FORWARD_DAYS = 28;
-      const targetSeries = buildTargetSeries(periods, hasComp ? goalKg : -Infinity,
-        addDays(lastDate, GRAPH_FORWARD_DAYS));
+      const graphEnd = addDays(today > lastDate ? today : lastDate, GRAPH_FORWARD_DAYS);
+      const targetFloorKg = hasComp ? goalKg : GOAL_START.kg * Math.pow(PHASE2_RATE, NO_COMP_CUT_WEEKS);
+      const targetSeries = buildTargetSeries(periods, targetFloorKg, graphEnd);
 
       // ── זיהוי היפוך מגמה ──
       // Fires only when the 3-week body-fat average rose ≥ 0.5 AND the waist
@@ -1077,7 +1085,7 @@
               band: bandKg,
               markerDate: GOAL_START.date,
               markerLabel: "יעד חדש: 17% שומן",
-              forwardDays: GRAPH_FORWARD_DAYS,
+              endDate: graphEnd,
             }} />
             <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 6, lineHeight: 1.6 }}>
               קו היעד: 0.8% ממשקל הגוף בשבוע בחודש הראשון, 0.45% אחריו — מבוסס על מחקרים שמצאו שקצב זה משמר מסת שריר.
