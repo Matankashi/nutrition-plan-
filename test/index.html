@@ -230,6 +230,63 @@
       return { bodyFat: mean("bodyFat"), waist: mean("waist"), kg: mean("kg"), leanMass: mean("leanMass"), end };
     };
 
+    // ── Two kinds of input: HEADLINE (raw) and TREND (smoothed) ──
+    // Headline numbers show today's truth from the latest stored readings.
+    // Everything that is a trend — "מאז", the arrows, both alerts, the
+    // best-achieved floor — runs on smoothed copies, so one bad tape or one
+    // watery weigh-in can't drive action. Stored readings are never changed.
+    const median = (arr) => {
+      const s = [...arr].sort((a, b) => a - b), m = s.length >> 1;
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    };
+    const byDate = (arr) => arr.map(e => ({ e, d: parseDMYDate(e) })).filter(x => x.d).sort((a, b) => a.d - b.d).map(x => x.e);
+    // Each neck reading → median of the last 3 up to it. A median drops one
+    // bad reading entirely; a mean would still carry a third of it.
+    const smoothNeckEntries = (neckEntries) => {
+      const sorted = byDate(neckEntries);
+      return sorted.map((e, i) => ({ ...e, cm: median(sorted.slice(Math.max(0, i - 2), i + 1).map(n => n.cm)) }));
+    };
+    // Each weigh-in → mean of the weigh-ins in the 7 days ending on it.
+    const smoothWeightEntries = (weightEntries) => {
+      const sorted = byDate(weightEntries);
+      return sorted.map(e => {
+        const d = parseDMYDate(e), lo = addDays(d, -7);
+        const win = sorted.filter(x => { const xd = parseDMYDate(x); return xd > lo && xd <= d; });
+        return { ...e, kg: win.reduce((s, x) => s + x.kg, 0) / win.length };
+      });
+    };
+    // ── Two baselines, on purpose: count-based for arrows, time-based for alerts ──
+    // ARROWS answer "where am I against my recent readings?". Readings are
+    // sparse and that is normal, so the baseline is the mean of the last 3
+    // readings whenever they happened — there is a baseline as soon as 3
+    // exist. Silent only when the newest of those 3 is more than 60 days old.
+    // ALERTS (and the best-achieved floor) answer "how fast did this change?".
+    // That is a rate and needs a fixed period, or "0.8 kg" could mean three
+    // days or three months. So they use a 28-day time window and stay silent
+    // unless the window holds at least 2 readings: an alert changes what is
+    // eaten, so it never fires off a single reading.
+    const ARROW_BASELINE_READINGS = 3;
+    const ARROW_BASELINE_MAX_AGE_DAYS = 60;
+    const arrowBaseline = (series, today) => {
+      const recent = byDate(series).slice(-ARROW_BASELINE_READINGS);
+      if (recent.length < ARROW_BASELINE_READINGS) return null;
+      const ageDays = Math.round((addDays(today, 0) - parseDMYDate(recent[recent.length - 1])) / DAY_MS);
+      if (ageDays > ARROW_BASELINE_MAX_AGE_DAYS) return null;
+      const mean = f => recent.reduce((s, e) => s + e[f], 0) / recent.length;
+      return { bodyFat: mean("bodyFat"), waist: mean("waist"), kg: mean("kg"), leanMass: mean("leanMass") };
+    };
+    const ALERT_WINDOW_DAYS = 28;
+    const MIN_WINDOW_READINGS = 2;
+    const trendWindowAvg = (series, end) => {
+      const lo = addDays(end, -ALERT_WINDOW_DAYS);
+      const n = series.filter(e => { const d = parseDMYDate(e); return d && d > lo && d <= end; }).length;
+      return n >= MIN_WINDOW_READINGS ? windowAvg(series, end, ALERT_WINDOW_DAYS) : null;
+    };
+    // Lean-loss alert threshold. Deliberately quiet: a false "eat more" stalls
+    // the cut for weeks, while a real loss missed here is caught a few weeks
+    // later and is recoverable.
+    const LEAN_ALERT_KG = 0.8;
+
     const MEAL_WINDOWS = { 1: [8*60, 11*60+59], 2: [12*60, 13*60+59], 3: [14*60, 16*60+59], 4: [17*60, 19*60+59], 5: [20*60, 23*60+59] };
 
     const toDateStr = (d) => {
@@ -298,19 +355,28 @@
     // shared by weight, waist and neck tracking. `part` = "form" or "history"
     // renders just that half without card chrome, for a parent that groups
     // several of them; with no `part` it renders both, as before.
-    function MeasurementCard({ entries, onAdd, valueField, unit, min, max, addLabel, addPlaceholder, addHint, historyLabel, sectionTitle, part }) {
+    // `checkValue(val)` (optional) returns a question to ask before saving, or
+    // null; the user can still save exactly what they typed.
+    function MeasurementCard({ entries, onAdd, valueField, unit, min, max, addLabel, addPlaceholder, addHint, historyLabel, sectionTitle, part, checkValue }) {
       const [input, setInput] = useState("");
+      const [pending, setPending] = useState(null);   // { val, message } awaiting confirm
       const [expandedKeys, setExpandedKeys] = useState({});
       const toggleKey = key => setExpandedKeys(p => ({ ...p, [key]: !p[key] }));
       const [historyOpen, setHistoryOpen] = useState(false);
 
-      const handleAdd = () => {
-        const val = parseFloat(input.replace(",", "."));
-        if (isNaN(val) || val < min || val > max) return;
+      const save = (val) => {
         const now = new Date();
         const date = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
         onAdd(val, date);
         setInput("");
+        setPending(null);
+      };
+      const handleAdd = () => {
+        const val = parseFloat(input.replace(",", "."));
+        if (isNaN(val) || val < min || val > max) return;
+        const message = checkValue ? checkValue(val) : null;
+        if (message) { setPending({ val, message }); return; }
+        save(val);
       };
 
       const today = new Date();
@@ -365,11 +431,20 @@
           {part !== "history" && <div style={part ? { marginBottom: 12 } : { background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
             <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: part ? 6 : 10 }}>{addLabel}</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdd()}
+              <input value={input} onChange={e => { setInput(e.target.value); setPending(null); }} onKeyDown={e => e.key === "Enter" && handleAdd()}
                 placeholder={addPlaceholder} inputMode="decimal"
                 style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "9px 12px", color: "#e0f0e0", fontSize: 14, fontFamily: "inherit", direction: "ltr", outline: "none" }} />
               <button onClick={handleAdd} style={{ background: "#166534", border: "none", borderRadius: 8, padding: "9px 18px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>שמור</button>
             </div>
+            {pending && (
+              <div style={{ marginTop: 8, background: "#2e1f0a", border: "1px solid #5a4a1a", borderRadius: 8, padding: "8px 10px" }}>
+                <div style={{ fontSize: 12, color: "#fbbf24", marginBottom: 8 }}>{pending.message}</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => setPending(null)} style={{ flex: 1, background: "#166534", border: "none", borderRadius: 8, padding: "8px 10px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>אמדוד שוב</button>
+                  <button onClick={() => save(pending.val)} style={{ flex: 1, background: "none", border: "1px solid #5a4a1a", borderRadius: 8, padding: "8px 10px", color: "#fbbf24", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>שמור בכל זאת</button>
+                </div>
+              </div>
+            )}
             <div style={{ fontSize: 11, color: "#4a7a54", marginTop: part ? 6 : 8 }}>{addHint}</div>
           </div>}
 
@@ -727,8 +802,23 @@
       };
       const addWaistEntry = (cm, date) => setWaistEntries(p => [...asArray(p), { cm, date }]);
       const addNeckEntry  = (cm, date) => setNeckEntries(p => [...asArray(p), { cm, date }]);
+      // A neck change of ≥1 cm against the median of the last 3 moves body fat
+      // as much as a month of real progress, so ask once. Against the median,
+      // not the last reading: re-measuring after a bad reading mustn't trigger it.
+      const checkNeck = (cm) => {
+        const smoothed = smoothNeckEntries(neckEntries);
+        if (smoothed.length === 0) return null;
+        const ref = smoothed[smoothed.length - 1].cm;
+        const diff = +(cm - ref).toFixed(1);
+        if (Math.abs(diff) < 1) return null;
+        const waistNow = waistEntries.length ? waistEntries[waistEntries.length - 1].cm : null;
+        const before = waistNow !== null ? calcBodyFat(waistNow, ref) : null;
+        const after  = waistNow !== null ? calcBodyFat(waistNow, cm) : null;
+        if (before === null || after === null) return `שינוי של ${Math.abs(diff)} ס״מ בצוואר. למדוד שוב?`;
+        return `שינוי של ${Math.abs(diff)} ס״מ בצוואר — זה מזיז את אחוז השומן ב~${Math.abs(+(after - before).toFixed(1))}%. למדוד שוב?`;
+      };
 
-      // ── body composition ──
+      // ── body composition: HEADLINE (latest raw readings) ──
       const lastWaist = waistEntries.length > 0 ? waistEntries[waistEntries.length - 1].cm : null;
       const lastNeck  = neckEntries.length  > 0 ? neckEntries[neckEntries.length - 1].cm  : null;
       const bodyFat = calcBodyFat(lastWaist, lastNeck);
@@ -736,19 +826,24 @@
       const leanMass = bodyFat !== null ? +(last - fatMass).toFixed(1) : null;
       const bmr = calcBMR(last, bodyFat, today);
       const bmi = +(last / Math.pow(HEIGHT_CM / 100, 2)).toFixed(1);
-      const compositionSeries = buildCompositionSeries(waistEntries, neckEntries, entries);
+      // TREND series: each waist reading paired with the smoothed neck in force
+      // and the 7-day average weight. Never feed this into a headline number.
+      const trendNeckEntries = smoothNeckEntries(neckEntries);
+      const trendWeightEntries = smoothWeightEntries(entries);
+      const trendSeries = buildCompositionSeries(waistEntries, trendNeckEntries, trendWeightEntries);
       const age = calcAge(today);
       const nextBday = new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate());
       if (nextBday <= today) nextBday.setFullYear(curYear + 1);
       const daysToNextBday = Math.ceil((nextBday - today) / 86400000);
 
       // ── יעד הרכב גוף ──
-      // "Best achieved" is the lowest 3-week rolling average, so one noisy
-      // tape reading can't set a floor. The milestone is the first one still
+      // "Best achieved" is the lowest 28-day rolling average of the trend
+      // series, counted only where the window holds ≥2 readings, so neither
+      // one noisy tape nor one lone reading can set a floor. The milestone is the first one still
       // above it: hitting 17% moves to 16.5%, then 15%, then holding 15%.
       // The ratchet protects the target only — current values stay raw.
-      const rollingBF = compositionSeries
-        .map(e => windowAvg(compositionSeries, parseDMYDate(e)))
+      const rollingBF = trendSeries
+        .map(e => trendWindowAvg(trendSeries, parseDMYDate(e)))
         .filter(Boolean).map(a => a.bodyFat);
       const bestAvgBF = rollingBF.length ? Math.min(...rollingBF) : null;
       const milestone = bestAvgBF === null ? BF_MILESTONES[0] : BF_MILESTONES.find(m => bestAvgBF > m);
@@ -763,7 +858,7 @@
       const gapKg = hasComp ? +(last - goalKg).toFixed(1) : null;
       const lastDate = parseDMYDate(entries[entries.length - 1]) || today;
       const weeksToGoal = hasComp ? weeksToTarget(periods, last, lastDate, goalKg) : null;
-      const firstBF = compositionSeries.length ? compositionSeries[0].bodyFat : null;
+      const firstBF = trendSeries.length ? trendSeries[0].bodyFat : null;
       const pct = (bodyFat !== null && firstBF !== null)
         ? (firstBF > targetBF ? Math.min(Math.max((firstBF - bodyFat) / (firstBF - targetBF) * 100, 0), 100) : 100)
         : 0;
@@ -780,8 +875,10 @@
       // Fires only when the 3-week body-fat average rose ≥ 0.5 AND the waist
       // average didn't drop over the same window — body fat alone moves with
       // neck-measurement noise. Flags only; nothing is changed automatically.
-      const nowAvg  = windowAvg(compositionSeries, today);
-      const prevAvg = windowAvg(compositionSeries, addDays(today, -21));
+      // Alert windows: two consecutive 28-day windows of the TREND series, each
+      // needing ≥2 readings; otherwise both alerts stay silent.
+      const nowAvg  = trendWindowAvg(trendSeries, today);
+      const prevAvg = trendWindowAvg(trendSeries, addDays(today, -ALERT_WINDOW_DAYS));
       const regression = (nowAvg && prevAvg
           && nowAvg.bodyFat - prevAvg.bodyFat >= 0.5 - 1e-9
           && nowAvg.waist >= prevAvg.waist)
@@ -791,6 +888,16 @@
             weeksBefore: weeksToTarget(periods, prevAvg.kg, prevAvg.end, expectedWeight(prevAvg.leanMass, targetBF)),
             weeksNow: weeksToGoal,
           }
+        : null;
+
+      // ── ירידה במסה רזה ──
+      // Real only when lean AND waist fell together: shrinking while losing
+      // lean tissue. Lean falling with a steady waist is the neck-artefact
+      // signature and stays silent.
+      const leanDrop = (nowAvg && prevAvg) ? prevAvg.leanMass - nowAvg.leanMass : null;
+      const leanAlert = (leanDrop !== null && leanDrop >= LEAN_ALERT_KG - 1e-9 && nowAvg.waist < prevAvg.waist)
+        ? { kg: +leanDrop.toFixed(1), leanFrom: +prevAvg.leanMass.toFixed(1), leanTo: +nowAvg.leanMass.toFixed(1),
+            waistFrom: +prevAvg.waist.toFixed(1), waistTo: +nowAvg.waist.toFixed(1) }
         : null;
 
       // ── ממוצע 7 ימים ──
@@ -857,7 +964,7 @@
       }
 
       // ── מצב נוכחי ──
-      // Each number with an arrow against its 21-day average and its change
+      // Each number with an arrow against the mean of its last 3 readings and its change
       // since the first reading ("▼ 0.6 מאז 19/08"). Lower is better, except
       // lean mass, where a drop is amber rather than red.
       const shortDMY = e => { const p = (e.date || "").split("."); return p.length >= 2 ? p[0] + "/" + p[1] : "התחלה"; };
@@ -867,34 +974,58 @@
         return { arrow: d > 0 ? "▲" : "▼", color: good ? "#4ade80" : badColor };
       };
       const fmtNum = v => +v.toFixed(1);
-      const weightAvg21 = windowAvg(entries, today);   // only .kg is meaningful for weight entries
-      const firstComp = compositionSeries.length ? compositionSeries[0] : null;
+      // Value column = HEADLINE (raw). Arrow and "מאז" columns = TREND: today's
+      // latest waist with the smoothed neck and the 7-day weight, against the
+      // last-3-readings baseline and the first trend reading.
+      const firstComp = trendSeries.length ? trendSeries[0] : null;
+      const todayDMY = `${String(today.getDate()).padStart(2, "0")}.${String(today.getMonth() + 1).padStart(2, "0")}.${today.getFullYear()}`;
+      // Deliberate mismatch: trendNow uses the SMOOTHED neck (median of the last
+      // 3) and 7-day weight, while the headline beside it uses the latest RAW
+      // readings. After one bad neck reading the two disagree on purpose — e.g.
+      // headline 18.6% from neck 39, while the "מאז" column already treats 39
+      // as an outlier. The grey inputs line under body fat shows the raw inputs,
+      // which is what makes the disagreement readable. Don't "fix" it by
+      // feeding one into the other.
+      const trendNow = lastWaist !== null
+        ? buildCompositionSeries([{ cm: lastWaist, date: todayDMY }], trendNeckEntries, trendWeightEntries)[0] || null
+        : null;
+      const firstTrendWeight = trendWeightEntries.length ? trendWeightEntries[0] : entries[0];
+      const trendWeightNow = trendWeightEntries.length ? trendWeightEntries[trendWeightEntries.length - 1].kg : last;
+      const compBaseline   = arrowBaseline(trendSeries, today);
+      const weightBaseline = arrowBaseline(trendWeightEntries, today);   // only .kg is meaningful for weigh-ins
       const waistUnchanged = firstComp !== null && lastWaist === firstComp.waist;
-      const weeksAvg = (hasComp && weightAvg21 && nowAvg)
-        ? weeksToTarget(periods, weightAvg21.kg, today, expectedWeight(nowAvg.leanMass, targetBF)) : null;
-      const weeksFirst = firstComp
-        ? weeksToTarget(periods, firstComp.kg, parseDMYDate(firstComp), expectedWeight(firstComp.leanMass, targetBF)) : null;
+      const weeksFor = (c, d) => c ? weeksToTarget(periods, c.kg, d, expectedWeight(c.leanMass, targetBF)) : null;
+      const weeksTrendNow = weeksFor(trendNow, lastDate);
+      const weeksBaseline = compBaseline ? weeksFor(compBaseline, today) : null;
+      const weeksFirst = firstComp ? weeksFor(firstComp, parseDMYDate(firstComp)) : null;
 
-      // A stale neck reading quietly biases body fat (1 cm ≈ 0.8%), so nudge
-      // after 6 weeks. Only a hint: the latest reading is still used.
-      const lastNeckDate = neckEntries.length ? parseDMYDate(neckEntries[neckEntries.length - 1]) : null;
-      const neckAgeDays = lastNeckDate ? Math.round((addDays(today, 0) - lastNeckDate) / DAY_MS) : null;
-      const neckHint = neckAgeDays !== null && neckAgeDays > 42 ? `צוואר נמדד לפני ${Math.floor(neckAgeDays / 7)} שבועות` : null;
+      // What fed the headline body-fat number, so a surprising value can be
+      // checked without opening the history. Nudges when the neck is >6 weeks
+      // old (a stale neck quietly biases body fat); the reading is still used.
+      const lastWaistEntry = waistEntries.length ? waistEntries[waistEntries.length - 1] : null;
+      const lastNeckEntry  = neckEntries.length  ? neckEntries[neckEntries.length - 1]  : null;
+      const dotDate = e => (e.date || "").split(".").slice(0, 2).join(".");
+      const neckAgeDays = lastNeckEntry && parseDMYDate(lastNeckEntry)
+        ? Math.round((addDays(today, 0) - parseDMYDate(lastNeckEntry)) / DAY_MS) : null;
+      const bodyFatInputs = (bodyFat !== null && lastWaistEntry && lastNeckEntry)
+        ? `מחושב מבטן ${lastWaistEntry.cm} (${dotDate(lastWaistEntry)}) · צוואר ${lastNeckEntry.cm} (${dotDate(lastNeckEntry)})`
+          + (neckAgeDays !== null && neckAgeDays > 42 ? ` · לפני ${Math.floor(neckAgeDays / 7)} שב׳` : "")
+        : null;
 
       const nowRows = [
-        { label: "⚖️ משקל", value: `${last} ק״ג`, cur: last, avg: weightAvg21 && weightAvg21.kg,
-          first: entries[0].kg, firstLabel: shortDMY(entries[0]) },
-        { label: "🔥 אחוז שומן", value: bodyFat !== null ? `${bodyFat}%` : "—", cur: bodyFat, avg: nowAvg && nowAvg.bodyFat,
-          first: firstComp && firstComp.bodyFat, firstLabel: firstComp && shortDMY(firstComp), hint: neckHint },
-        { label: "📏 בטן", value: lastWaist !== null ? `${lastWaist} ס״מ` : "—", cur: lastWaist, avg: nowAvg && nowAvg.waist,
+        { label: "⚖️ משקל", value: `${last} ק״ג`, cur: trendWeightNow, avg: weightBaseline && weightBaseline.kg,
+          first: firstTrendWeight.kg, firstLabel: shortDMY(firstTrendWeight) },
+        { label: "🔥 אחוז שומן", value: bodyFat !== null ? `${bodyFat}%` : "—", cur: trendNow && trendNow.bodyFat, avg: compBaseline && compBaseline.bodyFat,
+          first: firstComp && firstComp.bodyFat, firstLabel: firstComp && shortDMY(firstComp), hint: bodyFatInputs },
+        { label: "📏 בטן", value: lastWaist !== null ? `${lastWaist} ס״מ` : "—", cur: lastWaist, avg: compBaseline && compBaseline.waist,
           first: waistEntries.length ? waistEntries[0].cm : null, firstLabel: waistEntries.length ? shortDMY(waistEntries[0]) : null },
-        { label: "💪 מסה רזה", value: leanMass !== null ? `${leanMass} ק״ג` : "—", cur: leanMass, avg: nowAvg && nowAvg.leanMass,
+        { label: "💪 מסה רזה", value: leanMass !== null ? `${leanMass} ק״ג` : "—", cur: trendNow && trendNow.leanMass, avg: compBaseline && compBaseline.leanMass,
           first: firstComp && firstComp.leanMass, firstLabel: firstComp && shortDMY(firstComp), higherIsBetter: true, badColor: "#fbbf24",
           muted: waistUnchanged },
-        { label: "🔥 מסת שומן", value: fatMass !== null ? `${fatMass} ק״ג` : "—", cur: fatMass, avg: nowAvg && nowAvg.kg - nowAvg.leanMass,
+        { label: "🔥 מסת שומן", value: fatMass !== null ? `${fatMass} ק״ג` : "—", cur: trendNow && trendNow.fatMass, avg: compBaseline && compBaseline.kg - compBaseline.leanMass,
           first: firstComp && firstComp.fatMass, firstLabel: firstComp && shortDMY(firstComp) },
         { label: "🎯 זמן ליעד", value: weeksToGoal === null ? "—" : weeksToGoal === 0 ? "✓" : `~${weeksToGoal} שב׳`,
-          cur: weeksToGoal, avg: weeksAvg, first: weeksFirst, firstLabel: firstComp && shortDMY(firstComp) },
+          cur: weeksTrendNow, avg: weeksBaseline, first: weeksFirst, firstLabel: firstComp && shortDMY(firstComp) },
       ].map(r => {
         const has = v => v !== null && v !== undefined && !isNaN(v);
         const vsAvg = has(r.cur) && has(r.avg) ? trendOf(r.cur - r.avg, r.higherIsBetter, r.badColor) : null;
@@ -910,12 +1041,21 @@
         <div style={{ padding: "14px 14px 0" }}>
           {regression && (
             <div style={{ background: "#2e1f0a", border: "1px solid #5a4a1a", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontSize: 12, color: "#fbbf24", lineHeight: 1.8 }}>
-              <div style={{ fontWeight: 700, fontSize: 13 }}>⚠️ המגמה התהפכה — 3 שבועות</div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>⚠️ המגמה התהפכה — 4 שבועות</div>
               <div style={{ color: "#e0f0e0" }}>
                 שומן ▲ {regression.bf}% &nbsp;·&nbsp; בטן {regression.waist > 0 ? "▲" : "–"} {regression.waist} ס״מ
               </div>
               <div style={{ color: "#e0f0e0" }}>הזמן ליעד: {regression.weeksBefore ?? "—"} → {regression.weeksNow ?? "—"} שבועות</div>
               <div style={{ color: "#c8a060", fontSize: 11 }}>בדוק: ממוצע 7 ימים · רישום ארוחות · אלכוהול</div>
+            </div>
+          )}
+
+          {leanAlert && (
+            <div style={{ background: "#2e1f0a", border: "1px solid #5a4a1a", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontSize: 12, color: "#fbbf24", lineHeight: 1.8 }}>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>⚠️ מסה רזה ▼ {leanAlert.kg} ק״ג — הגירעון אגרסיבי מדי. שקול להוסיף ~150 קלוריות ליום.</div>
+              <div style={{ color: "#c8a060", fontSize: 11 }}>
+                ממוצע 28 יום: מסה רזה {leanAlert.leanFrom} → {leanAlert.leanTo} ק״ג · בטן {leanAlert.waistFrom} → {leanAlert.waistTo} ס״מ
+              </div>
             </div>
           )}
 
@@ -930,20 +1070,18 @@
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
               <span style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>📍 מצב נוכחי</span>
-              <span style={{ fontSize: 9, color: "#4a7a54" }}>חץ: מול ממוצע 21 יום</span>
+              <span style={{ fontSize: 9, color: "#4a7a54" }}>חץ: מול ממוצע 3 המדידות האחרונות</span>
             </div>
             {nowRows.map(r => (
               <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1.25fr 1fr 22px 1.35fr", alignItems: "center", gap: 6, padding: "6px 0", borderBottom: "1px solid #0f2a12" }}>
-                <span style={{ fontSize: 12, color: "#c8e8c8" }}>
-                  {r.label}
-                  {r.hint && <div style={{ fontSize: 9, color: "#4a7a54", marginTop: 1 }}>{r.hint}</div>}
-                </span>
+                <span style={{ fontSize: 12, color: "#c8e8c8" }}>{r.label}</span>
                 <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{r.value}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, textAlign: "center", color: r.vsAvg ? r.vsAvg.color : "#4a7a54" }}>{r.vsAvg ? r.vsAvg.arrow : ""}</span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: r.since ? r.since.color : "#4a7a54" }}>{r.since ? r.since.text : ""}</span>
+                {r.hint && <div style={{ gridColumn: "1 / -1", fontSize: 9, color: "#4a7a54", marginTop: -3 }}>{r.hint}</div>}
               </div>
             ))}
-            {waistUnchanged && firstComp && (fatMass !== firstComp.fatMass || leanMass !== firstComp.leanMass) && (
+            {waistUnchanged && firstComp && trendNow && (trendNow.fatMass !== firstComp.fatMass || trendNow.leanMass !== firstComp.leanMass) && (
               <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 8, lineHeight: 1.5 }}>
                 היקף הבטן לא השתנה — כל השינוי נובע ממדידת הצוואר, שרגישה לשגיאת מדידה. עקוב אחרי מגמת היקף הבטן.
               </div>
@@ -966,7 +1104,7 @@
               addLabel="📏 היקף בטן" addPlaceholder="היקף בטן, למשל: 90"
               addHint="💡 בגובה הטבור, בבוקר, בנשיפה רגילה" />
             <MeasurementCard part="form"
-              entries={neckEntries} onAdd={addNeckEntry} valueField="cm" unit="ס״מ" min={20} max={60}
+              entries={neckEntries} onAdd={addNeckEntry} valueField="cm" unit="ס״מ" min={20} max={60} checkValue={checkNeck}
               addLabel="📏 היקף צוואר" addPlaceholder="היקף צוואר, למשל: 40"
               addHint="💡 מתחת לגרוגרת, בבוקר ובאותם תנאים" />
           </div>
@@ -1006,7 +1144,7 @@
                 משקל צפוי ביעד: <span style={{ color: "#4ade80", fontWeight: 700, fontFamily: "monospace" }}>{bandKg[0].toFixed(1)}–{bandKg[1].toFixed(1)} ק״ג</span>
                 <span style={{ color: "#4a7a54" }}> ({targetBF - BF_BAND}%–{targetBF + BF_BAND}%, לפי מסה רזה {leanMass} ק״ג)</span>
                 {goalWaist !== null && <><br/>בטן ביעד: <span style={{ color: "#60a5fa", fontWeight: 700, fontFamily: "monospace" }}>~{goalWaist.toFixed(1)} ס״מ</span></>}
-                {reachedBF.length > 0 && <><br/><span style={{ color: "#4ade80" }}>✓ הושג (ממוצע 3 שבועות): {reachedBF.map(m => m + "%").join(", ")}</span></>}
+                {reachedBF.length > 0 && <><br/><span style={{ color: "#4ade80" }}>✓ הושג (ממוצע 4 שבועות): {reachedBF.map(m => m + "%").join(", ")}</span></>}
               </div>
             </> : (
               <div style={{ fontSize: 11, color: "#4a7a54" }}>הוסף מדידות היקף בטן וצוואר כדי לחשב את היעד</div>
