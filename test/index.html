@@ -282,6 +282,38 @@
       const n = series.filter(e => { const d = parseDMYDate(e); return d && d > lo && d <= end; }).length;
       return n >= MIN_WINDOW_READINGS ? windowAvg(series, end, ALERT_WINDOW_DAYS) : null;
     };
+    // DISPLAY ONLY — feeds the weight graph and nothing else. One point per
+    // calendar week (Mon–Sun) from that week's weigh-ins, placed at the mean
+    // date of those readings: that is where a week's average sits in time.
+    // Plotting it at week end would trail the per-day target line by ~3 days
+    // (≈0.15 kg at 0.45%/week), a bias that never averages out. Weeks with
+    // no weigh-in produce no point. The current week is marked `partial`.
+    const weeklyWeightPoints = (weightEntries, today) => {
+      const weeks = [];
+      byDate(weightEntries).forEach(e => {
+        const d = parseDMYDate(e);
+        const monday = addDays(d, -((d.getDay() + 6) % 7));
+        const last = weeks[weeks.length - 1];
+        if (last && last.monday.getTime() === monday.getTime()) last.items.push({ e, d });
+        else weeks.push({ monday, items: [{ e, d }] });
+      });
+      const ddmm = d => `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+      return weeks.map(w => {
+        const n = w.items.length;
+        const kg = +(w.items.reduce((s, x) => s + x.e.kg, 0) / n).toFixed(2);
+        const at = new Date(w.items.reduce((s, x) => s + x.d.getTime(), 0) / n);
+        const sunday = addDays(w.monday, 6);
+        return {
+          kg, n, _d: at, date: `${ddmm(at)}.${at.getFullYear()}`,
+          partial: today < addDays(sunday, 1),
+          tipLines: [`${kg} ק״ג`, `${ddmm(w.monday)}–${ddmm(sunday)}`, `${n} ${n === 1 ? "שקילה" : "שקילות"}`],
+        };
+      });
+    };
+
+    // Weekly dot fill by readings behind it: faint for 1, solid from 3.
+    const READING_OPACITY = n => (n >= 3 ? 1 : n === 2 ? 0.65 : 0.35);
+
     // Lean-loss alert threshold. Deliberately quiet: a false "eat more" stalls
     // the cut for weeks, while a real loss missed here is caught a few weeks
     // later and is recoverable.
@@ -573,7 +605,11 @@
     // `target` (weight graph only): { series: daily [{d, kg}] from GOAL_START,
     // historyFn: weeks since first entry → old pace, band: [lo, hi],
     // markerDate, markerLabel, endDate }. Other graphs pass nothing.
-    function TrendGraph({ entries, valueField, unit, color, target }) {
+    // Points may carry `_d` (exact x date), `partial` (drawn hollow), `n`
+    // (readings behind the point: fill fades for thin weeks) and
+    // `tipLines` (tooltip text); `startDate` pins the axis start when the
+    // plotted points don't begin on the first reading (weekly view).
+    function TrendGraph({ entries, valueField, unit, color, target, startDate, actualLabel }) {
       const [selectedIdx, setSelectedIdx] = useState(null);
       if (entries.length === 0) return <div style={{ fontSize: 12, color: "#4a7a54", textAlign: "center", padding: "20px 0" }}>אין עדיין מדידות</div>;
 
@@ -585,8 +621,8 @@
       // e.g. 11-day gaps next to same-day entries), falling back to even
       // index spacing when dates are missing/unusable. With a target, the
       // axis runs on to endDate so the pace ahead shows.
-      const dates = entries.map(e => parseDMYDate(e));
-      const t0 = dates.find(Boolean);
+      const dates = entries.map(e => e._d || parseDMYDate(e));
+      const t0 = startDate || dates.find(Boolean);
       const tLast = [...dates].reverse().find(Boolean);
       const tN = (tLast && target && target.endDate > tLast) ? target.endDate : tLast;
       const spanMs = (t0 && tN && tN > t0) ? (tN - t0) : null;
@@ -656,17 +692,38 @@
             )}
             {entries.length > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />}
             {entries.map((e, i) => {
-              const showLabel = i % labelStep === 0 || i === entries.length - 1;
+              // Weekly points can sit close to the last one; drop a step label
+              // that would collide with the final label (daily view unchanged).
+              const crowdsLast = e._d && i !== entries.length - 1 && toX(entries.length - 1) - toX(i) < 28;
+              const showLabel = (i % labelStep === 0 && !crowdsLast) || i === entries.length - 1;
               const isSel = selectedIdx === i;
               return (
                 <g key={i} onClick={() => setSelectedIdx(isSel ? null : i)} style={{ cursor: "pointer" }}>
                   <circle cx={toX(i).toFixed(1)} cy={toY(e[valueField]).toFixed(1)} r={11} fill="transparent" />
-                  <circle cx={toX(i).toFixed(1)} cy={toY(e[valueField]).toFixed(1)} r={isSel ? 5.5 : 4} fill={color} stroke="#0d1f10" strokeWidth={1.5} />
+                  <circle cx={toX(i).toFixed(1)} cy={toY(e[valueField]).toFixed(1)} r={isSel ? 5.5 : 4} fill={e.partial ? "#0d1f10" : color} stroke={e.partial ? color : "#0d1f10"} strokeWidth={1.5}
+                    fillOpacity={e.n !== undefined && !e.partial ? READING_OPACITY(e.n) : undefined} />
                   {showLabel && <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={9} fill="#4a7a54">{shortDate(e)}</text>}
                 </g>
               );
             })}
-            {selectedIdx !== null && (() => {
+            {selectedIdx !== null && entries[selectedIdx] && entries[selectedIdx].tipLines && (() => {
+              const e = entries[selectedIdx];
+              const px = toX(selectedIdx), py = toY(e[valueField]);
+              const boxW = 104, boxH = 10 + e.tipLines.length * 11;
+              const bx = Math.min(Math.max(px - boxW / 2, PL), GW - PR - boxW);
+              const above = py - boxH - 10 >= PT;
+              const by = above ? py - boxH - 8 : py + 8;
+              return (
+                <g style={{ pointerEvents: "none" }}>
+                  <rect x={bx.toFixed(1)} y={by.toFixed(1)} width={boxW} height={boxH} rx={6} fill="#0d2e18" stroke={color} strokeWidth={1} />
+                  {e.tipLines.map((line, k) => (
+                    <text key={k} x={(bx + boxW / 2).toFixed(1)} y={(by + 13 + k * 11).toFixed(1)} textAnchor="middle" direction="rtl"
+                      fontSize={k === 0 ? 10 : 8} fontWeight={k === 0 ? "700" : "400"} fill={k === 0 ? "#e0f0e0" : "#4a7a54"}>{line}</text>
+                  ))}
+                </g>
+              );
+            })()}
+            {selectedIdx !== null && entries[selectedIdx] && !entries[selectedIdx].tipLines && (() => {
               const e = entries[selectedIdx];
               const px = toX(selectedIdx), py = toY(e[valueField]);
               const boxW = 66, boxH = 30;
@@ -684,7 +741,8 @@
           </svg>
           <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 4 }}>
             {target && <><span style={{ color: "#fbbf24" }}>── </span>קצב יעד &nbsp;</>}
-            <span style={{ color }}>── </span>בפועל &nbsp;
+            <span style={{ color }}>── </span>{actualLabel || "בפועל"} &nbsp;
+            {entries.some(e => e.partial) && <><span style={{ color }}>○ </span>שבוע לא גמור &nbsp;</>}
             {band && <><span style={{ color: color + "77" }}>▬ </span>משקל צפוי ביעד &nbsp;</>}
             {historyVals.length > 1 && <><span style={{ color: "#fbbf2460" }}>- - </span>קצב קודם</>}
           </div>
@@ -866,6 +924,20 @@
 
       // Runway counts from today or the latest entry, whichever is later, so it
       // never shrinks when weigh-ins lapse and logging one never shortens it.
+      // Weight graph view: weekly averages (default) or every weigh-in.
+      // Display only — every computation above uses the full daily data.
+      const GRAPH_MODE_KEY = "nutrition_weight_graph_mode";
+      const [graphMode, setGraphModeState] = useState(() => {
+        try { return localStorage.getItem(GRAPH_MODE_KEY) === "daily" ? "daily" : "weekly"; }
+        catch (err) { console.error(`[WeightGraph] read failed for ${GRAPH_MODE_KEY}:`, err); return "weekly"; }
+      });
+      const setGraphMode = (m) => {
+        setGraphModeState(m);
+        try { localStorage.setItem(GRAPH_MODE_KEY, m); }
+        catch (err) { console.error(`[WeightGraph] write failed for ${GRAPH_MODE_KEY}:`, err); }
+      };
+      const weeklyPoints = weeklyWeightPoints(entries, today);
+
       const GRAPH_FORWARD_DAYS = 28;
       const graphEnd = addDays(today > lastDate ? today : lastDate, GRAPH_FORWARD_DAYS);
       const targetFloorKg = hasComp ? goalKg : GOAL_START.kg * Math.pow(PHASE2_RATE, NO_COMP_CUT_WEEKS);
@@ -1110,8 +1182,18 @@
           </div>
 
           <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
-            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 8 }}>📈 גרף משקל</div>
-            <TrendGraph entries={entries} valueField="kg" unit="ק״ג" color="#4ade80" target={{
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>📈 גרף משקל</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {[["weekly", "ממוצע שבועי"], ["daily", "מדידות יומיות"]].map(([k, l]) => (
+                  <button key={k} onClick={() => setGraphMode(k)} style={{ background: graphMode === k ? "#1e3a2a" : "transparent", border: `1px solid ${graphMode === k ? "#4ade80" : "#2d5a3a"}`, borderRadius: 6, padding: "3px 8px", color: graphMode === k ? "#4ade80" : "#4a7a54", fontWeight: 700, cursor: "pointer", fontSize: 10, fontFamily: "inherit" }}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <TrendGraph key={graphMode} entries={graphMode === "weekly" && weeklyPoints.length ? weeklyPoints : entries}
+              startDate={graphMode === "weekly" && weeklyPoints.length ? parseDMYDate(byDate(entries)[0]) : undefined}
+              actualLabel={graphMode === "weekly" && weeklyPoints.length ? "ממוצע שבועי" : undefined}
+              valueField="kg" unit="ק״ג" color="#4ade80" target={{
               series: targetSeries,
               historyFn: w => idealWeightAt(entries[0].kg, w),
               band: bandKg,
