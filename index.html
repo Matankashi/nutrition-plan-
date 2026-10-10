@@ -106,10 +106,10 @@
     ];
 
     const EC = { "⚡":"#fbbf24","🌅":"#fb923c","🥗":"#4ade80","🍽️":"#60a5fa","🥤":"#a78bfa","🍫":"#d4a857","🌙":"#818cf8","🍌":"#facc15","🌃":"#c084fc" };
-    const START_W = 86, GOAL_W = 75;
+    const START_W = 86;
     const HEIGHT_CM = 175;
     const BIRTHDAY = new Date(1991, 5, 5);
-    const APP_VERSION = "Version 1";
+    const APP_VERSION = "Version 2";
 
     // תיוג יום: מה נכנס (אכילה) ומה יצא (פעילות).
     // משמש לימים שלא נרשמו בהם ארוחות — רישום בפועל תמיד גובר על התג.
@@ -155,6 +155,174 @@
         * Math.pow(PHASE1_RATE, PHASE1_WEEKS)
         * Math.pow(PHASE2_RATE, w - PHASE1_WEEKS);
     };
+
+    // יעד הרכב גוף. החליף את יעד המשקל (75 ק״ג) ב-07.10.2026: מספר משקל
+    // יחיד מעניש על בניית שריר, לכן היעד הוא אחוז שומן, והמשקל הצפוי נגזר
+    // מהמסה הרזה הנוכחית ומתעדכן מעצמו.
+    const GOAL_START = { date: "07.10.2026", kg: 77.8 };
+    const BF_MILESTONES = [17, 16.5, 15];   // 15 = יעד מתיחה
+    const BF_BAND = 0.5;                     // טווח משקל צפוי: יעד ± 0.5%
+    const WAIST_GOAL = [85, 87];
+    // Without a waist and a neck reading there is no lean mass, so no milestone
+    // weight to stop at. The line then cuts for one month from GOAL_START and
+    // holds flat instead of descending open-ended: 4 weeks of cut is −1.8%,
+    // inside the 1.4–2.6% the monthly target already plans for one month.
+    const NO_COMP_CUT_WEEKS = 4;
+    const DAY_MS = 86400000;
+
+    // Weekly multipliers per period mode. Dates outside every period are cut.
+    const PERIOD_MODES = [
+      { key: "cut",      label: "✂️ חיטוב", rate: PHASE2_RATE, desc: "−0.45%/שבוע" },
+      { key: "maintain", label: "⚖️ שמירה", rate: 1,           desc: "0%/שבוע" },
+      { key: "build",    label: "💪 בנייה", rate: 1.001,       desc: "+0.1%/שבוע" },
+    ];
+    const modeAt = (periods, d) => {
+      const ds = toDateStr(d);
+      const p = periods.find(p => ds >= p.from && ds <= p.to);
+      return p ? p.mode : "cut";
+    };
+    const dailyRate = (mode) => Math.pow((PERIOD_MODES.find(m => m.key === mode) || PERIOD_MODES[0]).rate, 1 / 7);
+    // Calendar arithmetic, not ms: a 24h step drifts across the DST change.
+    const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+    const nextDay = (d) => addDays(d, 1);
+
+    const expectedWeight = (leanKg, bf) => leanKg / (1 - bf / 100);
+    // Navy formula solved for waist: the waist that gives `bf` at this neck.
+    const waistForBodyFat = (bf, neck) =>
+      neck + Math.pow(10, (bf - 30.30 + 70.041 * Math.log10(HEIGHT_CM)) / 86.010);
+
+    // Daily target weight from GOAL_START to `end`. Each day steps at its own
+    // period's rate, so after a maintain stretch the line resumes from the
+    // value it paused at. Cut stops at the floor and never rises; only a
+    // declared build period moves the line up.
+    const buildTargetSeries = (periods, floorKg, end) => {
+      const out = [];
+      let kg = GOAL_START.kg;
+      for (let d = parseDMYDate(GOAL_START); d <= end; d = nextDay(d)) {
+        out.push({ d, kg });
+        const mode = modeAt(periods, d);
+        const next = kg * dailyRate(mode);
+        kg = mode === "build" ? next : Math.max(next, Math.min(kg, floorKg));
+      }
+      return out;
+    };
+
+    // Whole weeks (rounded up) from `fromKg` on `fromDate` until the pace,
+    // following period modes, reaches `goalKg`. null if not within ~200 weeks.
+    const weeksToTarget = (periods, fromKg, fromDate, goalKg) => {
+      let kg = fromKg, d = new Date(fromDate);
+      for (let n = 0; n < 1400; n++) {
+        if (kg <= goalKg) return Math.ceil(n / 7);
+        kg *= dailyRate(modeAt(periods, d));
+        d = nextDay(d);
+      }
+      return null;
+    };
+
+    // Mean of composition readings in the `days` up to and including `end`.
+    // Averages, not single readings: one neck centimetre swings body fat
+    // ~0.8%, so a single reading is too noisy to set a floor or fire an alert.
+    const windowAvg = (series, end, days = 21) => {
+      const lo = addDays(end, -days);
+      const inWin = series.filter(e => { const d = parseDMYDate(e); return d && d > lo && d <= end; });
+      if (inWin.length === 0) return null;
+      const mean = f => inWin.reduce((s, e) => s + e[f], 0) / inWin.length;
+      return { bodyFat: mean("bodyFat"), waist: mean("waist"), kg: mean("kg"), leanMass: mean("leanMass"), end };
+    };
+
+    // ── Two kinds of input: HEADLINE (raw) and TREND (smoothed) ──
+    // Headline numbers show today's truth from the latest stored readings.
+    // Everything that is a trend — "מאז", the arrows, both alerts, the
+    // best-achieved floor — runs on smoothed copies, so one bad tape or one
+    // watery weigh-in can't drive action. Stored readings are never changed.
+    const median = (arr) => {
+      const s = [...arr].sort((a, b) => a - b), m = s.length >> 1;
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    };
+    const byDate = (arr) => arr.map(e => ({ e, d: parseDMYDate(e) })).filter(x => x.d).sort((a, b) => a.d - b.d).map(x => x.e);
+    // Each neck reading → median of the last 3 up to it. A median drops one
+    // bad reading entirely; a mean would still carry a third of it.
+    const smoothNeckEntries = (neckEntries) => {
+      const sorted = byDate(neckEntries);
+      return sorted.map((e, i) => ({ ...e, cm: median(sorted.slice(Math.max(0, i - 2), i + 1).map(n => n.cm)) }));
+    };
+    // Each weigh-in → mean of the weigh-ins in the 7 days ending on it.
+    const smoothWeightEntries = (weightEntries) => {
+      const sorted = byDate(weightEntries);
+      return sorted.map(e => {
+        const d = parseDMYDate(e), lo = addDays(d, -7);
+        const win = sorted.filter(x => { const xd = parseDMYDate(x); return xd > lo && xd <= d; });
+        return { ...e, kg: win.reduce((s, x) => s + x.kg, 0) / win.length };
+      });
+    };
+    // ── Two baselines, on purpose: count-based for arrows, time-based for alerts ──
+    // ARROWS answer "where am I against my recent readings?". Readings are
+    // sparse and that is normal, so the baseline is the mean of the last 3
+    // readings whenever they happened — there is a baseline as soon as 3
+    // exist. Silent only when the newest of those 3 is more than 60 days old.
+    // ALERTS (and the best-achieved floor) answer "how fast did this change?".
+    // That is a rate and needs a fixed period, or "0.8 kg" could mean three
+    // days or three months. So they use a 28-day time window and stay silent
+    // unless the window holds at least 2 readings: an alert changes what is
+    // eaten, so it never fires off a single reading.
+    const ARROW_BASELINE_READINGS = 3;
+    const ARROW_BASELINE_MAX_AGE_DAYS = 60;
+    const arrowBaseline = (series, today) => {
+      const recent = byDate(series).slice(-ARROW_BASELINE_READINGS);
+      if (recent.length < ARROW_BASELINE_READINGS) return null;
+      const ageDays = Math.round((addDays(today, 0) - parseDMYDate(recent[recent.length - 1])) / DAY_MS);
+      if (ageDays > ARROW_BASELINE_MAX_AGE_DAYS) return null;
+      const mean = f => recent.reduce((s, e) => s + e[f], 0) / recent.length;
+      return { bodyFat: mean("bodyFat"), waist: mean("waist"), kg: mean("kg"), leanMass: mean("leanMass") };
+    };
+    // 28, not 21, chosen with this cost understood: at 28 days the 23–26.09.2026
+    // windows hold 2 readings, so MIN_WINDOW_READINGS no longer blocks the false
+    // alert that the bad neck 39 (08.09) produced. Only the median-of-3 neck
+    // stops it now. Accepted on purpose: the median removes the cause (one bad
+    // tape reading), while the reading minimum only masked the symptom.
+    const ALERT_WINDOW_DAYS = 28;
+    const MIN_WINDOW_READINGS = 2;
+    const trendWindowAvg = (series, end) => {
+      const lo = addDays(end, -ALERT_WINDOW_DAYS);
+      const n = series.filter(e => { const d = parseDMYDate(e); return d && d > lo && d <= end; }).length;
+      return n >= MIN_WINDOW_READINGS ? windowAvg(series, end, ALERT_WINDOW_DAYS) : null;
+    };
+    // DISPLAY ONLY — feeds the weight graph and nothing else. One point per
+    // calendar week (Mon–Sun) from that week's weigh-ins, placed at the mean
+    // date of those readings: that is where a week's average sits in time.
+    // Plotting it at week end would trail the per-day target line by ~3 days
+    // (≈0.15 kg at 0.45%/week), a bias that never averages out. Weeks with
+    // no weigh-in produce no point. The current week is marked `partial`.
+    const weeklyWeightPoints = (weightEntries, today) => {
+      const weeks = [];
+      byDate(weightEntries).forEach(e => {
+        const d = parseDMYDate(e);
+        const monday = addDays(d, -((d.getDay() + 6) % 7));
+        const last = weeks[weeks.length - 1];
+        if (last && last.monday.getTime() === monday.getTime()) last.items.push({ e, d });
+        else weeks.push({ monday, items: [{ e, d }] });
+      });
+      const ddmm = d => `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+      return weeks.map(w => {
+        const n = w.items.length;
+        const kg = +(w.items.reduce((s, x) => s + x.e.kg, 0) / n).toFixed(2);
+        const at = new Date(w.items.reduce((s, x) => s + x.d.getTime(), 0) / n);
+        const sunday = addDays(w.monday, 6);
+        return {
+          kg, n, _d: at, date: `${ddmm(at)}.${at.getFullYear()}`,
+          partial: today < addDays(sunday, 1),
+          tipLines: [`${kg} ק״ג`, `${ddmm(w.monday)}–${ddmm(sunday)}`, `${n} ${n === 1 ? "שקילה" : "שקילות"}`],
+        };
+      });
+    };
+
+    // Weekly dot fill by readings behind it: faint for 1, solid from 3.
+    const READING_OPACITY = n => (n >= 3 ? 1 : n === 2 ? 0.65 : 0.35);
+
+    // Lean-loss alert threshold. Deliberately quiet: a false "eat more" stalls
+    // the cut for weeks, while a real loss missed here is caught a few weeks
+    // later and is recoverable.
+    const LEAN_ALERT_KG = 0.8;
 
     const MEAL_WINDOWS = { 1: [8*60, 11*60+59], 2: [12*60, 13*60+59], 3: [14*60, 16*60+59], 4: [17*60, 19*60+59], 5: [20*60, 23*60+59] };
 
@@ -221,20 +389,31 @@
     };
 
     // Reusable add-entry + grouped-history widget (year → month → week → entry),
-    // shared by weight, waist and neck tracking.
-    function MeasurementCard({ entries, onAdd, valueField, unit, min, max, addLabel, addPlaceholder, addHint, historyLabel, sectionTitle }) {
+    // shared by weight, waist and neck tracking. `part` = "form" or "history"
+    // renders just that half without card chrome, for a parent that groups
+    // several of them; with no `part` it renders both, as before.
+    // `checkValue(val)` (optional) returns a question to ask before saving, or
+    // null; the user can still save exactly what they typed.
+    function MeasurementCard({ entries, onAdd, valueField, unit, min, max, addLabel, addPlaceholder, addHint, historyLabel, sectionTitle, part, checkValue }) {
       const [input, setInput] = useState("");
+      const [pending, setPending] = useState(null);   // { val, message } awaiting confirm
       const [expandedKeys, setExpandedKeys] = useState({});
       const toggleKey = key => setExpandedKeys(p => ({ ...p, [key]: !p[key] }));
       const [historyOpen, setHistoryOpen] = useState(false);
 
-      const handleAdd = () => {
-        const val = parseFloat(input.replace(",", "."));
-        if (isNaN(val) || val < min || val > max) return;
+      const save = (val) => {
         const now = new Date();
         const date = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
         onAdd(val, date);
         setInput("");
+        setPending(null);
+      };
+      const handleAdd = () => {
+        const val = parseFloat(input.replace(",", "."));
+        if (isNaN(val) || val < min || val > max) return;
+        const message = checkValue ? checkValue(val) : null;
+        if (message) { setPending({ val, message }); return; }
+        save(val);
       };
 
       const today = new Date();
@@ -284,26 +463,37 @@
 
       return (
         <>
-          {sectionTitle && <div style={{ fontSize: 13, color: "#4ade80", fontWeight: 700, margin: "4px 2px 8px" }}>{sectionTitle}</div>}
+          {sectionTitle && !part && <div style={{ fontSize: 13, color: "#4ade80", fontWeight: 700, margin: "4px 2px 8px" }}>{sectionTitle}</div>}
 
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>{addLabel}</div>
+          {part !== "history" && <div style={part ? { marginBottom: 12 } : { background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: part ? 6 : 10 }}>{addLabel}</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdd()}
+              <input value={input} onChange={e => { setInput(e.target.value); setPending(null); }} onKeyDown={e => e.key === "Enter" && handleAdd()}
                 placeholder={addPlaceholder} inputMode="decimal"
                 style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "9px 12px", color: "#e0f0e0", fontSize: 14, fontFamily: "inherit", direction: "ltr", outline: "none" }} />
               <button onClick={handleAdd} style={{ background: "#166534", border: "none", borderRadius: 8, padding: "9px 18px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>שמור</button>
             </div>
-            <div style={{ fontSize: 11, color: "#4a7a54", marginTop: 8 }}>{addHint}</div>
-          </div>
-
-          {entries.length > 0 && (
-            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 20 }}>
-              <div onClick={() => setHistoryOpen(o => !o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", marginBottom: historyOpen ? 10 : 0 }}>
-                <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{historyLabel}</div>
-                <span style={{ fontSize: 10, color: "#4a7a54" }}>{historyOpen ? "▲" : "▼"}</span>
+            {pending && (
+              <div style={{ marginTop: 8, background: "#2e1f0a", border: "1px solid #5a4a1a", borderRadius: 8, padding: "8px 10px" }}>
+                <div style={{ fontSize: 12, color: "#fbbf24", marginBottom: 8 }}>{pending.message}</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => setPending(null)} style={{ flex: 1, background: "#166534", border: "none", borderRadius: 8, padding: "8px 10px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>אמדוד שוב</button>
+                  <button onClick={() => save(pending.val)} style={{ flex: 1, background: "none", border: "1px solid #5a4a1a", borderRadius: 8, padding: "8px 10px", color: "#fbbf24", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>שמור בכל זאת</button>
+                </div>
               </div>
-              {historyOpen && (() => {
+            )}
+            <div style={{ fontSize: 11, color: "#4a7a54", marginTop: part ? 6 : 8 }}>{addHint}</div>
+          </div>}
+
+          {part !== "form" && entries.length > 0 && (
+            <div style={part ? { marginBottom: 14 } : { background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 20 }}>
+              {part
+                ? <div style={{ fontSize: 11, color: "#4ade80", fontWeight: 700, marginBottom: 6 }}>{historyLabel}</div>
+                : <div onClick={() => setHistoryOpen(o => !o)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", marginBottom: historyOpen ? 10 : 0 }}>
+                    <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{historyLabel}</div>
+                    <span style={{ fontSize: 10, color: "#4a7a54" }}>{historyOpen ? "▲" : "▼"}</span>
+                  </div>}
+              {(part || historyOpen) && (() => {
                 let prevWeekAvg = null;
 
                 const renderWeekRow = (wg, diff) => {
@@ -416,50 +606,66 @@
       );
     }
 
-    // גרף קו כללי לכל מדד — משמש למשקל ולהיקף בטן.
-    function TrendGraph({ entries, valueField, unit, goal, color, idealFn, showIdeal }) {
+    // גרף קו כללי לכל מדד — היום משמש רק לגרף המשקל.
+    // `target` (weight graph only): { series: daily [{d, kg}] from GOAL_START,
+    // historyFn: weeks since first entry → old pace, band: [lo, hi],
+    // markerDate, markerLabel, endDate }. Other graphs pass nothing.
+    // Points may carry `_d` (exact x date), `partial` (drawn hollow), `n`
+    // (readings behind the point: fill fades for thin weeks) and
+    // `tipLines` (tooltip text); `startDate` pins the axis start when the
+    // plotted points don't begin on the first reading (weekly view).
+    function TrendGraph({ entries, valueField, unit, color, target, startDate, actualLabel }) {
       const [selectedIdx, setSelectedIdx] = useState(null);
       if (entries.length === 0) return <div style={{ fontSize: 12, color: "#4a7a54", textAlign: "center", padding: "20px 0" }}>אין עדיין מדידות</div>;
 
       const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
       const iW = GW - PL - PR, iH = GH - PT - PB;
       const vals = entries.map(e => e[valueField]);
-      const mn = Math.min(...vals, goal !== null ? goal : Infinity) - 1.5;
-      const mx = Math.max(...vals) + 1;
 
       // X is proportional to elapsed time (entries aren't evenly spaced —
       // e.g. 11-day gaps next to same-day entries), falling back to even
-      // index spacing when dates are missing/unusable.
-      const dates = entries.map(e => parseDMYDate(e));
-      const t0 = dates.find(Boolean);
-      const tN = [...dates].reverse().find(Boolean);
+      // index spacing when dates are missing/unusable. With a target, the
+      // axis runs on to endDate so the pace ahead shows.
+      const dates = entries.map(e => e._d || parseDMYDate(e));
+      const t0 = startDate || dates.find(Boolean);
+      const tLast = [...dates].reverse().find(Boolean);
+      const tN = (tLast && target && target.endDate > tLast) ? target.endDate : tLast;
       const spanMs = (t0 && tN && tN > t0) ? (tN - t0) : null;
+      const xAt = d => PL + ((d - t0) / spanMs) * iW;
       const toX = i => {
         if (!spanMs || !dates[i]) {
           return PL + (entries.length > 1 ? (i / (entries.length - 1)) * iW : iW / 2);
         }
-        return PL + ((dates[i] - t0) / spanMs) * iW;
+        return xAt(dates[i]);
       };
+
+      // Old pace (from the first entry) is drawn faded up to the goal change;
+      // the current target runs from there. Sampled densely so the old curve
+      // is smooth; the current one is daily so maintain plateaus stay crisp.
+      const markerD = target && target.markerDate ? parseDMYDate({ date: target.markerDate }) : null;
+      const historyVals = (target && target.historyFn && spanMs && markerD && markerD > t0)
+        ? Array.from({ length: 60 }, (_, k) => {
+            const d = new Date(t0.getTime() + (Math.min(markerD, tN) - t0) * k / 59);
+            return { d, kg: target.historyFn((d - t0) / (7 * DAY_MS)) };
+          })
+        : [];
+      const targetVals = (target && target.series && spanMs)
+        ? target.series.filter(p => p.d >= t0 && p.d <= tN)
+        : [];
+      const band = target && target.band ? target.band : null;
+
+      const extra = [...historyVals, ...targetVals].map(p => p.kg).concat(band || []);
+      const mn = Math.min(...vals, ...extra) - 1.5;
+      const mx = Math.max(...vals, ...extra) + 1;
       const toY = v => PT + iH - ((v - mn) / (mx - mn)) * iH;
       const pts = entries.map((e, i) => toX(i).toFixed(1) + "," + toY(e[valueField]).toFixed(1)).join(" ");
-      const goalY = goal !== null ? toY(goal) : null;
+      const linePts = arr => arr.map(p => xAt(p.d).toFixed(1) + "," + toY(p.kg).toFixed(1)).join(" ");
+      const markerX = (markerD && spanMs && markerD >= t0 && markerD <= tN) ? xAt(markerD) : null;
 
       const shortDate = (e) => {
         if (e.date) { const p = e.date.split("."); if (p.length >= 2) return p[0] + "/" + p[1]; }
         return e.label || "";
       };
-
-      // Sampled densely (not just at entry positions) so the target
-      // line renders as a smooth curve instead of following the same
-      // (possibly sparse/irregular) x-positions as the actual entries.
-      const idealPts = (showIdeal && t0 && spanMs && idealFn)
-        ? Array.from({ length: 60 }, (_, k) => {
-            const frac = k / 59;
-            const wk = (spanMs * frac) / (7 * 86400000);
-            const v = Math.max(idealFn(entries[0][valueField], wk), goal !== null ? goal : -Infinity);
-            return (PL + frac * iW).toFixed(1) + "," + toY(v).toFixed(1);
-          }).join(" ")
-        : null;
 
       const maxLabels = 6;
       const labelStep = Math.max(1, Math.ceil(entries.length / maxLabels));
@@ -477,24 +683,52 @@
                 </g>
               );
             })}
-            {goalY !== null && <>
-              <line x1={PL} y1={goalY} x2={GW - PR} y2={goalY} stroke={color + "55"} strokeWidth={1.5} strokeDasharray="4,3" />
-              <text x={GW - PR - 2} y={goalY - 4} textAnchor="end" fontSize={8} fill={color}>יעד {goal}</text>
+            {band && (
+              <rect x={PL} y={toY(band[1]).toFixed(1)} width={iW} height={Math.max(toY(band[0]) - toY(band[1]), 1).toFixed(1)} fill={color + "1f"} />
+            )}
+            {historyVals.length > 1 && <polyline points={linePts(historyVals)} fill="none" stroke="#fbbf2440" strokeWidth={1.5} strokeDasharray="3,3" />}
+            {targetVals.length > 1 && <polyline points={linePts(targetVals)} fill="none" stroke="#fbbf24b0" strokeWidth={1.5} strokeDasharray="3,3" />}
+            {markerX !== null && <>
+              <line x1={markerX.toFixed(1)} y1={PT} x2={markerX.toFixed(1)} y2={GH - PB} stroke="#a78bfa" strokeWidth={1} strokeDasharray="2,3" />
+              <text x={(markerX - 3).toFixed(1)} y={PT + 8} direction="rtl" textAnchor="start" fontSize={8} fill="#a78bfa">{target.markerLabel}</text>
             </>}
-            {idealPts && <polyline points={idealPts} fill="none" stroke="#fbbf2470" strokeWidth={1.5} strokeDasharray="3,3" />}
+            {target && tN > tLast && (
+              <text x={GW - PR} y={GH - PB + 14} direction="ltr" textAnchor="end" fontSize={9} fill="#2d5a3a">{String(tN.getDate()).padStart(2, "0")}/{String(tN.getMonth() + 1).padStart(2, "0")}</text>
+            )}
             {entries.length > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />}
             {entries.map((e, i) => {
-              const showLabel = i % labelStep === 0 || i === entries.length - 1;
+              // Weekly points can sit close to the last one; drop a step label
+              // that would collide with the final label (daily view unchanged).
+              const crowdsLast = e._d && i !== entries.length - 1 && toX(entries.length - 1) - toX(i) < 28;
+              const showLabel = (i % labelStep === 0 && !crowdsLast) || i === entries.length - 1;
               const isSel = selectedIdx === i;
               return (
                 <g key={i} onClick={() => setSelectedIdx(isSel ? null : i)} style={{ cursor: "pointer" }}>
                   <circle cx={toX(i).toFixed(1)} cy={toY(e[valueField]).toFixed(1)} r={11} fill="transparent" />
-                  <circle cx={toX(i).toFixed(1)} cy={toY(e[valueField]).toFixed(1)} r={isSel ? 5.5 : 4} fill={color} stroke="#0d1f10" strokeWidth={1.5} />
+                  <circle cx={toX(i).toFixed(1)} cy={toY(e[valueField]).toFixed(1)} r={isSel ? 5.5 : 4} fill={e.partial ? "#0d1f10" : color} stroke={e.partial ? color : "#0d1f10"} strokeWidth={1.5}
+                    fillOpacity={e.n !== undefined && !e.partial ? READING_OPACITY(e.n) : undefined} />
                   {showLabel && <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={9} fill="#4a7a54">{shortDate(e)}</text>}
                 </g>
               );
             })}
-            {selectedIdx !== null && (() => {
+            {selectedIdx !== null && entries[selectedIdx] && entries[selectedIdx].tipLines && (() => {
+              const e = entries[selectedIdx];
+              const px = toX(selectedIdx), py = toY(e[valueField]);
+              const boxW = 104, boxH = 10 + e.tipLines.length * 11;
+              const bx = Math.min(Math.max(px - boxW / 2, PL), GW - PR - boxW);
+              const above = py - boxH - 10 >= PT;
+              const by = above ? py - boxH - 8 : py + 8;
+              return (
+                <g style={{ pointerEvents: "none" }}>
+                  <rect x={bx.toFixed(1)} y={by.toFixed(1)} width={boxW} height={boxH} rx={6} fill="#0d2e18" stroke={color} strokeWidth={1} />
+                  {e.tipLines.map((line, k) => (
+                    <text key={k} x={(bx + boxW / 2).toFixed(1)} y={(by + 13 + k * 11).toFixed(1)} textAnchor="middle" direction="rtl"
+                      fontSize={k === 0 ? 10 : 8} fontWeight={k === 0 ? "700" : "400"} fill={k === 0 ? "#e0f0e0" : "#4a7a54"}>{line}</text>
+                  ))}
+                </g>
+              );
+            })()}
+            {selectedIdx !== null && entries[selectedIdx] && !entries[selectedIdx].tipLines && (() => {
               const e = entries[selectedIdx];
               const px = toX(selectedIdx), py = toY(e[valueField]);
               const boxW = 66, boxH = 30;
@@ -511,80 +745,90 @@
             })()}
           </svg>
           <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 4 }}>
-            {showIdeal && <><span style={{ color: "#fbbf24" }}>── </span>קצב יעד &nbsp;</>}
-            <span style={{ color }}>── </span>בפועל &nbsp;
-            {goal !== null && <><span style={{ color: color + "55" }}>- - </span>יעד</>}
+            {target && <><span style={{ color: "#fbbf24" }}>── </span>קצב יעד &nbsp;</>}
+            <span style={{ color }}>── </span>{actualLabel || "בפועל"} &nbsp;
+            {entries.some(e => e.partial) && <><span style={{ color }}>○ </span>שבוע לא גמור &nbsp;</>}
+            {band && <><span style={{ color: color + "77" }}>▬ </span>משקל צפוי ביעד &nbsp;</>}
+            {historyVals.length > 1 && <><span style={{ color: "#fbbf2460" }}>- - </span>קצב קודם</>}
           </div>
         </>
       );
     }
 
-    // Two-line graph (fat mass vs lean mass) — same visual language as
-    // TrendGraph (padding, gridlines, fonts) but plots two series, which
-    // TrendGraph doesn't support.
-    function CompositionMassGraph({ entries }) {
-      if (entries.length === 0) return <div style={{ fontSize: 12, color: "#4a7a54", textAlign: "center", padding: "20px 0" }}>אין עדיין מדידות</div>;
-
-      const GW = 440, GH = 150, PL = 38, PR = 8, PT = 10, PB = 28;
-      const iW = GW - PL - PR, iH = GH - PT - PB;
-      const fatVals = entries.map(e => e.fatMass);
-      const leanVals = entries.map(e => e.leanMass);
-      const mn = Math.min(...fatVals, ...leanVals) - 1.5;
-      const mx = Math.max(...fatVals, ...leanVals) + 1.5;
-
-      const dates = entries.map(e => parseDMYDate(e));
-      const t0 = dates.find(Boolean);
-      const tN = [...dates].reverse().find(Boolean);
-      const spanMs = (t0 && tN && tN > t0) ? (tN - t0) : null;
-      const toX = i => {
-        if (!spanMs || !dates[i]) {
-          return PL + (entries.length > 1 ? (i / (entries.length - 1)) * iW : iW / 2);
-        }
-        return PL + ((dates[i] - t0) / spanMs) * iW;
+    // Collapsible card on the weigh-in tab. Open/closed is remembered per
+    // section under its own localStorage key; nothing is ever cleared wholesale.
+    function Section({ id, title, children }) {
+      const key = "nutrition_section_" + id;
+      const [open, setOpen] = useState(() => {
+        try { return localStorage.getItem(key) === "1"; }
+        catch (err) { console.error(`[Section] read failed for ${key}:`, err); return false; }
+      });
+      const toggle = () => {
+        const next = !open;
+        setOpen(next);
+        try { localStorage.setItem(key, next ? "1" : "0"); }
+        catch (err) { console.error(`[Section] write failed for ${key}:`, err); }
       };
-      const toY = v => PT + iH - ((v - mn) / (mx - mn)) * iH;
-      const fatPts  = entries.map((e, i) => toX(i).toFixed(1) + "," + toY(e.fatMass).toFixed(1)).join(" ");
-      const leanPts = entries.map((e, i) => toX(i).toFixed(1) + "," + toY(e.leanMass).toFixed(1)).join(" ");
+      return (
+        <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", marginBottom: 12 }}>
+          <div onClick={toggle} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 14, cursor: "pointer" }}>
+            <span style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>{title}</span>
+            <span style={{ fontSize: 11, color: "#4a7a54", display: "inline-block", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
+          </div>
+          {open && <div style={{ padding: "0 14px 14px" }}>{children}</div>}
+        </div>
+      );
+    }
 
-      const shortDate = (e) => {
-        if (e.date) { const p = e.date.split("."); if (p.length >= 2) return p[0] + "/" + p[1]; }
-        return e.label || "";
+    // Date ranges with a pace mode. The weight target line, weeks-to-goal
+    // and the monthly target all follow them; dates outside a range are cut.
+    function PeriodModesCard({ periods, setPeriods }) {
+      const [from, setFrom] = useState("");
+      const [to, setTo] = useState("");
+      const [mode, setMode] = useState("maintain");
+      const [error, setError] = useState("");
+      const sorted = [...periods].sort((a, b) => a.from.localeCompare(b.from));
+      const ddmm = s => s.split("-").reverse().slice(0, 2).join(".");
+      const modeOf = k => PERIOD_MODES.find(m => m.key === k) || PERIOD_MODES[0];
+
+      const add = () => {
+        if (!from || !to) { setError("בחר תאריך התחלה וסיום"); return; }
+        if (to < from) { setError("תאריך הסיום לפני ההתחלה"); return; }
+        if (periods.some(p => from <= p.to && to >= p.from)) { setError("חופף לתקופה קיימת"); return; }
+        setPeriods(p => [...asArray(p), { from, to, mode }]);
+        setFrom(""); setTo(""); setError("");
       };
+      const remove = (p) => setPeriods(prev => asArray(prev).filter(x => !(x.from === p.from && x.to === p.to)));
 
-      const maxLabels = 6;
-      const labelStep = Math.max(1, Math.ceil(entries.length / maxLabels));
+      const dateStyle = { flex: 1, minWidth: 0, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "8px 8px", color: "#e0f0e0", fontSize: 13, fontFamily: "inherit", direction: "ltr", outline: "none", colorScheme: "dark" };
 
       return (
-        <>
-          <svg viewBox={`0 0 ${GW} ${GH}`} width={GW} height={GH} style={{ display: "block", width: "100%", height: "auto", maxWidth: GW }}>
-            {[0, 0.33, 0.67, 1].map(f => {
-              const y = PT + f * iH;
-              const v = (mx - f * (mx - mn)).toFixed(1);
-              return (
-                <g key={f}>
-                  <line x1={PL} y1={y} x2={GW - PR} y2={y} stroke="#1a3a1f" strokeWidth={1} />
-                  <text x={PL - 3} y={y + 4} textAnchor="end" fontSize={8} fill="#4a7a54">{v}</text>
-                </g>
-              );
-            })}
-            {entries.length > 1 && <polyline points={fatPts} fill="none" stroke="#f87171" strokeWidth={2} strokeLinejoin="round" />}
-            {entries.length > 1 && <polyline points={leanPts} fill="none" stroke="#4ade80" strokeWidth={2} strokeLinejoin="round" />}
-            {entries.map((e, i) => {
-              const showLabel = i % labelStep === 0 || i === entries.length - 1;
-              return (
-                <g key={i}>
-                  <circle cx={toX(i).toFixed(1)} cy={toY(e.fatMass).toFixed(1)} r={4} fill="#f87171" stroke="#0d1f10" strokeWidth={1.5} />
-                  <circle cx={toX(i).toFixed(1)} cy={toY(e.leanMass).toFixed(1)} r={4} fill="#4ade80" stroke="#0d1f10" strokeWidth={1.5} />
-                  {showLabel && <text x={toX(i).toFixed(1)} y={GH - PB + 14} textAnchor="middle" fontSize={9} fill="#4a7a54">{shortDate(e)}</text>}
-                </g>
-              );
-            })}
-          </svg>
-          <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 4 }}>
-            <span style={{ color: "#f87171" }}>── </span>מסת שומן &nbsp;
-            <span style={{ color: "#4ade80" }}>── </span>מסה רזה
+        <div>
+          <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 10 }}>מחוץ לתקופות: {PERIOD_MODES[0].label} ({PERIOD_MODES[0].desc})</div>
+
+          {sorted.map(p => (
+            <div key={p.from + p.to} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0b1a0d", borderRadius: 8, padding: "8px 12px", marginBottom: 6 }}>
+              <span style={{ fontSize: 12, color: "#e0f0e0" }}>
+                <span style={{ fontFamily: "monospace" }}>{ddmm(p.from)}–{ddmm(p.to)}</span> · {modeOf(p.mode).label}
+                <span style={{ color: "#4a7a54", fontSize: 10 }}> {modeOf(p.mode).desc}</span>
+              </span>
+              <button onClick={() => remove(p)} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 14, padding: "0 4px" }}>🗑</button>
+            </div>
+          ))}
+
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 8 }}>
+            <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={dateStyle} />
+            <span style={{ color: "#4a7a54", fontSize: 12 }}>עד</span>
+            <input type="date" value={to} onChange={e => setTo(e.target.value)} style={dateStyle} />
           </div>
-        </>
+          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+            {PERIOD_MODES.map(m => (
+              <button key={m.key} onClick={() => setMode(m.key)} style={{ flex: 1, background: mode === m.key ? "#1e3a2a" : "#0b1a0d", border: `1px solid ${mode === m.key ? "#4ade80" : "#2d5a3a"}`, borderRadius: 8, padding: "8px 4px", color: mode === m.key ? "#4ade80" : "#4a7a54", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>{m.label}</button>
+            ))}
+          </div>
+          <button onClick={add} style={{ marginTop: 8, width: "100%", background: "#166534", border: "none", borderRadius: 8, padding: "9px 18px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>הוסף תקופה</button>
+          {error && <div style={{ fontSize: 11, color: "#f87171", marginTop: 6 }}>{error}</div>}
+        </div>
       );
     }
 
@@ -600,6 +844,8 @@
       const [eatTypes, , eatTypesErr] = usePersist("day_eat_type_v1", {});
       const [actTypes, , actTypesErr] = usePersist("day_act_type_v1", {});
       const [menuOverrides, , menuOverridesErr] = usePersist("menu_override_v1", {});
+      const [periodsRaw, setPeriods, periodsErr] = usePersist("period_modes_v1", []);
+      const periods = asArray(periodsRaw);
       const MEALS = DEFAULT_MEALS.map(m => ({ ...m, ...(menuOverrides[m.id] || {}) }));
       const PLAN_CAL = MEALS.reduce((s, m) => s + m.cal, 0);
       const PLAN_PRO = MEALS.reduce((s, m) => s + m.pro, 0);
@@ -611,8 +857,6 @@
       const last = entries[entries.length - 1].kg;
       const startKg = entries[0].kg;
       const lost = +(startKg - last).toFixed(1);
-      const remaining = +(last - GOAL_W).toFixed(1);
-      const pct = Math.min((lost / (startKg - GOAL_W)) * 100, 100);
 
       const addWeightEntry = (kg, date) => {
         const w = entries[entries.length - 1].week + 1;
@@ -621,8 +865,23 @@
       };
       const addWaistEntry = (cm, date) => setWaistEntries(p => [...asArray(p), { cm, date }]);
       const addNeckEntry  = (cm, date) => setNeckEntries(p => [...asArray(p), { cm, date }]);
+      // A neck change of ≥1 cm against the median of the last 3 moves body fat
+      // as much as a month of real progress, so ask once. Against the median,
+      // not the last reading: re-measuring after a bad reading mustn't trigger it.
+      const checkNeck = (cm) => {
+        const smoothed = smoothNeckEntries(neckEntries);
+        if (smoothed.length === 0) return null;
+        const ref = smoothed[smoothed.length - 1].cm;
+        const diff = +(cm - ref).toFixed(1);
+        if (Math.abs(diff) < 1) return null;
+        const waistNow = waistEntries.length ? waistEntries[waistEntries.length - 1].cm : null;
+        const before = waistNow !== null ? calcBodyFat(waistNow, ref) : null;
+        const after  = waistNow !== null ? calcBodyFat(waistNow, cm) : null;
+        if (before === null || after === null) return `שינוי של ${Math.abs(diff)} ס״מ בצוואר. למדוד שוב?`;
+        return `שינוי של ${Math.abs(diff)} ס״מ בצוואר — זה מזיז את אחוז השומן ב~${Math.abs(+(after - before).toFixed(1))}%. למדוד שוב?`;
+      };
 
-      // ── body composition ──
+      // ── body composition: HEADLINE (latest raw readings) ──
       const lastWaist = waistEntries.length > 0 ? waistEntries[waistEntries.length - 1].cm : null;
       const lastNeck  = neckEntries.length  > 0 ? neckEntries[neckEntries.length - 1].cm  : null;
       const bodyFat = calcBodyFat(lastWaist, lastNeck);
@@ -630,11 +889,93 @@
       const leanMass = bodyFat !== null ? +(last - fatMass).toFixed(1) : null;
       const bmr = calcBMR(last, bodyFat, today);
       const bmi = +(last / Math.pow(HEIGHT_CM / 100, 2)).toFixed(1);
-      const compositionSeries = buildCompositionSeries(waistEntries, neckEntries, entries);
+      // TREND series: each waist reading paired with the smoothed neck in force
+      // and the 7-day average weight. Never feed this into a headline number.
+      const trendNeckEntries = smoothNeckEntries(neckEntries);
+      const trendWeightEntries = smoothWeightEntries(entries);
+      const trendSeries = buildCompositionSeries(waistEntries, trendNeckEntries, trendWeightEntries);
       const age = calcAge(today);
       const nextBday = new Date(curYear, BIRTHDAY.getMonth(), BIRTHDAY.getDate());
       if (nextBday <= today) nextBday.setFullYear(curYear + 1);
       const daysToNextBday = Math.ceil((nextBday - today) / 86400000);
+
+      // ── יעד הרכב גוף ──
+      // "Best achieved" is the lowest 28-day rolling average of the trend
+      // series, counted only where the window holds ≥2 readings, so neither
+      // one noisy tape nor one lone reading can set a floor. The milestone is the first one still
+      // above it: hitting 17% moves to 16.5%, then 15%, then holding 15%.
+      // The ratchet protects the target only — current values stay raw.
+      const rollingBF = trendSeries
+        .map(e => trendWindowAvg(trendSeries, parseDMYDate(e)))
+        .filter(Boolean).map(a => a.bodyFat);
+      const bestAvgBF = rollingBF.length ? Math.min(...rollingBF) : null;
+      const milestone = bestAvgBF === null ? BF_MILESTONES[0] : BF_MILESTONES.find(m => bestAvgBF > m);
+      const holding = milestone === undefined;
+      const targetBF = holding ? BF_MILESTONES[BF_MILESTONES.length - 1] : milestone;
+      const reachedBF = BF_MILESTONES.filter(m => bestAvgBF !== null && bestAvgBF <= m);
+      const stretchBF = BF_MILESTONES[BF_MILESTONES.length - 1];
+      const hasComp = leanMass !== null;
+      const goalKg   = hasComp ? expectedWeight(leanMass, targetBF) : null;
+      const bandKg   = hasComp ? [expectedWeight(leanMass, targetBF - BF_BAND), expectedWeight(leanMass, targetBF + BF_BAND)] : null;
+      const goalWaist = lastNeck !== null ? waistForBodyFat(targetBF, lastNeck) : null;
+      const gapKg = hasComp ? +(last - goalKg).toFixed(1) : null;
+      const lastDate = parseDMYDate(entries[entries.length - 1]) || today;
+      const weeksToGoal = hasComp ? weeksToTarget(periods, last, lastDate, goalKg) : null;
+      const firstBF = trendSeries.length ? trendSeries[0].bodyFat : null;
+      const pct = (bodyFat !== null && firstBF !== null)
+        ? (firstBF > targetBF ? Math.min(Math.max((firstBF - bodyFat) / (firstBF - targetBF) * 100, 0), 100) : 100)
+        : 0;
+      const waistInGoal = lastWaist !== null && lastWaist >= WAIST_GOAL[0] && lastWaist <= WAIST_GOAL[1];
+
+      // Runway counts from today or the latest entry, whichever is later, so it
+      // never shrinks when weigh-ins lapse and logging one never shortens it.
+      // Weight graph view: weekly averages (default) or every weigh-in.
+      // Display only — every computation above uses the full daily data.
+      const GRAPH_MODE_KEY = "nutrition_weight_graph_mode";
+      const [graphMode, setGraphModeState] = useState(() => {
+        try { return localStorage.getItem(GRAPH_MODE_KEY) === "daily" ? "daily" : "weekly"; }
+        catch (err) { console.error(`[WeightGraph] read failed for ${GRAPH_MODE_KEY}:`, err); return "weekly"; }
+      });
+      const setGraphMode = (m) => {
+        setGraphModeState(m);
+        try { localStorage.setItem(GRAPH_MODE_KEY, m); }
+        catch (err) { console.error(`[WeightGraph] write failed for ${GRAPH_MODE_KEY}:`, err); }
+      };
+      const weeklyPoints = weeklyWeightPoints(entries, today);
+
+      const GRAPH_FORWARD_DAYS = 28;
+      const graphEnd = addDays(today > lastDate ? today : lastDate, GRAPH_FORWARD_DAYS);
+      const targetFloorKg = hasComp ? goalKg : GOAL_START.kg * Math.pow(PHASE2_RATE, NO_COMP_CUT_WEEKS);
+      const targetSeries = buildTargetSeries(periods, targetFloorKg, graphEnd);
+
+      // ── זיהוי היפוך מגמה ──
+      // Fires only when the 3-week body-fat average rose ≥ 0.5 AND the waist
+      // average didn't drop over the same window — body fat alone moves with
+      // neck-measurement noise. Flags only; nothing is changed automatically.
+      // Alert windows: two consecutive 28-day windows of the TREND series, each
+      // needing ≥2 readings; otherwise both alerts stay silent.
+      const nowAvg  = trendWindowAvg(trendSeries, today);
+      const prevAvg = trendWindowAvg(trendSeries, addDays(today, -ALERT_WINDOW_DAYS));
+      const regression = (nowAvg && prevAvg
+          && nowAvg.bodyFat - prevAvg.bodyFat >= 0.5 - 1e-9
+          && nowAvg.waist >= prevAvg.waist)
+        ? {
+            bf: +(nowAvg.bodyFat - prevAvg.bodyFat).toFixed(1),
+            waist: +(nowAvg.waist - prevAvg.waist).toFixed(1),
+            weeksBefore: weeksToTarget(periods, prevAvg.kg, prevAvg.end, expectedWeight(prevAvg.leanMass, targetBF)),
+            weeksNow: weeksToGoal,
+          }
+        : null;
+
+      // ── ירידה במסה רזה ──
+      // Real only when lean AND waist fell together: shrinking while losing
+      // lean tissue. Lean falling with a steady waist is the neck-artefact
+      // signature and stays silent.
+      const leanDrop = (nowAvg && prevAvg) ? prevAvg.leanMass - nowAvg.leanMass : null;
+      const leanAlert = (leanDrop !== null && leanDrop >= LEAN_ALERT_KG - 1e-9 && nowAvg.waist < prevAvg.waist)
+        ? { kg: +leanDrop.toFixed(1), leanFrom: +prevAvg.leanMass.toFixed(1), leanTo: +nowAvg.leanMass.toFixed(1),
+            waistFrom: +prevAvg.waist.toFixed(1), waistTo: +nowAvg.waist.toFixed(1) }
+        : null;
 
       // ── ממוצע 7 ימים ──
       const dayCalories = (dateStr) => {
@@ -675,18 +1016,23 @@
       const prevEntries  = entries.filter(e => { const d = parseDMYDate(e); return d && (d.getFullYear() < curYear || (d.getFullYear() === curYear && d.getMonth() < curMonth)); });
       const monthStart = monthEntries.length > 0 ? monthEntries[0] : (prevEntries.length > 0 ? prevEntries[prevEntries.length - 1] : null);
       const monthEnd = entries[entries.length - 1];
-      // יעד חודשי נגזר מקו 0.45%/שבוע: ~1.9% בחודש
-      const monthTargetMin = +(last * 0.014).toFixed(1);
-      const monthTargetMax = +(last * 0.026).toFixed(1);
+      // יעד חודשי נגזר מקו 0.45%/שבוע: ~1.9% בחודש, מוקטן לפי ימי החיטוב
+      // בחודש — ימי שמירה/בנייה לא דורשים ירידה, אז חודש כמו מדריד לא "מאחור".
+      const monthCutDays = Array.from({ length: daysInMonth }, (_, i) => new Date(curYear, curMonth, i + 1))
+        .filter(d => modeAt(periods, d) === "cut").length;
+      const cutFrac = monthCutDays / daysInMonth;
+      const monthTargetMin = +(last * 0.014 * cutFrac).toFixed(1);
+      const monthTargetMax = +(last * 0.026 * cutFrac).toFixed(1);
       let monthStat = null;
       if (monthStart && monthEnd && monthStart !== monthEnd) {
         const startDate = parseDMYDate(monthStart) || today;
         const daysElapsed = Math.max(1, Math.round((today - startDate) / 86400000));
         const monthLost = +(monthStart.kg - monthEnd.kg).toFixed(2);
         const projected = +((monthLost / daysElapsed) * daysInMonth).toFixed(1);
-        const pctOfMax = Math.min((monthLost / monthTargetMax) * 100, 105);
+        const pctOfMax = monthTargetMax > 0 ? Math.min((monthLost / monthTargetMax) * 100, 105) : 0;
         let status, statusColor;
-        if (daysElapsed < 5) { status = "🔍 מוקדם להעריך"; statusColor = "#4a7a54"; }
+        if (monthTargetMax <= 0) { status = "⚖️ חודש שמירה"; statusColor = "#4a7a54"; }
+        else if (daysElapsed < 5) { status = "🔍 מוקדם להעריך"; statusColor = "#4a7a54"; }
         else if (projected > monthTargetMax) { status = "⚡ קצב גבוה — שים לב"; statusColor = "#fb923c"; }
         else if (projected >= monthTargetMin) { status = "✅ בקצב טוב"; statusColor = "#4ade80"; }
         else if (projected >= monthTargetMin * 0.5) { status = "⚠️ קצת מאחור"; statusColor = "#fbbf24"; }
@@ -694,253 +1040,323 @@
         monthStat = { monthLost, projected, daysRemaining, pctOfMax, status, statusColor };
       }
 
-      // ── צפי הגעה ליעד לפי קו היעד ──
-      const weeksToGoal = (() => {
-        let w = last, n = 0;
-        const firstDate = parseDMYDate(entries[0]);
-        const lastDate  = parseDMYDate(entries[entries.length - 1]) || today;
-        let elapsed = firstDate ? (lastDate - firstDate) / (7 * 86400000) : 0;
-        while (w > GOAL_W && n < 200) { w *= (elapsed + n < 4 ? 0.992 : 0.9955); n++; }
-        return n;
-      })();
+      // ── מצב נוכחי ──
+      // Each number with an arrow against the mean of its last 3 readings and its change
+      // since the first reading ("▼ 0.6 מאז 19/08"). Lower is better, except
+      // lean mass, where a drop is amber rather than red.
+      const shortDMY = e => { const p = (e.date || "").split("."); return p.length >= 2 ? p[0] + "/" + p[1] : "התחלה"; };
+      const trendOf = (d, higherIsBetter, badColor = "#f87171") => {
+        if (Math.abs(d) < 0.05) return { arrow: "–", color: "#4a7a54" };
+        const good = higherIsBetter ? d > 0 : d < 0;
+        return { arrow: d > 0 ? "▲" : "▼", color: good ? "#4ade80" : badColor };
+      };
+      const fmtNum = v => +v.toFixed(1);
+      // Value column = HEADLINE (raw). Arrow and "מאז" columns = TREND: today's
+      // latest waist with the smoothed neck and the 7-day weight, against the
+      // last-3-readings baseline and the first trend reading.
+      const firstComp = trendSeries.length ? trendSeries[0] : null;
+      const todayDMY = `${String(today.getDate()).padStart(2, "0")}.${String(today.getMonth() + 1).padStart(2, "0")}.${today.getFullYear()}`;
+      // Deliberate mismatch: trendNow uses the SMOOTHED neck (median of the last
+      // 3) and 7-day weight, while the headline beside it uses the latest RAW
+      // readings. After one bad neck reading the two disagree on purpose — e.g.
+      // headline 18.6% from neck 39, while the "מאז" column already treats 39
+      // as an outlier. The grey inputs line under body fat shows the raw inputs,
+      // which is what makes the disagreement readable. Don't "fix" it by
+      // feeding one into the other.
+      const trendNow = lastWaist !== null
+        ? buildCompositionSeries([{ cm: lastWaist, date: todayDMY }], trendNeckEntries, trendWeightEntries)[0] || null
+        : null;
+      const firstTrendWeight = trendWeightEntries.length ? trendWeightEntries[0] : entries[0];
+      const trendWeightNow = trendWeightEntries.length ? trendWeightEntries[trendWeightEntries.length - 1].kg : last;
+      const compBaseline   = arrowBaseline(trendSeries, today);
+      const weightBaseline = arrowBaseline(trendWeightEntries, today);   // only .kg is meaningful for weigh-ins
+      const waistUnchanged = firstComp !== null && lastWaist === firstComp.waist;
+      const weeksFor = (c, d) => c ? weeksToTarget(periods, c.kg, d, expectedWeight(c.leanMass, targetBF)) : null;
+      const weeksTrendNow = weeksFor(trendNow, lastDate);
+      const weeksBaseline = compBaseline ? weeksFor(compBaseline, today) : null;
+      const weeksFirst = firstComp ? weeksFor(firstComp, parseDMYDate(firstComp)) : null;
 
-      const Stat = ({ label, value, color, sub }) => (
-        <div style={{ flex: 1, background: "#0d1f10", borderRadius: 10, border: "1px solid #1a3a1f", padding: "10px 6px", textAlign: "center" }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color, fontFamily: "monospace" }}>{value}</div>
-          <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 2 }}>{label}</div>
-          {sub ? <div style={{ fontSize: 9, color: "#4a7a54", marginTop: 2 }}>{sub}</div> : null}
-        </div>
-      );
+      // What fed the headline body-fat number, so a surprising value can be
+      // checked without opening the history. Nudges when the neck is >6 weeks
+      // old (a stale neck quietly biases body fat); the reading is still used.
+      const lastWaistEntry = waistEntries.length ? waistEntries[waistEntries.length - 1] : null;
+      const lastNeckEntry  = neckEntries.length  ? neckEntries[neckEntries.length - 1]  : null;
+      const dotDate = e => (e.date || "").split(".").slice(0, 2).join(".");
+      const neckAgeDays = lastNeckEntry && parseDMYDate(lastNeckEntry)
+        ? Math.round((addDays(today, 0) - parseDMYDate(lastNeckEntry)) / DAY_MS) : null;
+      const bodyFatInputs = (bodyFat !== null && lastWaistEntry && lastNeckEntry)
+        ? `מחושב מבטן ${lastWaistEntry.cm} (${dotDate(lastWaistEntry)}) · צוואר ${lastNeckEntry.cm} (${dotDate(lastNeckEntry)})`
+          + (neckAgeDays !== null && neckAgeDays > 42 ? ` · לפני ${Math.floor(neckAgeDays / 7)} שב׳` : "")
+        : null;
 
-      const dataError = entriesErr || waistErr || neckErr || customMealsErr || checkedErr || eatTypesErr || actTypesErr || menuOverridesErr;
+      const nowRows = [
+        { label: "⚖️ משקל", value: `${last} ק״ג`, cur: trendWeightNow, avg: weightBaseline && weightBaseline.kg,
+          first: firstTrendWeight.kg, firstLabel: shortDMY(firstTrendWeight) },
+        { label: "🔥 אחוז שומן", value: bodyFat !== null ? `${bodyFat}%` : "—", cur: trendNow && trendNow.bodyFat, avg: compBaseline && compBaseline.bodyFat,
+          first: firstComp && firstComp.bodyFat, firstLabel: firstComp && shortDMY(firstComp), hint: bodyFatInputs },
+        { label: "📏 בטן", value: lastWaist !== null ? `${lastWaist} ס״מ` : "—", cur: lastWaist, avg: compBaseline && compBaseline.waist,
+          first: waistEntries.length ? waistEntries[0].cm : null, firstLabel: waistEntries.length ? shortDMY(waistEntries[0]) : null },
+        { label: "💪 מסה רזה", value: leanMass !== null ? `${leanMass} ק״ג` : "—", cur: trendNow && trendNow.leanMass, avg: compBaseline && compBaseline.leanMass,
+          first: firstComp && firstComp.leanMass, firstLabel: firstComp && shortDMY(firstComp), higherIsBetter: true, badColor: "#fbbf24",
+          muted: waistUnchanged },
+        { label: "🔥 מסת שומן", value: fatMass !== null ? `${fatMass} ק״ג` : "—", cur: trendNow && trendNow.fatMass, avg: compBaseline && compBaseline.kg - compBaseline.leanMass,
+          first: firstComp && firstComp.fatMass, firstLabel: firstComp && shortDMY(firstComp) },
+        { label: "🎯 זמן ליעד", value: weeksToGoal === null ? "—" : weeksToGoal === 0 ? "✓" : `~${weeksToGoal} שב׳`,
+          cur: weeksTrendNow, avg: weeksBaseline, first: weeksFirst, firstLabel: firstComp && shortDMY(firstComp) },
+      ].map(r => {
+        const has = v => v !== null && v !== undefined && !isNaN(v);
+        const vsAvg = has(r.cur) && has(r.avg) ? trendOf(r.cur - r.avg, r.higherIsBetter, r.badColor) : null;
+        const since = has(r.cur) && has(r.first) ? trendOf(r.cur - r.first, r.higherIsBetter, r.badColor) : null;
+        return { ...r, vsAvg,
+          since: since && { color: r.muted ? "#4a7a54" : since.color, text: `${since.arrow} ${Math.abs(fmtNum(r.cur - r.first))} מאז ${r.firstLabel}` } };
+      });
+
+      const dataError = entriesErr || waistErr || neckErr || customMealsErr || checkedErr || eatTypesErr || actTypesErr || menuOverridesErr || periodsErr;
       if (dataError) return <DataError message={dataError} />;
 
       return (
         <div style={{ padding: "14px 14px 0" }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-            <Stat label="משקל נוכחי" value={last + " ק״ג"} color="#4ade80" />
-            <Stat label="ירדת" value={lost + " ק״ג"} color="#60a5fa" />
-            <Stat label="נותר" value={remaining + " ק״ג"} color="#f87171" />
-          </div>
-
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
-              <span style={{ color: "#4ade80", fontWeight: 700 }}>🎯 יעד: {GOAL_W} ק״ג</span>
-              <span style={{ color: "#4a7a54" }}>~{weeksToGoal} שבועות בקצב היעד</span>
+          {regression && (
+            <div style={{ background: "#2e1f0a", border: "1px solid #5a4a1a", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontSize: 12, color: "#fbbf24", lineHeight: 1.8 }}>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>⚠️ המגמה התהפכה — 4 שבועות</div>
+              <div style={{ color: "#e0f0e0" }}>
+                שומן ▲ {regression.bf}% &nbsp;·&nbsp; בטן {regression.waist > 0 ? "▲" : "–"} {regression.waist} ס״מ
+              </div>
+              <div style={{ color: "#e0f0e0" }}>הזמן ליעד: {regression.weeksBefore ?? "—"} → {regression.weeksNow ?? "—"} שבועות</div>
+              <div style={{ color: "#c8a060", fontSize: 11 }}>בדוק: ממוצע 7 ימים · רישום ארוחות · אלכוהול</div>
             </div>
-            <div style={{ height: 10, background: "#1a3a1f", borderRadius: 5, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: pct + "%", borderRadius: 5, background: "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.5s" }} />
-            </div>
-            <div style={{ textAlign: "center", fontSize: 11, color: "#4a7a54", marginTop: 5 }}>{pct.toFixed(1)}% מהדרך</div>
-          </div>
+          )}
 
-          {/* ── ממוצע 7 ימים ── */}
-          {weekStat && (
-            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <span style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>📊 ממוצע 7 ימים</span>
-                <span style={{ fontSize: 10, color: "#4a7a54" }}>{weekStat.n}/7 ימים עם נתונים</span>
-              </div>
-              {[["נאכל בממוצע", weekStat.avgCal.toLocaleString() + " קל׳", "#e0f0e0"],
-                ["הוצאה בממוצע", weekStat.avgTDEE.toLocaleString() + " קל׳", "#60a5fa"]].map(([l,v,c]) => (
-                <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0b1a0d", borderRadius: 8, padding: "9px 12px", marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: "#4a7a54" }}>{l}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: c, fontFamily: "monospace" }}>{v}</span>
-                </div>
-              ))}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: weekStat.deficit > 0 ? "#0d2e18" : "#2e0d0d", border: `1px solid ${weekStat.deficit > 0 ? "#1e4a2e" : "#4a1e1e"}`, borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
-                <span style={{ fontSize: 12, color: weekStat.deficit > 0 ? "#4ade80" : "#f87171", fontWeight: 700 }}>{weekStat.deficit > 0 ? "גירעון יומי ממוצע" : "עודף יומי ממוצע"}</span>
-                <span style={{ fontSize: 15, fontWeight: 700, color: weekStat.deficit > 0 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>{weekStat.deficit > 0 ? "▼" : "▲"} {Math.abs(weekStat.deficit).toLocaleString()} קל׳</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0b1a0d", borderRadius: 8, padding: "9px 12px" }}>
-                <span style={{ fontSize: 11, color: "#4a7a54" }}>צפי ירידה שבועי</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#a78bfa", fontFamily: "monospace" }}>{weekStat.kgWeek} ק״ג · {weekStat.pctWeek}%</span>
-              </div>
-              {weekStat.deficit > 900 && <div style={{ fontSize: 10, color: "#fbbf24", marginTop: 8 }}>⚠️ גירעון מעל 900 קל׳ — מעל הסף שהמחקר ממליץ עליו לשמירת מסת שריר</div>}
-              <div style={{ display: "flex", gap: 3, marginTop: 10 }}>
-                {weekDays.map(d => {
-                  const h = d.cal === null ? 0 : Math.min(Math.round(d.cal / 3500 * 40), 44);
-                  const col = d.cal === null ? "#1a3a1f" : d.cal > d.tdee ? "#f87171" : d.cal > PLAN_CAL * 1.15 ? "#fbbf24" : "#4ade80";
-                  return (
-                    <div key={d.dateStr} style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ height: 44, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-                        <div style={{ width: "100%", height: Math.max(h, 3), background: col + "44", border: `1px solid ${col}`, borderRadius: 3 }} />
-                      </div>
-                      <div style={{ fontSize: 8, color: "#4a7a54", marginTop: 3 }}>{d.name}</div>
-                      <div style={{ fontSize: 8, color: col, fontFamily: "monospace" }}>{d.cal === null ? "—" : d.cal}</div>
-                    </div>
-                  );
-                })}
+          {leanAlert && (
+            <div style={{ background: "#2e1f0a", border: "1px solid #5a4a1a", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontSize: 12, color: "#fbbf24", lineHeight: 1.8 }}>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>⚠️ מסה רזה ▼ {leanAlert.kg} ק״ג — הגירעון אגרסיבי מדי. שקול להוסיף ~150 קלוריות ליום.</div>
+              <div style={{ color: "#c8a060", fontSize: 11 }}>
+                ממוצע 28 יום: מסה רזה {leanAlert.leanFrom} → {leanAlert.leanTo} ק״ג · בטן {leanAlert.waistFrom} → {leanAlert.waistTo} ס״מ
               </div>
             </div>
           )}
 
-          {/* ── פרטים אישיים ── */}
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>📊 פרטים אישיים</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-              {[
-                ["🎂 גיל", `${age}`, `עוד ${daysToNextBday} ימים ל-${age + 1}`],
-                ["📏 גובה", `${(HEIGHT_CM/100).toFixed(2)} מ׳`, ""],
-                ["📐 BMI", `${bmi}`, bmi < 18.5 ? "תת משקל" : bmi < 25 ? "תקין" : bmi < 30 ? "עודף קל" : "עודף"],
-                ["🔥 אחוז שומן", bodyFat !== null ? `${bodyFat}%` : "—", bodyFat !== null ? "נוסחת חיל הים" : "הוסף מדידות היקף"],
-              ].map(([l, v, sub]) => (
-                <div key={l} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
-                  <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>{l}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#e0f0e0", fontFamily: "monospace" }}>{v}</div>
-                  {sub ? <div style={{ fontSize: 9, color: "#4a7a54", marginTop: 2 }}>{sub}</div> : null}
-                </div>
-              ))}
-            </div>
+          {/* ── יעד: one quiet line, always visible ── */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 12px", alignItems: "baseline", fontSize: 11, color: "#4a7a54", padding: "0 4px", marginBottom: 8 }}>
+            <span style={{ color: "#4ade80", fontWeight: 700 }}>🎯 {holding ? "שמירה על" : "יעד:"} {targetBF}% שומן</span>
+            {hasComp && <span>משקל <span style={{ color: "#e0f0e0", fontFamily: "monospace" }}>{goalKg.toFixed(1)}</span> ק״ג</span>}
+            <span>בטן <span style={{ color: "#e0f0e0", fontFamily: "monospace" }}>{WAIST_GOAL[0]}–{WAIST_GOAL[1]}</span> ס״מ</span>
+          </div>
 
-            {bodyFat !== null && (
-              <>
-                <div style={{ fontSize: 11, color: "#a78bfa", fontWeight: 700, marginBottom: 6 }}>⚖️ הרכב גוף</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                  <div style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
-                    <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>🔥 מסת שומן</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "#f87171", fontFamily: "monospace" }}>{fatMass} ק״ג</div>
-                  </div>
-                  <div style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
-                    <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>💪 מסה רזה</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "#4ade80", fontFamily: "monospace" }}>{leanMass} ק״ג</div>
-                  </div>
-                </div>
-              </>
+          {/* ── מצב נוכחי ── */}
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+              <span style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>📍 מצב נוכחי</span>
+              <span style={{ fontSize: 9, color: "#4a7a54" }}>חץ: מול ממוצע 3 המדידות האחרונות</span>
+            </div>
+            {nowRows.map(r => (
+              <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1.25fr 1fr 22px 1.35fr", alignItems: "center", gap: 6, padding: "6px 0", borderBottom: "1px solid #0f2a12" }}>
+                <span style={{ fontSize: 12, color: "#c8e8c8" }}>{r.label}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#e0f0e0" }}>{r.value}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, textAlign: "center", color: r.vsAvg ? r.vsAvg.color : "#4a7a54" }}>{r.vsAvg ? r.vsAvg.arrow : ""}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: r.since ? r.since.color : "#4a7a54" }}>{r.since ? r.since.text : ""}</span>
+                {r.hint && <div style={{ gridColumn: "1 / -1", fontSize: 9, color: "#4a7a54", marginTop: -3 }}>{r.hint}</div>}
+              </div>
+            ))}
+            {waistUnchanged && firstComp && trendNow && (trendNow.fatMass !== firstComp.fatMass || trendNow.leanMass !== firstComp.leanMass) && (
+              <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 8, lineHeight: 1.5 }}>
+                היקף הבטן לא השתנה — כל השינוי נובע ממדידת הצוואר, שרגישה לשגיאת מדידה. עקוב אחרי מגמת היקף הבטן.
+              </div>
             )}
-
-            <div style={{ fontSize: 11, color: "#4ade80", fontWeight: 700, marginBottom: 6 }}>🔥 קלוריות</div>
-            <div style={{ fontSize: 11, color: "#c8e8c8", lineHeight: 2 }}>
-              BMR ({bodyFat !== null ? "Katch-McArdle" : "Mifflin-St Jeor"}): <span style={{ color: "#4ade80", fontWeight: 700 }}>{bmr.toLocaleString()} קל׳</span><br/>
-              {ACT_TYPES.map(a => (
-                <span key={a.key}>{a.label}: <span style={{ color: "#60a5fa", fontWeight: 700 }}>{Math.round(bmr * a.mult).toLocaleString()} קל׳</span><br/></span>
-              ))}
-            </div>
-            <div style={{ marginTop: 8, background: "#0b1a0d", borderRadius: 8, border: "1px solid #1e4a2e", padding: "8px 10px" }}>
-              <div style={{ fontSize: 11, color: "#fbbf24", fontWeight: 700, marginBottom: 4 }}>⚡ גירעון בתפריט מלא ({PLAN_CAL.toLocaleString()} קל׳)</div>
-              <div style={{ fontSize: 11, color: "#c8e8c8", lineHeight: 1.9 }}>
-                {ACT_TYPES.map(a => {
-                  const def = Math.round(bmr * a.mult) - PLAN_CAL;
-                  return <span key={a.key}>{a.label}: <span style={{ color: def > 900 ? "#fbbf24" : "#4ade80", fontWeight: 700 }}>{def > 0 ? "▼" : "▲"} {Math.abs(def)} קל׳</span><br/></span>;
-                })}
-              </div>
-            </div>
-            <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 8, lineHeight: 1.6 }}>
-              חלבון בתפריט: {PLAN_PRO}g = {(PLAN_PRO/last).toFixed(2)} g/ק״ג משקל{leanMass ? ` · ${(PLAN_PRO/leanMass).toFixed(2)} g/ק״ג מסה רזה` : ""}. מומלץ בגירעון עם אימוני כוח: 1.6–2.2 g/ק״ג.
-            </div>
           </div>
-
-          {monthStat && (
-            <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, marginBottom: 10 }}>
-                <span style={{ color: "#4ade80", fontWeight: 700 }}>📅 יעד חודשי: {monthTargetMin}–{monthTargetMax} ק״ג</span>
-                <span style={{ color: monthStat.statusColor, fontWeight: 700, fontSize: 11 }}>{monthStat.status}</span>
-              </div>
-              <div style={{ position: "relative", height: 10, background: "#1a3a1f", borderRadius: 5, marginBottom: 8 }}>
-                <div style={{ position: "absolute", top: 0, right: 0, height: "100%", width: monthStat.pctOfMax + "%", borderRadius: 5, background: "linear-gradient(90deg,#fbbf24,#4ade80)", transition: "width 0.5s" }} />
-                {[monthTargetMin, monthTargetMax].map(t => (
-                  <div key={t} style={{ position: "absolute", top: -3, right: (t/monthTargetMax*100) + "%", width: 2, height: 16, background: "#4a7a54", borderRadius: 1 }} />
-                ))}
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#4a7a54" }}>
-                <span>ירדת החודש: <span style={{ color: "#e0f0e0", fontWeight: 700 }}>{monthStat.monthLost} ק״ג</span></span>
-                <span>תחזית: <span style={{ color: "#60a5fa", fontWeight: 700 }}>{monthStat.projected} ק״ג</span></span>
-                <span>{monthStat.daysRemaining} ימים נותרו</span>
-              </div>
-            </div>
-          )}
-
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
-            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 8 }}>📈 גרף משקל</div>
-            <TrendGraph entries={entries} valueField="kg" unit="ק״ג" goal={GOAL_W} color="#4ade80" idealFn={idealWeightAt} showIdeal={true} />
-            <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 6, lineHeight: 1.6 }}>
-              קו היעד: 0.8% ממשקל הגוף בשבוע בחודש הראשון, 0.45% אחריו — מבוסס על מחקרים שמצאו שקצב זה משמר מסת שריר.
-            </div>
-          </div>
-
-          <MeasurementCard
-            entries={entries} onAdd={addWeightEntry} valueField="kg" unit="ק״ג" min={50} max={130}
-            addLabel="➕ הוסף שקילה" addPlaceholder="למשל: 79.5"
-            addHint="💡 בוקר, בצום, אותה שעה ואותם בגדים" historyLabel="📋 היסטוריית שקילות" />
-
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
-            <div style={{ fontSize: 12, color: "#60a5fa", fontWeight: 700, marginBottom: 8 }}>📏 גרף היקף בטן</div>
-            <TrendGraph entries={waistEntries} valueField="cm" unit="ס״מ" goal={null} color="#60a5fa" idealFn={null} showIdeal={false} />
-            <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 6, lineHeight: 1.6 }}>
-              היקף הבטן מודד שומן ויסרלי ישירות — הוא ממשיך לרדת גם כשהמשקל עומד במקום בגלל שריר או מים.
-            </div>
-          </div>
-
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
-            <div style={{ fontSize: 12, color: "#fb923c", fontWeight: 700, marginBottom: 8 }}>🔥 גרף אחוז שומן</div>
-            <TrendGraph entries={compositionSeries} valueField="bodyFat" unit="%" goal={null} color="#fb923c" idealFn={null} showIdeal={false} />
-          </div>
-
-          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
-            <div style={{ fontSize: 12, color: "#e0f0e0", fontWeight: 700, marginBottom: 8 }}>⚖️ שומן מול מסה רזה</div>
-            <CompositionMassGraph entries={compositionSeries} />
-          </div>
-
-          {compositionSeries.length > 0 && (() => {
-            const first = compositionSeries[0];
-            const latest = compositionSeries[compositionSeries.length - 1];
-            const fatDelta = +(latest.fatMass - first.fatMass).toFixed(1);
-            const leanDelta = +(latest.leanMass - first.leanMass).toFixed(1);
-            const waistDelta = +(latest.waist - first.waist).toFixed(1);
-            // Waist unchanged but the derived trend still moved means the whole
-            // delta comes from the neck term — the Navy formula is very
-            // sensitive to it. Don't flag that as a real lean-mass change.
-            const waistUnchanged = latest.waist === first.waist;
-            const firstShort = (() => { const p = first.date.split("."); return p[0] + "/" + p[1]; })();
-            const fatColor = fatDelta < 0 ? "#4ade80" : fatDelta > 0 ? "#f87171" : "#4a7a54";
-            const fatArrow = fatDelta < 0 ? "▼" : fatDelta > 0 ? "▲" : "–";
-            const leanOk = leanDelta >= 0;
-            const leanColor = waistUnchanged ? "#4a7a54" : (leanOk ? "#4ade80" : "#fbbf24");
-            const leanArrow = leanDelta > 0 ? "▲" : leanDelta < 0 ? "▼" : "–";
-            const waistColor = waistDelta < 0 ? "#4ade80" : waistDelta > 0 ? "#f87171" : "#4a7a54";
-            const waistArrow = waistDelta < 0 ? "▼" : waistDelta > 0 ? "▲" : "–";
-            return (
-              <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
-                <div style={{ fontSize: 12, color: "#e0f0e0", fontWeight: 700, marginBottom: 10 }}>📊 מגמת הרכב גוף</div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
-                  <span style={{ fontSize: 13 }}>📏 היקף בטן</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0" }}>{latest.waist} ס״מ</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: waistColor }}>{waistArrow} {Math.abs(waistDelta)} מאז {firstShort}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
-                  <span style={{ fontSize: 13 }}>🔥 מסת שומן</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0" }}>{latest.fatMass} ק״ג</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: fatColor }}>{fatArrow} {Math.abs(fatDelta)} מאז {firstShort}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 13 }}>💪 מסה רזה</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#e0f0e0" }}>{latest.leanMass} ק״ג</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: leanColor }}>
-                    {leanArrow} {Math.abs(leanDelta)} {waistUnchanged ? "" : (leanOk ? "— שריר נשמר ✓" : "— שים לב")}
-                  </span>
-                </div>
-                {waistUnchanged && (fatDelta !== 0 || leanDelta !== 0) && (
-                  <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 10, lineHeight: 1.5 }}>
-                    היקף הבטן לא השתנה — כל השינוי נובע ממדידת הצוואר, שרגישה לשגיאת מדידה. עקוב אחרי מגמת היקף הבטן.
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
           <div style={{ fontSize: 10, color: "#4a7a54", lineHeight: 1.6, padding: "0 2px", marginBottom: 12 }}>
+            היקף הבטן מודד שומן ויסרלי ישירות — הוא ממשיך לרדת גם כשהמשקל עומד במקום בגלל שריר או מים.
             אחוז השומן מחושב מהיקף בטן פחות היקף צוואר. הצוואר כמעט לא משתנה — מספיק למדוד אותו פעם בחודש. הבטן היא המדד שזז, כדאי שבועית.
           </div>
 
-          <MeasurementCard
-            entries={waistEntries} onAdd={addWaistEntry} valueField="cm" unit="ס״מ" min={40} max={200}
-            sectionTitle="📏 היקף בטן" addLabel="➕ הוסף מדידה" addPlaceholder="היקף בטן, למשל: 90"
-            addHint="💡 בגובה הטבור, בבוקר, בנשיפה רגילה" historyLabel="📋 היסטוריית מדידות" />
+          {/* ── הוספת מדידה ── */}
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700, marginBottom: 10 }}>➕ הוספת מדידה</div>
+            <MeasurementCard part="form"
+              entries={entries} onAdd={addWeightEntry} valueField="kg" unit="ק״ג" min={50} max={130}
+              addLabel="⚖️ משקל" addPlaceholder="למשל: 79.5"
+              addHint="💡 בוקר, בצום, אותה שעה ואותם בגדים" />
+            <MeasurementCard part="form"
+              entries={waistEntries} onAdd={addWaistEntry} valueField="cm" unit="ס״מ" min={40} max={200}
+              addLabel="📏 היקף בטן" addPlaceholder="היקף בטן, למשל: 90"
+              addHint="💡 בגובה הטבור, בבוקר, בנשיפה רגילה" />
+            <MeasurementCard part="form"
+              entries={neckEntries} onAdd={addNeckEntry} valueField="cm" unit="ס״מ" min={20} max={60} checkValue={checkNeck}
+              addLabel="📏 היקף צוואר" addPlaceholder="היקף צוואר, למשל: 40"
+              addHint="💡 מתחת לגרוגרת, בבוקר ובאותם תנאים" />
+          </div>
 
-          <MeasurementCard
-            entries={neckEntries} onAdd={addNeckEntry} valueField="cm" unit="ס״מ" min={20} max={60}
-            sectionTitle="📏 היקף צוואר" addLabel="➕ הוסף מדידה" addPlaceholder="היקף צוואר, למשל: 40"
-            addHint="💡 מתחת לגרוגרת, בבוקר ובאותם תנאים" historyLabel="📋 היסטוריית מדידות" />
+          <div style={{ background: "#0d1f10", borderRadius: 12, border: "1px solid #1a3a1f", padding: 14, marginBottom: 12, overflowX: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ fontSize: 12, color: "#4ade80", fontWeight: 700 }}>📈 גרף משקל</div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {[["weekly", "ממוצע שבועי"], ["daily", "מדידות יומיות"]].map(([k, l]) => (
+                  <button key={k} onClick={() => setGraphMode(k)} style={{ background: graphMode === k ? "#1e3a2a" : "transparent", border: `1px solid ${graphMode === k ? "#4ade80" : "#2d5a3a"}`, borderRadius: 6, padding: "3px 8px", color: graphMode === k ? "#4ade80" : "#4a7a54", fontWeight: 700, cursor: "pointer", fontSize: 10, fontFamily: "inherit" }}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <TrendGraph key={graphMode} entries={graphMode === "weekly" && weeklyPoints.length ? weeklyPoints : entries}
+              startDate={graphMode === "weekly" && weeklyPoints.length ? parseDMYDate(byDate(entries)[0]) : undefined}
+              actualLabel={graphMode === "weekly" && weeklyPoints.length ? "ממוצע שבועי" : undefined}
+              valueField="kg" unit="ק״ג" color="#4ade80" target={{
+              series: targetSeries,
+              historyFn: w => idealWeightAt(entries[0].kg, w),
+              band: bandKg,
+              markerDate: GOAL_START.date,
+              markerLabel: "יעד חדש: 17% שומן",
+              endDate: graphEnd,
+            }} />
+            <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 6, lineHeight: 1.6 }}>
+              קו היעד: 0.8% ממשקל הגוף בשבוע בחודש הראשון, 0.45% אחריו — מבוסס על מחקרים שמצאו שקצב זה משמר מסת שריר.
+              מ-{GOAL_START.date} הקו עוקב אחרי התקופות: חיטוב יורד, שמירה שטוחה, בנייה עולה, והוא נעצר במשקל הצפוי ביעד.
+            </div>
+          </div>
+
+          <Section id="periods" title="🗓️ תקופות">
+            <PeriodModesCard periods={periods} setPeriods={setPeriods} />
+          </Section>
+
+          <Section id="goals" title="🎯 יעדים">
+            <div style={{ fontSize: 11, color: "#c8e8c8", marginBottom: 8 }}>
+              נותר: <span style={{ color: "#f87171", fontWeight: 700, fontFamily: "monospace" }}>{gapKg === null ? "—" : gapKg > 0 ? gapKg + " ק״ג" : "✓"}</span>
+              {hasComp && <span style={{ color: "#4a7a54" }}> ל-{targetBF}% שומן</span>}
+              {hasComp && !holding && <span style={{ color: "#4a7a54" }}> · {weeksToGoal === null ? "—" : weeksToGoal === 0 ? "בטווח ✓" : `~${weeksToGoal} שבועות בקצב היעד`}</span>}
+            </div>
+            {hasComp ? <>
+              <div style={{ height: 10, background: "#1a3a1f", borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: pct + "%", borderRadius: 5, background: "linear-gradient(90deg,#166534,#4ade80)", transition: "width 0.5s" }} />
+              </div>
+              <div style={{ textAlign: "center", fontSize: 11, color: "#4a7a54", marginTop: 5 }}>{pct.toFixed(1)}% מהדרך · נוכחי {bodyFat}%</div>
+              <div style={{ fontSize: 11, color: "#c8e8c8", marginTop: 8, lineHeight: 1.8 }}>
+                משקל צפוי ביעד: <span style={{ color: "#4ade80", fontWeight: 700, fontFamily: "monospace" }}>{bandKg[0].toFixed(1)}–{bandKg[1].toFixed(1)} ק״ג</span>
+                <span style={{ color: "#4a7a54" }}> ({targetBF - BF_BAND}%–{targetBF + BF_BAND}%, לפי מסה רזה {leanMass} ק״ג)</span>
+                {goalWaist !== null && <><br/>בטן ביעד: <span style={{ color: "#60a5fa", fontWeight: 700, fontFamily: "monospace" }}>~{goalWaist.toFixed(1)} ס״מ</span></>}
+                {reachedBF.length > 0 && <><br/><span style={{ color: "#4ade80" }}>✓ הושג (ממוצע 4 שבועות): {reachedBF.map(m => m + "%").join(", ")}</span></>}
+              </div>
+            </> : (
+              <div style={{ fontSize: 11, color: "#4a7a54" }}>הוסף מדידות היקף בטן וצוואר כדי לחשב את היעד</div>
+            )}
+            <div style={{ borderTop: "1px solid #1a3a1f", marginTop: 10, paddingTop: 8, fontSize: 11, color: "#c8e8c8", lineHeight: 1.9 }}>
+              📏 יעד משני: בטן {WAIST_GOAL[0]}–{WAIST_GOAL[1]} ס״מ
+              <span style={{ color: waistInGoal ? "#4ade80" : "#4a7a54" }}> · נוכחי {lastWaist ?? "—"}{waistInGoal ? " ✓" : ""}</span>
+              {!holding && targetBF !== stretchBF && hasComp && (
+                <div style={{ color: "#4a7a54" }}>
+                  ⭐ יעד מתיחה: {stretchBF}% — {expectedWeight(leanMass, stretchBF).toFixed(1)} ק״ג
+                  {lastNeck !== null && ` · בטן ~${waistForBodyFat(stretchBF, lastNeck).toFixed(1)} ס״מ`}
+                </div>
+              )}
+            </div>
+          </Section>
+
+          <Section id="week" title="📊 ממוצע 7 ימים">
+            {weekStat ? (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                                  <span style={{ fontSize: 10, color: "#4a7a54" }}>{weekStat.n}/7 ימים עם נתונים</span>
+                </div>
+                {[["נאכל בממוצע", weekStat.avgCal.toLocaleString() + " קל׳", "#e0f0e0"],
+                  ["הוצאה בממוצע", weekStat.avgTDEE.toLocaleString() + " קל׳", "#60a5fa"]].map(([l,v,c]) => (
+                  <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0b1a0d", borderRadius: 8, padding: "9px 12px", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: "#4a7a54" }}>{l}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: c, fontFamily: "monospace" }}>{v}</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: weekStat.deficit > 0 ? "#0d2e18" : "#2e0d0d", border: `1px solid ${weekStat.deficit > 0 ? "#1e4a2e" : "#4a1e1e"}`, borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: weekStat.deficit > 0 ? "#4ade80" : "#f87171", fontWeight: 700 }}>{weekStat.deficit > 0 ? "גירעון יומי ממוצע" : "עודף יומי ממוצע"}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: weekStat.deficit > 0 ? "#4ade80" : "#f87171", fontFamily: "monospace" }}>{weekStat.deficit > 0 ? "▼" : "▲"} {Math.abs(weekStat.deficit).toLocaleString()} קל׳</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0b1a0d", borderRadius: 8, padding: "9px 12px" }}>
+                  <span style={{ fontSize: 11, color: "#4a7a54" }}>צפי ירידה שבועי</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#a78bfa", fontFamily: "monospace" }}>{weekStat.kgWeek} ק״ג · {weekStat.pctWeek}%</span>
+                </div>
+                {weekStat.deficit > 900 && <div style={{ fontSize: 10, color: "#fbbf24", marginTop: 8 }}>⚠️ גירעון מעל 900 קל׳ — מעל הסף שהמחקר ממליץ עליו לשמירת מסת שריר</div>}
+                <div style={{ display: "flex", gap: 3, marginTop: 10 }}>
+                  {weekDays.map(d => {
+                    const h = d.cal === null ? 0 : Math.min(Math.round(d.cal / 3500 * 40), 44);
+                    const col = d.cal === null ? "#1a3a1f" : d.cal > d.tdee ? "#f87171" : d.cal > PLAN_CAL * 1.15 ? "#fbbf24" : "#4ade80";
+                    return (
+                      <div key={d.dateStr} style={{ flex: 1, textAlign: "center" }}>
+                        <div style={{ height: 44, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                          <div style={{ width: "100%", height: Math.max(h, 3), background: col + "44", border: `1px solid ${col}`, borderRadius: 3 }} />
+                        </div>
+                        <div style={{ fontSize: 8, color: "#4a7a54", marginTop: 3 }}>{d.name}</div>
+                        <div style={{ fontSize: 8, color: col, fontFamily: "monospace" }}>{d.cal === null ? "—" : d.cal}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : <div style={{ fontSize: 11, color: "#4a7a54" }}>אין נתוני אכילה מ-7 הימים האחרונים</div>}
+          </Section>
+
+          <Section id="personal" title="📊 פרטים אישיים">
+            <div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+                {[
+                  ["🎂 גיל", `${age}`, `עוד ${daysToNextBday} ימים ל-${age + 1}`],
+                  ["📏 גובה", `${(HEIGHT_CM/100).toFixed(2)} מ׳`, ""],
+                  ["📐 BMI", `${bmi}`, bmi < 18.5 ? "תת משקל" : bmi < 25 ? "תקין" : bmi < 30 ? "עודף קל" : "עודף"],
+                ].map(([l, v, sub]) => (
+                  <div key={l} style={{ background: "#0b1a0d", borderRadius: 8, border: "1px solid #1a3a1f", padding: "8px 10px" }}>
+                    <div style={{ fontSize: 10, color: "#4a7a54", marginBottom: 2 }}>{l}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#e0f0e0", fontFamily: "monospace" }}>{v}</div>
+                    {sub ? <div style={{ fontSize: 9, color: "#4a7a54", marginTop: 2 }}>{sub}</div> : null}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontSize: 11, color: "#4ade80", fontWeight: 700, marginBottom: 6 }}>🔥 קלוריות</div>
+              <div style={{ fontSize: 11, color: "#c8e8c8", lineHeight: 2 }}>
+                BMR ({bodyFat !== null ? "Katch-McArdle" : "Mifflin-St Jeor"}): <span style={{ color: "#4ade80", fontWeight: 700 }}>{bmr.toLocaleString()} קל׳</span><br/>
+                {ACT_TYPES.map(a => (
+                  <span key={a.key}>{a.label}: <span style={{ color: "#60a5fa", fontWeight: 700 }}>{Math.round(bmr * a.mult).toLocaleString()} קל׳</span><br/></span>
+                ))}
+              </div>
+              <div style={{ marginTop: 8, background: "#0b1a0d", borderRadius: 8, border: "1px solid #1e4a2e", padding: "8px 10px" }}>
+                <div style={{ fontSize: 11, color: "#fbbf24", fontWeight: 700, marginBottom: 4 }}>⚡ גירעון בתפריט מלא ({PLAN_CAL.toLocaleString()} קל׳)</div>
+                <div style={{ fontSize: 11, color: "#c8e8c8", lineHeight: 1.9 }}>
+                  {ACT_TYPES.map(a => {
+                    const def = Math.round(bmr * a.mult) - PLAN_CAL;
+                    return <span key={a.key}>{a.label}: <span style={{ color: def > 900 ? "#fbbf24" : "#4ade80", fontWeight: 700 }}>{def > 0 ? "▼" : "▲"} {Math.abs(def)} קל׳</span><br/></span>;
+                  })}
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: "#4a7a54", marginTop: 8, lineHeight: 1.6 }}>
+                חלבון בתפריט: {PLAN_PRO}g = {(PLAN_PRO/last).toFixed(2)} g/ק״ג משקל{leanMass ? ` · ${(PLAN_PRO/leanMass).toFixed(2)} g/ק״ג מסה רזה` : ""}. מומלץ בגירעון עם אימוני כוח: 1.6–2.2 g/ק״ג.
+              </div>
+            </div>
+          </Section>
+
+          <Section id="month" title="📅 יעד חודשי">
+            {monthStat ? (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, marginBottom: 10 }}>
+                  <span style={{ color: "#4ade80", fontWeight: 700 }}>טווח החודש: {monthTargetMax > 0 ? `${monthTargetMin}–${monthTargetMax} ק״ג` : "ללא ירידה"}</span>
+                  <span style={{ color: monthStat.statusColor, fontWeight: 700, fontSize: 11 }}>{monthStat.status}</span>
+                </div>
+                <div style={{ position: "relative", height: 10, background: "#1a3a1f", borderRadius: 5, marginBottom: 8 }}>
+                  <div style={{ position: "absolute", top: 0, right: 0, height: "100%", width: monthStat.pctOfMax + "%", borderRadius: 5, background: "linear-gradient(90deg,#fbbf24,#4ade80)", transition: "width 0.5s" }} />
+                  {monthTargetMax > 0 && [monthTargetMin, monthTargetMax].map(t => (
+                    <div key={t} style={{ position: "absolute", top: -3, right: (t/monthTargetMax*100) + "%", width: 2, height: 16, background: "#4a7a54", borderRadius: 1 }} />
+                  ))}
+                </div>
+                {cutFrac < 1 && (
+                  <div style={{ fontSize: 10, color: "#a78bfa", marginBottom: 6 }}>מותאם לתקופות: {monthCutDays} ימי חיטוב מתוך {daysInMonth}</div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#4a7a54" }}>
+                  <span>ירדת החודש: <span style={{ color: "#e0f0e0", fontWeight: 700 }}>{monthStat.monthLost} ק״ג</span></span>
+                  <span>תחזית: <span style={{ color: "#60a5fa", fontWeight: 700 }}>{monthStat.projected} ק״ג</span></span>
+                  <span>{monthStat.daysRemaining} ימים נותרו</span>
+                </div>
+              </div>
+            ) : <div style={{ fontSize: 11, color: "#4a7a54" }}>צריך לפחות שתי שקילות כדי לחשב את החודש</div>}
+          </Section>
+
+          <Section id="history" title="📋 היסטוריה">
+            <MeasurementCard part="history" entries={entries} valueField="kg" unit="ק״ג" historyLabel="⚖️ שקילות" />
+            <MeasurementCard part="history" entries={waistEntries} valueField="cm" unit="ס״מ" historyLabel="📏 היקף בטן" />
+            <MeasurementCard part="history" entries={neckEntries} valueField="cm" unit="ס״מ" historyLabel="📏 היקף צוואר" />
+          </Section>
         </div>
       );
     }
@@ -2537,11 +2953,37 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       const [liveVersion, setLiveVersion] = useState(null);
       const [authUser, setAuthUser] = useState(undefined);
       const [geminiReady, setGeminiReady] = useState(false);
+      const [userChecked, setUserChecked] = useState(false);
 
       useEffect(() => {
         const unsubscribe = firebase.auth().onAuthStateChanged(u => setAuthUser(u));
         return unsubscribe;
       }, []);
+
+      // The saved profile lives in localStorage with no link to the signed-in
+      // account, so it can go stale (a leftover "guest" once loaded an empty
+      // profile after sign-in and looked like data loss). Check it against
+      // _admin/users before rendering; fall back to the first valid user.
+      useEffect(() => {
+        if (!authUser) { setUserChecked(false); return; }
+        const stored = localStorage.getItem("active_user");
+        if (!stored) { setUserChecked(true); return; }
+        db.ref(`${DB_ROOT}/_admin/users`).once("value", snap => {
+          // Same fallback list UserSelect shows when _admin/users is missing.
+          const valid = snap.exists() ? Object.keys(snap.val()) : ["matan", "guest"];
+          if (!valid.includes(stored)) {
+            console.warn(`[Profile] saved active_user "${stored}" is not in _admin/users; switching to "${valid[0]}"`);
+            localStorage.setItem("active_user", valid[0]);
+            setActiveUser(valid[0]);
+          }
+          setUserChecked(true);
+        }, err => {
+          console.error("[Firebase] read failed for _admin/users:", err);
+          localStorage.removeItem("active_user");
+          setActiveUser(null);
+          setUserChecked(true);
+        });
+      }, [authUser]);
 
       useEffect(() => {
         if (!authUser) return;
@@ -2585,6 +3027,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
 
       if (authUser === undefined) return null;
       if (!authUser) return <LoginScreen />;
+      if (!userChecked) return null;
       if (adminMode && !adminAuthed) return <>{versionLabel}<AdminPinScreen onSuccess={() => setAdminAuthed(true)} onBack={() => setAdminMode(false)} /></>;
       if (adminMode && adminAuthed) return <>{versionLabel}<AdminPanel onBack={() => { setAdminMode(false); setAdminAuthed(false); }} /></>;
       if (!activeUser) return <>{versionLabel}<UserSelect onSelect={selectUser} onAdmin={() => setAdminMode(true)} /></>;
