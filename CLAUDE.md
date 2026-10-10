@@ -30,3 +30,9 @@
 - Registry: whenever this app's version or status changes, update
   `~/app-registry/index.html` (row, dated changelog line, "last updated") and
   republish it.
+
+## Known limitations (fix as one task after v2 is live)
+- Per-user constants are hardcoded to Matan and apply to every profile:
+  `GOAL_START` (07.10.2026, 77.8 kg), `START_W` (86), `HEIGHT_CM` (175),
+  `BIRTHDAY`. Another profile with dated entries would get Matan's target
+  line, body-fat formula height and age.
