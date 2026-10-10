@@ -36,3 +36,9 @@
   `GOAL_START` (07.10.2026, 77.8 kg), `START_W` (86), `HEIGHT_CM` (175),
   `BIRTHDAY`. Another profile with dated entries would get Matan's target
   line, body-fat formula height and age.
+- Checkmark flicker (shipped knowingly in v2.1, 2026-10-10): in a local test
+  with simulated 60 ms saves, three meal-checkbox clicks in a row gave 3
+  writes in order and the correct final stored value, but one sample ~450 ms
+  in showed ✓ again before it settled to the correct state. Seen once; the
+  browser extension disconnected before it could be traced. Storage was
+  correct throughout and single clicks are unaffected. Not chased.
