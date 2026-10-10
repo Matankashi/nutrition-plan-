@@ -1137,10 +1137,12 @@
           )}
 
           {/* ── יעד: one quiet line, always visible ── */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 12px", alignItems: "baseline", fontSize: 11, color: "#4a7a54", padding: "0 4px", marginBottom: 8 }}>
+          {/* Shape: 🎯 יעד: 17% שומן · 76.3 ק״ג · נותר 1.5 · בטן 85–87 */}
+          <div style={{ fontSize: 11, color: "#4a7a54", padding: "0 4px", marginBottom: 8, lineHeight: 1.6 }}>
             <span style={{ color: "#4ade80", fontWeight: 700 }}>🎯 {holding ? "שמירה על" : "יעד:"} {targetBF}% שומן</span>
-            {hasComp && <span>משקל <span style={{ color: "#e0f0e0", fontFamily: "monospace" }}>{goalKg.toFixed(1)}</span> ק״ג</span>}
-            <span>בטן <span style={{ color: "#e0f0e0", fontFamily: "monospace" }}>{WAIST_GOAL[0]}–{WAIST_GOAL[1]}</span> ס״מ</span>
+            {hasComp && <> · <span style={{ color: "#e0f0e0", fontFamily: "monospace" }}>{goalKg.toFixed(1)}</span> ק״ג</>}
+            {hasComp && <> · נותר <span style={{ color: "#f87171", fontWeight: 700, fontFamily: "monospace" }}>{gapKg > 0 ? gapKg : "✓"}</span></>}
+            {" · "}בטן <span style={{ color: "#e0f0e0", fontFamily: "monospace" }}>{WAIST_GOAL[0]}–{WAIST_GOAL[1]}</span>
           </div>
 
           {/* ── מצב נוכחי ── */}
