@@ -37,21 +37,53 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
 
     // ─── helpers ────────────────────────────────────────────────────────────────
     const db = firebase.database();
     const DB_ROOT = "nutrition";
     let CURRENT_USER = "guest";
 
+    // Every usePersist write reports here, so a failed save is always shown
+    // the same visible way (SaveStatusBanner) and never only as a console line.
+    const saveStatus = {
+      pending: 0,
+      listeners: new Set(),
+      emit(evt) { this.listeners.forEach(fn => fn(evt)); },
+    };
+    // Hebrew names for the error message; `typed` = the input keeps the value.
+    const SAVE_LABELS = {
+      weight_entries: { name: "שקילה", typed: true }, waist_entries: { name: "מדידת בטן", typed: true },
+      neck_entries: { name: "מדידת צוואר", typed: true }, period_modes_v1: { name: "תקופה", typed: true },
+      custom_meals_v1: { name: "ארוחה", typed: true }, alt_meals_v1: { name: "חלופה לארוחה", typed: true },
+      menu_override_v1: { name: "תפריט קבוע", typed: true }, plan_checked_v3: { name: "סימון ארוחה" },
+      day_eat_type_v1: { name: "תיוג אכילה" }, day_act_type_v1: { name: "תיוג פעילות" },
+      checklist_checked: { name: "משימה" }, shifts_v1: { name: "משמרת" },
+      workout_day_types_v1: { name: "סוג אימון" }, workout_exercises_v2: { name: "תרגיל" },
+    };
+
+    // Reads stream live from Firebase. A write is shown only once Firebase
+    // confirms it: until then the screen keeps the last stored value, and on
+    // failure it simply stays there while SaveStatusBanner says what failed.
+    // Writes to one key run one at a time, each built on the confirmed value,
+    // so quick successive edits can't overwrite each other. `update` returns
+    // a promise of true (stored) / false (not stored) so inputs can keep the
+    // typed value when a save fails.
     function usePersist(key, initial) {
       const [val, setVal] = useState(initial);
       const [error, setError] = useState(null);
+      const confirmedRef = useRef(initial);   // last value known to be stored
+      const pendingRef = useRef(0);           // writes awaiting Firebase
+      const queueRef = useRef(Promise.resolve());
 
       useEffect(() => {
         const path = DB_ROOT + '/' + CURRENT_USER + '/' + key;
         db.ref(path).on('value', snap => {
-          if (snap.exists()) setVal(snap.val());
+          // While our own write is unconfirmed, Firebase echoes it back locally
+          // (and reverts it if rejected); ignore those so only confirmed
+          // values reach the screen.
+          if (pendingRef.current > 0) return;
+          if (snap.exists()) { confirmedRef.current = snap.val(); setVal(snap.val()); }
         }, err => {
           console.error(`[Firebase] read failed for ${path}:`, err);
           setError(err.message);
@@ -60,14 +92,60 @@
       }, [key]);
 
       const update = (newVal) => {
-        setVal(prev => {
-          const resolved = typeof newVal === 'function' ? newVal(prev) : newVal;
-          db.ref(DB_ROOT + '/' + CURRENT_USER + '/' + key).set(resolved);
-          return resolved;
+        const run = queueRef.current.then(() => {
+          const path = DB_ROOT + '/' + CURRENT_USER + '/' + key;
+          const resolved = typeof newVal === 'function' ? newVal(confirmedRef.current) : newVal;
+          pendingRef.current++;
+          saveStatus.pending++; saveStatus.emit({ type: "start" });
+          return db.ref(path).set(resolved).then(() => {
+            confirmedRef.current = resolved;
+            setVal(resolved);
+            saveStatus.emit({ type: "ok" });
+            return true;
+          }, err => {
+            console.error(`[Firebase] write failed for ${path}:`, err);
+            saveStatus.emit({ type: "error", key, err });
+            return false;
+          }).finally(() => { pendingRef.current--; saveStatus.pending--; saveStatus.emit({ type: "settled" }); });
         });
+        queueRef.current = run;
+        return run;
       };
 
       return [val, update, error];
+    }
+
+    // One visible line for save trouble: red when a save failed, amber when a
+    // save has waited > 4 s for Firebase (offline). Never silent.
+    function SaveStatusBanner() {
+      const [failure, setFailure] = useState(null);
+      const [slow, setSlow] = useState(false);
+      useEffect(() => {
+        let timer = null;
+        const onEvent = (evt) => {
+          if (evt.type === "error") setFailure(evt);
+          if (evt.type === "start" && !timer) timer = setTimeout(() => { timer = null; if (saveStatus.pending > 0) setSlow(true); }, 4000);
+          if (evt.type === "settled" && saveStatus.pending === 0) { setSlow(false); if (timer) { clearTimeout(timer); timer = null; } }
+        };
+        saveStatus.listeners.add(onEvent);
+        return () => { saveStatus.listeners.delete(onEvent); if (timer) clearTimeout(timer); };
+      }, []);
+      if (!failure && !slow) return null;
+      const label = failure ? (SAVE_LABELS[failure.key] || { name: "השינוי" }) : null;
+      const denied = failure && /permission/i.test(String((failure.err && (failure.err.code || failure.err.message)) || ""));
+      return (
+        <div style={{ position: "sticky", top: 0, zIndex: 40, background: failure ? "#3a0d0d" : "#3a2a0a", color: failure ? "#fca5a5" : "#fbbf24",
+          borderBottom: `1px solid ${failure ? "#7f1d1d" : "#5a4a1a"}`, padding: "8px 14px", fontSize: 12, lineHeight: 1.6, display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div style={{ flex: 1 }}>
+            {failure ? <>
+              <b>⚠️ לא נשמר: {label.name}.</b>{" "}
+              {denied ? "אין הרשאה לשמור — ייתכן שהחיבור פג. צא והתחבר מחדש." : "השמירה ל-Firebase נכשלה — בדוק את החיבור."}
+              {" "}{label.typed ? "מה שהקלדת עדיין בשדה — נסה שוב." : "המסך מציג את הערך השמור — נסה שוב."}
+            </> : "⏳ שומר… עדיין אין אישור מהשרת (אין חיבור?). אל תסגור את האפליקציה."}
+          </div>
+          {failure && <button onClick={() => setFailure(null)} style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 14, padding: 0, fontFamily: "inherit" }}>✕</button>}
+        </div>
+      );
     }
 
     function DataError({ message }) {
@@ -401,14 +479,21 @@
       const toggleKey = key => setExpandedKeys(p => ({ ...p, [key]: !p[key] }));
       const [historyOpen, setHistoryOpen] = useState(false);
 
+      const [saving, setSaving] = useState(false);
+      // Clears the field only once the save is confirmed; on failure the typed
+      // value stays and SaveStatusBanner explains.
       const save = (val) => {
         const now = new Date();
         const date = now.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
-        onAdd(val, date);
-        setInput("");
+        setSaving(true);
         setPending(null);
+        Promise.resolve(onAdd(val, date)).then(ok => {
+          setSaving(false);
+          if (ok !== false) setInput("");
+        });
       };
       const handleAdd = () => {
+        if (saving) return;
         const val = parseFloat(input.replace(",", "."));
         if (isNaN(val) || val < min || val > max) return;
         const message = checkValue ? checkValue(val) : null;
@@ -471,7 +556,7 @@
               <input value={input} onChange={e => { setInput(e.target.value); setPending(null); }} onKeyDown={e => e.key === "Enter" && handleAdd()}
                 placeholder={addPlaceholder} inputMode="decimal"
                 style={{ flex: 1, background: "#0b1a0d", border: "1px solid #2d5a3a", borderRadius: 8, padding: "9px 12px", color: "#e0f0e0", fontSize: 14, fontFamily: "inherit", direction: "ltr", outline: "none" }} />
-              <button onClick={handleAdd} style={{ background: "#166534", border: "none", borderRadius: 8, padding: "9px 18px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>שמור</button>
+              <button onClick={handleAdd} disabled={saving} style={{ background: "#166534", border: "none", borderRadius: 8, padding: "9px 18px", color: "#fff", fontWeight: 700, cursor: saving ? "default" : "pointer", opacity: saving ? 0.6 : 1, fontSize: 13, fontFamily: "inherit" }}>{saving ? "שומר…" : "שמור"}</button>
             </div>
             {pending && (
               <div style={{ marginTop: 8, background: "#2e1f0a", border: "1px solid #5a4a1a", borderRadius: 8, padding: "8px 10px" }}>
@@ -795,8 +880,7 @@
         if (!from || !to) { setError("בחר תאריך התחלה וסיום"); return; }
         if (to < from) { setError("תאריך הסיום לפני ההתחלה"); return; }
         if (periods.some(p => from <= p.to && to >= p.from)) { setError("חופף לתקופה קיימת"); return; }
-        setPeriods(p => [...asArray(p), { from, to, mode }]);
-        setFrom(""); setTo(""); setError("");
+        setPeriods(p => [...asArray(p), { from, to, mode }]).then(ok => { if (ok) { setFrom(""); setTo(""); setError(""); } });
       };
       const remove = (p) => setPeriods(prev => asArray(prev).filter(x => !(x.from === p.from && x.to === p.to)));
 
@@ -861,7 +945,7 @@
       const addWeightEntry = (kg, date) => {
         const w = entries[entries.length - 1].week + 1;
         const label = date.split(".").slice(0, 2).join("/");
-        setEntries(p => [...asArray(p), { week: w, kg, label, date }]);
+        return setEntries(p => [...asArray(p), { week: w, kg, label, date }]);
       };
       const addWaistEntry = (cm, date) => setWaistEntries(p => [...asArray(p), { cm, date }]);
       const addNeckEntry  = (cm, date) => setNeckEntries(p => [...asArray(p), { cm, date }]);
@@ -1515,18 +1599,23 @@ Return ONLY valid JSON, no markdown:
       const confirmBreakdown = () => {
         if (!aiBreakdown) return;
         const desc = editInput.trim();
-        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [aiBreakdown.mealId]: { description: desc, calories: aiBreakdown.total } } }));
-        rememberAltMeal(aiBreakdown.mealId, desc, aiBreakdown.total);
-        setEditingMeal(null); setEditInput(""); setAiBreakdown(null); setAiError(""); setAiQuestions(null); setAiAnswers("");
+        const mealId = aiBreakdown.mealId, total = aiBreakdown.total;
+        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: desc, calories: total } } })).then(ok => {
+          if (!ok) return;
+          rememberAltMeal(mealId, desc, total);
+          setEditingMeal(null); setEditInput(""); setAiBreakdown(null); setAiError(""); setAiQuestions(null); setAiAnswers("");
+        });
       };
 
       const saveManual = (mealId) => {
         const calories = parseInt(manualCal);
         if (!calories || calories < 1) return;
         const desc = editInput.trim() || "ארוחה מותאמת";
-        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: desc, calories } } }));
-        rememberAltMeal(mealId, desc, calories);
-        setEditingMeal(null); setEditInput(""); setManualCal(""); setAiError("");
+        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: desc, calories } } })).then(ok => {
+          if (!ok) return;
+          rememberAltMeal(mealId, desc, calories);
+          setEditingMeal(null); setEditInput(""); setManualCal(""); setAiError("");
+        });
       };
 
       const saveItemsLog = (mealId) => {
@@ -1536,9 +1625,11 @@ Return ONLY valid JSON, no markdown:
           .map((_, i) => (itemChecks[i] ? (itemAmounts[i] || "").trim() : null))
           .filter(Boolean);
         const desc = [...kept, ...extraItems].join(", ") || "ארוחה מותאמת";
-        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: desc, calories } } }));
-        rememberAltMeal(mealId, desc, calories);
-        setEditingMeal(null); setItemsCal("");
+        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: desc, calories } } })).then(ok => {
+          if (!ok) return;
+          rememberAltMeal(mealId, desc, calories);
+          setEditingMeal(null); setItemsCal("");
+        });
       };
 
       const parseCalRange = (str) => {
@@ -1551,8 +1642,8 @@ Return ONLY valid JSON, no markdown:
         const name = altForm.name.trim();
         const range = parseCalRange(altForm.cal);
         if (!name || !range) return;
-        setAltMeals(prev => ({ ...prev, [mealId]: [...(prev[mealId] || []), { name, calMin: range.calMin, calMax: range.calMax, protein: altForm.protein.trim() }] }));
-        setAltForm({ name: "", cal: "", protein: "" });
+        setAltMeals(prev => ({ ...prev, [mealId]: [...(prev[mealId] || []), { name, calMin: range.calMin, calMax: range.calMax, protein: altForm.protein.trim() }] }))
+          .then(ok => { if (ok) setAltForm({ name: "", cal: "", protein: "" }); });
       };
 
       const rememberAltMeal = (mealId, description, calories) => {
@@ -1573,8 +1664,8 @@ Return ONLY valid JSON, no markdown:
 
       const pickAltMeal = (mealId, alt) => {
         const calories = Math.round((alt.calMin + alt.calMax) / 2);
-        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: alt.name, calories } } }));
-        setEditingMeal(null); setEditInput(""); setManualCal(""); setAiError("");
+        setCustomMeals(prev => ({ ...prev, [activeDateStr]: { ...(prev[activeDateStr] || {}), [mealId]: { description: alt.name, calories } } }))
+          .then(ok => { if (ok) { setEditingMeal(null); setEditInput(""); setManualCal(""); setAiError(""); } });
       };
 
       const clearCustom = (mealId) => {
@@ -1592,8 +1683,7 @@ Return ONLY valid JSON, no markdown:
         setMenuOverrides(prev => ({ ...prev, [mealId]: {
           name: permForm.name.trim(), time: permForm.time.trim(), emoji: permForm.emoji.trim() || "🍽️",
           cal, pro, items, tip: permForm.tip.trim()
-        } }));
-        setEditingMeal(null);
+        } })).then(ok => { if (ok) setEditingMeal(null); });
       };
 
       const resetPermanent = (mealId) => {
@@ -3038,6 +3128,7 @@ Use exact DD.MM keys from the image. Skip dates where מתן doesn't appear.`;
       return (
         <div style={{ minHeight: "100vh", background: "linear-gradient(180deg,#060d07 0%,#08130a 100%)", fontFamily: "'Segoe UI',Tahoma,sans-serif", direction: "rtl", color: "#f0fdf4", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 8px))" }}>
 
+          <SaveStatusBanner />
           <div style={{ padding: "16px 18px 14px", background: "rgba(6,13,7,0.88)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(34,197,94,0.1)", position: "sticky", top: 0, zIndex: 20 }}>
             <div style={{ maxWidth: 520, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
