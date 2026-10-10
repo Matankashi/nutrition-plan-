@@ -275,6 +275,11 @@
       const mean = f => recent.reduce((s, e) => s + e[f], 0) / recent.length;
       return { bodyFat: mean("bodyFat"), waist: mean("waist"), kg: mean("kg"), leanMass: mean("leanMass") };
     };
+    // 28, not 21, chosen with this cost understood: at 28 days the 23–26.09.2026
+    // windows hold 2 readings, so MIN_WINDOW_READINGS no longer blocks the false
+    // alert that the bad neck 39 (08.09) produced. Only the median-of-3 neck
+    // stops it now. Accepted on purpose: the median removes the cause (one bad
+    // tape reading), while the reading minimum only masked the symptom.
     const ALERT_WINDOW_DAYS = 28;
     const MIN_WINDOW_READINGS = 2;
     const trendWindowAvg = (series, end) => {
